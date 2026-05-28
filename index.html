@@ -1524,10 +1524,10 @@ async function C_fetchAllIrr() {
       if (d < minDist) { minDist = d; nearestCode = st.c; }
     }
 
-    // ③ stations_metpv.json から該当観測所データを取得
-    const full = await fetch(`${BASE}/stations_metpv.json`).then(r => r.json());
-    let nearest = full.stations.find(s => s.c === nearestCode);
-    if (!nearest) throw new Error('観測所データが見つかりません');
+    // ③ data/stations/{code}.json から該当観測所データを取得
+    const stationRes = await fetch(`${BASE}/stations/${nearestCode}.json`);
+    let nearest = await stationRes.json();
+    if (!nearest || !nearest.c) throw new Error('観測所データが見つかりません');
 
     // ④ 方位・傾斜インデックス定義
     const AZ_LIST   = [0,15,30,45,60,75,90,105,120,135,150,165,180];
