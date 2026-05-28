@@ -1510,22 +1510,24 @@ async function C_fetchAllIrr() {
     const lat = parseFloat(geo[0].lat);
     const lon = parseFloat(geo[0].lon);
 
-    // ② stations_metpv.json をGitHubから取得
-    const dbRes = await fetch('https://raw.githubusercontent.com/GenbaHacker/solarhack/main/data/stations_metpv.json');
-    const db = await dbRes.json();
-    const stations = db.stations;
-
-    // ③ 最寄り観測所をハバーサイン公式で特定
+    // ② stations_lite.json で最寄り観測所コードを特定（44KB高速）
+    const BASE = 'https://raw.githubusercontent.com/GenbaHacker/solarhack/main/data';
+    let nearestCode, minDist = Infinity;
+    const lite = await fetch(`${BASE}/stations_lite.json`).then(r => r.json());
     function haversine(la1, lo1, la2, lo2) {
       const R = 6371, dLa = (la2-la1)*Math.PI/180, dLo = (lo2-lo1)*Math.PI/180;
       const a = Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
-    let nearest = null, minDist = Infinity;
-    for (const st of stations) {
+    for (const st of lite.stations) {
       const d = haversine(lat, lon, st.la, st.lo);
-      if (d < minDist) { minDist = d; nearest = st; }
+      if (d < minDist) { minDist = d; nearestCode = st.c; }
     }
+
+    // ③ stations_metpv.json から該当観測所データを取得
+    const full = await fetch(`${BASE}/stations_metpv.json`).then(r => r.json());
+    let nearest = full.stations.find(s => s.c === nearestCode);
+    if (!nearest) throw new Error('観測所データが見つかりません');
 
     // ④ 方位・傾斜インデックス定義
     const AZ_LIST   = [0,15,30,45,60,75,90,105,120,135,150,165,180];
