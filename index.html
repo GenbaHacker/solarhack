@@ -1524,11 +1524,11 @@ async function C_fetchAllIrr() {
       if (d < minDist) { minDist = d; nearestCode = st.c; }
     }
 
-    // ③ 観測所別JSON（3.3KB）から該当データのみ取得
+    // ③ 観測所別JSON（5.2KB MONSOLA11m）から該当データを取得
     let nearest = await fetch(`${BASE}/stations/${nearestCode}.json`).then(r => r.json());
     if (!nearest || !nearest.c) throw new Error('観測所データが見つかりません');
 
-    // ④ 方位・傾斜インデックス定義
+    // ④ 方位・傾斜インデックス定義（MONSOLA11m仕様）
     const AZ_LIST   = [0,15,30,45,60,75,90,105,120,135,150,165,180];
     const TILT_LIST  = [10,20,30,40,50,60,70,80,90];
     function nearestIdx(arr, val) {
@@ -1536,12 +1536,13 @@ async function C_fetchAllIrr() {
     }
 
     // ⑤ 各屋根面の月別傾斜面日射量を取得
-    // AZ_LIST: 0=北,90=東,180=南（stations_metpv.jsonの定義）
-    // face.az: 0=北,90=東,180=南,270=西
+    // MONSOLA11m: 全13方位（0-180°）対応、北向きから南向きまで
+    // face.az: 0=北,90=東,180=南,270=西の方位角
     await Promise.all(C_STATE.faces.map(async (face, i) => {
       const azNorm = ((face.az % 360) + 360) % 360;
-      const azMetpv = azNorm > 180 ? 360 - azNorm : azNorm;
-      const az_i    = nearestIdx(AZ_LIST,  azMetpv);
+      // 270°以上は対称性で0-180范囲にマップ（西→東）
+      const azMonsola = azNorm > 180 ? 360 - azNorm : azNorm;
+      const az_i    = nearestIdx(AZ_LIST,  azMonsola);
       const tilt_i  = nearestIdx(TILT_LIST, Math.max(10, Math.min(90, face.tilt)));
       face.irrMonthly = Array.from({length: 12}, (_, m) => {
         const idx = az_i * 9 * 12 + tilt_i * 12 + m;
