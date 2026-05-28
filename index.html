@@ -1524,9 +1524,8 @@ async function C_fetchAllIrr() {
       if (d < minDist) { minDist = d; nearestCode = st.c; }
     }
 
-    // ③ data/stations/{code}.json から該当観測所データを取得
-    const stationRes = await fetch(`${BASE}/stations/${nearestCode}.json`);
-    let nearest = await stationRes.json();
+    // ③ 観測所別JSON（3.3KB）から該当データのみ取得
+    let nearest = await fetch(`${BASE}/stations/${nearestCode}.json`).then(r => r.json());
     if (!nearest || !nearest.c) throw new Error('観測所データが見つかりません');
 
     // ④ 方位・傾斜インデックス定義
