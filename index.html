@@ -1510,8 +1510,8 @@ async function C_fetchAllIrr() {
     const lat = parseFloat(geo[0].lat);
     const lon = parseFloat(geo[0].lon);
 
-    // ② stations_lite.json で最寄り観測所コードを特定（44KB高速）
-    const BASE = 'https://raw.githubusercontent.com/GenbaHacker/solarhack/main/data';
+    // ② stations_lite.json で最寄り観測所コードを特定（56KB高速）
+    const BASE = './data';
     let nearestCode, minDist = Infinity;
     const lite = await fetch(`${BASE}/stations_lite.json`).then(r => r.json());
     function haversine(la1, lo1, la2, lo2) {
