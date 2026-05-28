@@ -1536,8 +1536,11 @@ async function C_fetchAllIrr() {
     }
 
     // ⑤ 各屋根面の月別傾斜面日射量を取得
+    // AZ_LIST: 0=北,90=東,180=南（stations_metpv.jsonの定義）
+    // face.az: 0=北,90=東,180=南,270=西
     await Promise.all(C_STATE.faces.map(async (face, i) => {
-      const azMetpv = ((face.az % 360) + 360) % 360;
+      const azNorm = ((face.az % 360) + 360) % 360;
+      const azMetpv = azNorm > 180 ? 360 - azNorm : azNorm;
       const az_i    = nearestIdx(AZ_LIST,  azMetpv);
       const tilt_i  = nearestIdx(TILT_LIST, Math.max(10, Math.min(90, face.tilt)));
       face.irrMonthly = Array.from({length: 12}, (_, m) => {
