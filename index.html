@@ -1522,9 +1522,17 @@ function C_calcString() {
   const msgs  = [];
   if (vocLow * optS > vmax) msgs.push(`ERROR: 低温時Voc超過: ${(vocLow*optS).toFixed(0)}V > ${vmax}V`);
   else msgs.push(`OK: 低温時Voc: ${(vocLow*optS).toFixed(0)}V <= ${vmax}V`);
-  if (dcacRatio < 1.0) msgs.push(`INFO: DC/AC比 ${dcacRatio} (低め)`);
-  else if (dcacRatio > 1.3) msgs.push(`INFO: DC/AC比 ${dcacRatio} (高め)`);
-  else msgs.push(`OK: DC/AC比 ${dcacRatio} (最適)`);
+  if (dcacRatio < 0.8) {
+    msgs.push(`⚠️ DC/AC比 ${dcacRatio}：PCS容量が大きすぎます（過少積載）`);
+  } else if (dcacRatio <= 1.0) {
+    msgs.push(`✓ DC/AC比 ${dcacRatio}：余裕のある構成`);
+  } else if (dcacRatio <= 1.5) {
+    msgs.push(`✓ DC/AC比 ${dcacRatio}：推奨範囲（最適）`);
+  } else if (dcacRatio <= 2.0) {
+    msgs.push(`⚠️ DC/AC比 ${dcacRatio}：ピークカット発生（快晴時に出力が抑制されます）`);
+  } else {
+    msgs.push(`❌ DC/AC比 ${dcacRatio}：過積載過多（PCS保護機能が頻繁に動作）`);
+  }
   check.innerHTML = msgs.join('　');
 
   // PCS自動候補テーブル生成
@@ -1539,8 +1547,14 @@ function C_calcString() {
       const panelsPerPcs = optS * maxPar * Math.floor(pcs.mppt / maxPar);
       const unitsNeeded = panelsPerPcs > 0 ? Math.ceil(totalPanels / panelsPerPcs) : 999;
       const ratio = (totalDcWp / 1000 / (unitsNeeded * pcs.kw)).toFixed(3);
-      const isOk = ratio >= 1.0 && ratio <= 1.3 && (vocLow * optS) <= pcs.vmax;
-      const badge = isOk ? 'OK' : (ratio > 1.3 ? 'HIGH' : (ratio < 1.0 ? 'LOW' : 'VOLT'));
+      const voltOk = (vocLow * optS) <= pcs.vmax;
+      let badge, badgeColor;
+      if (!voltOk)          { badge = 'VOLT'; badgeColor = '#e74c3c'; }
+      else if (ratio < 0.8) { badge = 'LOW';  badgeColor = '#e74c3c'; }
+      else if (ratio > 2.0) { badge = 'HIGH'; badgeColor = '#e74c3c'; }
+      else if (ratio > 1.5) { badge = 'WARN'; badgeColor = '#f0b429'; }
+      else                  { badge = 'OK';   badgeColor = '#27ae60'; }
+      const isOk = voltOk && ratio >= 0.8 && ratio <= 2.0;
       rows.push({maker, pcs, unitsNeeded, ratio, isOk, badge});
     }
   }
