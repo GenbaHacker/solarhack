@@ -1536,13 +1536,15 @@ async function C_fetchAllIrr() {
     }
 
     // ⑤ 各屋根面の月別傾斜面日射量を取得
-    // MONSOLA11m: 全13方位（0-180°）対応、北向きから南向きまで
-    // face.az: 0=北,90=東,180=南,270=西の方位角
+    // MONSOLA11m: az_i=0→南(180°), az_i=12→北(0°)
+    // face.az: 0=北,90=東,180=南,270=西
     await Promise.all(C_STATE.faces.map(async (face, i) => {
       const azNorm = ((face.az % 360) + 360) % 360;
-      // 270°以上は対称性で0-180范囲にマップ（西→東）
-      const azMonsola = azNorm > 180 ? 360 - azNorm : azNorm;
-      const az_i    = nearestIdx(AZ_LIST,  azMonsola);
+      // MONSOLA方位に変換: face.azを反転して0-180に正規化
+      // face.az=0°(北) → monsola=180°, face.az=180°(南) → monsola=0°
+      let monsolaAz = (180 - azNorm + 360) % 360;
+      if (monsolaAz > 180) monsolaAz = 360 - monsolaAz;
+      const az_i    = nearestIdx(AZ_LIST, monsolaAz);
       const tilt_i  = nearestIdx(TILT_LIST, Math.max(10, Math.min(90, face.tilt)));
       face.irrMonthly = Array.from({length: 12}, (_, m) => {
         const idx = az_i * 9 * 12 + tilt_i * 12 + m;
