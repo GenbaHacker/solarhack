@@ -1525,8 +1525,7 @@ async function C_fetchAllIrr() {
     }
 
     // ③ MONSOLA11m フルデータベースから該当観測所データを取得
-    const fullDb = await fetch(`${BASE}/stations_monsola.json`).then(r => r.json());
-    const nearest = fullDb.stations.find(st => st.c === nearestCode);
+    const nearest = await fetch(`${BASE}/stations/${nearestCode}.json`).then(r => r.json());
     if (!nearest || !nearest.c) throw new Error('観測所データが見つかりません');
 
     // ④ 方位・傾斜インデックス定義（MONSOLA11m仕様）
