@@ -1519,21 +1519,117 @@ function C_calcString() {
   document.getElementById('str-detail').innerHTML = detail.map(d => '• ' + d).join('<br>');
 
   const check = document.getElementById('str-check');
-  const msgs  = [];
-  if (vocLow * optS > vmax) msgs.push(`ERROR: 低温時Voc超過: ${(vocLow*optS).toFixed(0)}V > ${vmax}V`);
-  else msgs.push(`OK: 低温時Voc: ${(vocLow*optS).toFixed(0)}V <= ${vmax}V`);
-  if (dcacRatio < 0.8) {
-    msgs.push(`⚠️ DC/AC比 ${dcacRatio}：PCS容量が大きすぎます（過少積載）`);
-  } else if (dcacRatio <= 1.0) {
-    msgs.push(`✓ DC/AC比 ${dcacRatio}：余裕のある構成`);
-  } else if (dcacRatio <= 1.5) {
-    msgs.push(`✓ DC/AC比 ${dcacRatio}：推奨範囲（最適）`);
-  } else if (dcacRatio <= 2.0) {
-    msgs.push(`⚠️ DC/AC比 ${dcacRatio}：ピークカット発生（快晴時に出力が抑制されます）`);
-  } else {
-    msgs.push(`❌ DC/AC比 ${dcacRatio}：過積載過多（PCS保護機能が頻繁に動作）`);
+
+  // 5条件詳細判定
+  const checks = [];
+
+  // ① 低温時Voc検証
+  const vocLowTotal = vocLow * optS;
+  const check1 = {
+    label: '① 低温時Voc',
+    ok: vocLowTotal <= vmax,
+    msg: vocLowTotal <= vmax ?
+      `${vocLowTotal.toFixed(0)}V <= ${vmax}V (OK)` :
+      `${vocLowTotal.toFixed(0)}V > ${vmax}V (超過)`,
+    fix: vocLowTotal > vmax ?
+      `直列数を${Math.floor(vmax / vocLow)}枚以下に減らしてください` : ''
+  };
+  checks.push(check1);
+
+  // ② MPPT最小電圧チェック
+  const vmpMin = vmp * (1 + tvoc/100 * (tLow - 25));
+  const minSRequired = Math.ceil(mpptMin / vmpMin);
+  const check2 = {
+    label: '② MPPT最小',
+    ok: optS >= minSRequired,
+    msg: optS >= minSRequired ?
+      `直列${optS}枚 >= ${minSRequired}枚 (OK)` :
+      `直列${optS}枚 < ${minSRequired}枚 (不足)`,
+    fix: optS < minSRequired ?
+      `直列数を${minSRequired}枚以上に増やしてください (${mpptMin}V対応)` : ''
+  };
+  checks.push(check2);
+
+  // ③ MPPT最大電圧チェック
+  const vocHighTotal = vocHigh * optS;
+  const maxSAllowed = Math.floor(mpptMax / vocHigh);
+  const check3 = {
+    label: '③ MPPT最大',
+    ok: vocHighTotal <= mpptMax,
+    msg: vocHighTotal <= mpptMax ?
+      `${vocHighTotal.toFixed(0)}V <= ${mpptMax}V (OK)` :
+      `${vocHighTotal.toFixed(0)}V > ${mpptMax}V (超過)`,
+    fix: vocHighTotal > mpptMax ?
+      `直列数を${maxSAllowed}枚以下に制限してください` : ''
+  };
+  checks.push(check3);
+
+  // ④ 入力電流チェック
+  const inputCurrent = imp * maxPar;
+  const maxParAllowed = Math.floor(imax / imp);
+  const check4 = {
+    label: '④ 入力電流',
+    ok: inputCurrent <= imax,
+    msg: inputCurrent <= imax ?
+      `${inputCurrent.toFixed(1)}A <= ${imax}A (OK)` :
+      `${inputCurrent.toFixed(1)}A > ${imax}A (超過)`,
+    fix: inputCurrent > imax ?
+      `並列数を${maxParAllowed}本以下に制限してください` : ''
+  };
+  checks.push(check4);
+
+  // ⑤ DC/AC比判定と推奨PCS
+  const check5 = {
+    label: '⑤ DC/AC比',
+    ok: dcacRatio >= 0.8 && dcacRatio <= 2.0,
+    msg: dcacRatio < 0.8 ?
+      `${dcacRatio} (過少積載 < 0.8)` :
+      dcacRatio <= 1.0 ?
+      `${dcacRatio} (余裕あり)` :
+      dcacRatio <= 1.5 ?
+      `${dcacRatio} (推奨範囲)` :
+      dcacRatio <= 2.0 ?
+      `${dcacRatio} (やや過積載)` :
+      `${dcacRatio} (過積載 > 2.0)`,
+    fix: ''
+  };
+
+  // DC/AC比が悪い場合、推奨PCS候補を探す
+  if (dcacRatio < 0.8 || dcacRatio > 2.0) {
+    let targetRatio = 1.3;
+    let bestPcs = null;
+    let bestDiff = Infinity;
+
+    const makers = Object.keys(C_PCS_DB);
+    for (const maker of makers) {
+      const models = C_PCS_DB[maker] || [];
+      for (const pcs of models) {
+        const testRatio = (totalDcWp / 1000 / pcs.kw).toFixed(3);
+        const diff = Math.abs(testRatio - targetRatio);
+        if (diff < bestDiff && testRatio >= 0.8 && testRatio <= 2.0) {
+          bestDiff = diff;
+          bestPcs = { maker, model: pcs.model, kw: pcs.kw, ratio: testRatio };
+        }
+      }
+    }
+
+    if (bestPcs) {
+      check5.fix = `推奨: ${bestPcs.maker} ${bestPcs.model} (${bestPcs.kw}kW, DC/AC比${bestPcs.ratio})`;
+    }
   }
-  check.innerHTML = msgs.join('　');
+  checks.push(check5);
+
+  // 詳細判定表示
+  let html = '<div style="font-size:12px;line-height:1.6">';
+  for (const c of checks) {
+    const color = c.ok ? '#4ecd' : '#d32f2f';
+    const status = c.ok ? 'OK' : 'NG';
+    html += `<div style="margin:4px 0;padding:6px;background:${c.ok ? 'rgba(78,205,196,0.1)' : 'rgba(211,47,47,0.1)'};border-left:3px solid ${color};"><strong>[${status}] ${c.label}</strong> ${c.msg}`;
+    if (c.fix) html += `<br><span style="color:#666;font-size:11px;">→ ${c.fix}</span>`;
+    html += '</div>';
+  }
+  html += '</div>';
+  check.innerHTML = html;
 
   // PCS自動候補テーブル生成
   const tbody = document.getElementById('pcs-candidates-body');
