@@ -1080,6 +1080,48 @@ canvas{display:block;width:100%}
           </div>
         </div>
 
+        <!-- パネルマスタ -->
+        <div style="background:var(--surface2);border-radius:var(--rl);padding:12px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:600;font-size:13px">☀ パネルマスタ</div>
+            <button class="btn sm" onclick="C_addPanel()" style="font-size:11px;padding:4px 8px">+ 追加</button>
+          </div>
+          <div style="overflow-x:auto;max-height:200px;overflow-y:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead>
+                <tr style="background:rgba(255,255,255,0.05);position:sticky;top:0">
+                  <th style="padding:4px 6px;text-align:left">メーカー</th>
+                  <th style="padding:4px 6px;text-align:left">型番</th>
+                  <th style="padding:4px 6px;text-align:right">Wp</th>
+                  <th style="padding:4px 6px;text-align:right">操作</th>
+                </tr>
+              </thead>
+              <tbody id="panel-master-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PCSマスタ -->
+        <div style="background:var(--surface2);border-radius:var(--rl);padding:12px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:600;font-size:13px">⚡ PCSマスタ</div>
+            <button class="btn sm" onclick="C_addPcs()" style="font-size:11px;padding:4px 8px">+ 追加</button>
+          </div>
+          <div style="overflow-x:auto;max-height:200px;overflow-y:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead>
+                <tr style="background:rgba(255,255,255,0.05);position:sticky;top:0">
+                  <th style="padding:4px 6px;text-align:left">メーカー</th>
+                  <th style="padding:4px 6px;text-align:left">型番</th>
+                  <th style="padding:4px 6px;text-align:right">kW</th>
+                  <th style="padding:4px 6px;text-align:right">操作</th>
+                </tr>
+              </thead>
+              <tbody id="pcs-master-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- シミュレーション設定 -->
         <div style="background:var(--info-light);border-radius:var(--rl);padding:12px;border-left:3px solid var(--info)">
           <div style="font-weight:600;margin-bottom:8px;font-size:13px">シミュレーション設定</div>
@@ -1230,9 +1272,16 @@ function C_goto(secId) {
     's-project':'案件・顧客情報','s-scheme':'スキーム選択',
     's-roof':'屋根・パネル設定','s-pcs':'PCS選定',
     's-irr':'日射量取得','s-sim':'発電シミュレーション',
-    's-est':'概算見積','s-cf':'CF・IRR計算','s-out':'提案書出力',
+    's-est':'概算見積','s-cf':'CF・IRR計算','s-out':'提案書出力','s-settings':'設定',
   };
   document.getElementById('top-title').textContent = titles[secId] || '';
+
+  // 設定ページ表示時の処理
+  if (secId === 's-settings') {
+    C_renderSettingsPage();
+    C_loadPriceMaster();
+  }
+
   document.querySelectorAll('.nav-item').forEach(ni => {
     if (ni.getAttribute('onclick') && ni.getAttribute('onclick').includes(secId)) {
       ni.classList.add('active');
@@ -2361,6 +2410,134 @@ function C_fmt(v) {
 }
 
 // ════════════════════════════════════════════════
+// 設定ページ関数
+// ════════════════════════════════════════════════
+function C_renderSettingsPage() {
+  C_renderPanelMaster();
+  C_renderPcsMaster();
+}
+
+function C_renderPanelMaster() {
+  const tbody = document.getElementById('panel-master-tbody');
+  if (!tbody) return;
+  const rows = Object.entries(C_PANEL_DB).flatMap(([maker, panels]) =>
+    panels.map(p => ({ maker, ...p }))
+  );
+  tbody.innerHTML = rows.map((p, i) => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+      <td style="padding:5px 8px">${p.maker}</td>
+      <td style="padding:5px 8px">${p.model}</td>
+      <td style="padding:5px 8px;text-align:right">${p.wp}</td>
+      <td style="padding:5px 8px;text-align:right">${p.voc}</td>
+      <td style="padding:5px 8px;text-align:right">${p.vmp}</td>
+      <td style="padding:5px 8px;text-align:right">${p.imp}</td>
+      <td style="padding:5px 8px;text-align:right">${p.w}</td>
+      <td style="padding:5px 8px;text-align:right">${p.h}</td>
+      <td style="padding:5px 8px;text-align:center">
+        <button onclick="C_deletePanel('${p.maker}','${p.model}')"
+          style="font-size:10px;padding:2px 6px;background:rgba(231,76,60,0.2);border:1px solid #e74c3c;color:#e74c3c;border-radius:3px;cursor:pointer">削除</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function C_renderPcsMaster() {
+  const tbody = document.getElementById('pcs-master-tbody');
+  if (!tbody) return;
+  const rows = Object.entries(C_PCS_DB).flatMap(([maker, pcsList]) =>
+    pcsList.map(p => ({ maker, ...p }))
+  );
+  tbody.innerHTML = rows.map(p => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+      <td style="padding:5px 8px">${p.maker}</td>
+      <td style="padding:5px 8px">${p.model}</td>
+      <td style="padding:5px 8px;text-align:right">${p.kw}</td>
+      <td style="padding:5px 8px;text-align:right">${p.vmax}</td>
+      <td style="padding:5px 8px;text-align:right">${p.mpptMin || 200}</td>
+      <td style="padding:5px 8px;text-align:right">${p.mpptMax || 1000}</td>
+      <td style="padding:5px 8px;text-align:right">${p.imaxPerMppt || 26}</td>
+      <td style="padding:5px 8px;text-align:right">${p.mppt}</td>
+      <td style="padding:5px 8px;text-align:center">
+        <button onclick="C_deletePcs('${p.maker}','${p.model}')"
+          style="font-size:10px;padding:2px 6px;background:rgba(231,76,60,0.2);border:1px solid #e74c3c;color:#e74c3c;border-radius:3px;cursor:pointer">削除</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function C_addPanel() {
+  const maker = prompt('メーカー名');
+  if (!maker) return;
+  const model = prompt('型番');
+  if (!model) return;
+  const wp  = parseFloat(prompt('定格出力(Wp)', '485')) || 485;
+  const voc = parseFloat(prompt('Voc(V)', '40.4')) || 40.4;
+  const vmp = parseFloat(prompt('Vmp(V)', '33.4')) || 33.4;
+  const imp = parseFloat(prompt('Imp(A)', '14.5')) || 14.5;
+  const isc = parseFloat(prompt('Isc(A)', '15.2')) || 15.2;
+  const w   = parseFloat(prompt('幅(mm)', '1800')) || 1800;
+  const h   = parseFloat(prompt('高さ(mm)', '1134')) || 1134;
+  const tvoc = parseFloat(prompt('Tvoc(%)', '-0.2')) || -0.2;
+  if (!C_PANEL_DB[maker]) C_PANEL_DB[maker] = [];
+  C_PANEL_DB[maker].push({ model, wp, voc, vmp, imp, isc, w, h, tvoc });
+  C_renderPanelMaster();
+  C_buildPanelModels && C_buildPanelModels();
+}
+
+function C_deletePanel(maker, model) {
+  if (!confirm('削除しますか？')) return;
+  if (C_PANEL_DB[maker]) {
+    C_PANEL_DB[maker] = C_PANEL_DB[maker].filter(p => p.model !== model);
+    if (!C_PANEL_DB[maker].length) delete C_PANEL_DB[maker];
+  }
+  C_renderPanelMaster();
+  C_buildPanelModels && C_buildPanelModels();
+}
+
+function C_addPcs() {
+  const maker = prompt('メーカー名');
+  if (!maker) return;
+  const model   = prompt('型番');
+  if (!model) return;
+  const kw = parseFloat(prompt('定格kW', '20')) || 20;
+  const vmax = parseFloat(prompt('Vmax(V)', '1000')) || 1000;
+  if (!C_PCS_DB[maker]) C_PCS_DB[maker] = [];
+  C_PCS_DB[maker].push({ model, kw, vmax, mppt: 4 });
+  C_renderPcsMaster();
+  C_buildPcsModels && C_buildPcsModels();
+}
+
+function C_deletePcs(maker, model) {
+  if (!confirm('削除しますか？')) return;
+  if (C_PCS_DB[maker]) {
+    C_PCS_DB[maker] = C_PCS_DB[maker].filter(p => p.model !== model);
+    if (!C_PCS_DB[maker].length) delete C_PCS_DB[maker];
+  }
+  C_renderPcsMaster();
+  C_buildPcsModels && C_buildPcsModels();
+}
+
+function C_loadPriceMaster() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('solarhack_prices') || '{}');
+    const fields = ['price-panel', 'price-pcs', 'price-construction', 'default-loss', 'default-degradation', 'cf-years'];
+    fields.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && saved[id]) el.value = saved[id];
+    });
+  } catch(e) {}
+}
+
+function C_savePriceMaster() {
+  const data = {};
+  ['price-panel', 'price-pcs', 'price-construction', 'default-loss', 'default-degradation', 'cf-years'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  localStorage.setItem('solarhack_prices', JSON.stringify(data));
+}
+
+// ════════════════════════════════════════════════
 // 初期化
 // ════════════════════════════════════════════════
 (function C_init() {
@@ -2403,6 +2580,12 @@ function C_fmt(v) {
     if (!document.getElementById('irrAddress').value) {
       document.getElementById('irrAddress').value = this.value;
     }
+  });
+
+  // 価格マスタの変更検知
+  ['price-panel', 'price-pcs', 'price-construction', 'default-loss', 'default-degradation', 'cf-years'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', C_savePriceMaster);
   });
 
   // localStorage から復元
