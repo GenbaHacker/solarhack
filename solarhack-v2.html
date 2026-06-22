@@ -171,6 +171,8 @@ table td {
 .hidden { display: none !important; }
 .loading { opacity: 0.6; pointer-events: none; }
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
 </head>
 <body>
 
@@ -196,7 +198,24 @@ table td {
     <div class="form-group">
       <label>備考</label>
       <textarea id="note" rows="3" placeholder="工事条件など"></textarea>
+      </div>
+  </div>
+  <!-- === 設置場所（地図） === -->
+  <div class="card">
+    <h2>📍 設置場所</h2>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <input type="text" id="map-address" placeholder="例：広島県福山市（市区町村まで）"
+        style="flex:1;padding:8px 12px;border-radius:6px;border:1px solid #ddd;font-size:13px">
+      <button onclick="V2_searchAddress()"
+        style="padding:8px 18px;background:#ff7c2a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">
+        検索
+      </button>
     </div>
+    <div id="v2-map" style="height:350px;border-radius:8px;border:1px solid #ddd"></div>
+    <div style="font-size:11px;color:#888;margin-top:6px">
+      地図上をクリックして屋根の頂点を4点指定すると面積・方位を自動計算します
+    </div>
+    <div id="map-result" style="margin-top:8px;font-size:12px;color:#ff7c2a"></div>
   </div>
 
   <!-- === パネル選択 === -->
@@ -562,6 +581,58 @@ function C_runCF() {
 
 // 初期化
 window.addEventListener('load', C_initDropdowns);
+</script>
+
+
+<script>
+let v2Map, v2MapPoints = [], v2MapMarkers = [], v2MapPoly = null;
+
+function V2_initMap() {
+  v2Map = L.map('v2-map').setView([34.5, 133.5], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: 'OpenStreetMap'
+  }).addTo(v2Map);
+  v2Map.on('click', V2_addPoint);
+}
+
+async function V2_searchAddress() {
+  const addr = document.getElementById('map-address').value.trim();
+  if (!addr) return;
+  try {
+    const geo = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&countrycodes=jp`
+    ).then(r=>r.json());
+    if (!geo.length) { alert('住所が見つかりません'); return; }
+    const lat = parseFloat(geo[0].lat);
+    const lon = parseFloat(geo[0].lon);
+    v2Map.setView([lat, lon], 17);
+    document.getElementById('map-result').textContent = `${geo[0].display_name}`;
+  } catch(e) { alert('エラー: ' + e.message); }
+}
+
+function V2_addPoint(e) {
+  v2MapPoints.push(e.latlng);
+  const marker = L.circleMarker(e.latlng, {
+    radius:7, color:'#ff7c2a', fillColor:'#ff7c2a', fillOpacity:0.8
+  }).addTo(v2Map);
+  v2MapMarkers.push(marker);
+
+  if (v2MapPoints.length >= 3) {
+    if (v2MapPoly) v2Map.removeLayer(v2MapPoly);
+    v2MapPoly = L.polygon(v2MapPoints, {
+      color:'#ff7c2a', fillOpacity:0.15, weight:2
+    }).addTo(v2Map);
+  }
+
+  if (v2MapPoints.length === 4) {
+    alert('屋根面積計算: ' + v2MapPoints.length + '点指定完了');
+    v2MapPoints = [];
+  }
+}
+
+if (document.getElementById('v2-map')) {
+  document.addEventListener('DOMContentLoaded', V2_initMap);
+}
 </script>
 
 </body>
