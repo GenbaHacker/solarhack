@@ -198,6 +198,9 @@ canvas{display:block;width:100%}
     <div class="nav-item" onclick="C_goto('s-out')">
       <span class="nav-ico">📄</span>提案書出力
     </div>
+    <div class="nav-item" onclick="C_goto('s-settings')" style="border-top:1px solid rgba(255,255,255,0.1);margin-top:12px;padding-top:8px">
+      <span class="nav-ico">⚙</span>設定
+    </div>
   </div>
 
   <div class="nav-section">
@@ -715,6 +718,9 @@ canvas{display:block;width:100%}
             <button class="btn sm" style="margin-left:8px" onclick="C_fillSelfRate()">
               全月に一括適用
             </button>
+            <button class="btn sm" style="margin-left:4px;background:rgba(255,124,42,0.2);border-color:#ff7c2a;color:#ff7c2a" onclick="C_goto('s-settings')">
+              ⚙ パターン
+            </button>
           </div>
           <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
             <button class="btn sm" style="font-size:10px;padding:4px 8px" onclick="C_applySelfPattern('typical')">📊 標準パターン</button>
@@ -1028,6 +1034,69 @@ canvas{display:block;width:100%}
           <button class="btn primary lg" onclick="C_exportToA()">
             → 設計ツール（A）へデータを連携して保存
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- === Settings Section === -->
+    <div id="s-settings" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">⚙</div>
+          <h3>設定</h3>
+        </div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px">
+          パネル・PCS・価格情報などのマスタデータを管理します。<br>
+          ここで設定したデータは、提案書作成時に自動的に参照されます。
+        </div>
+
+        <!-- パターン選択 -->
+        <div style="background:var(--accent-light);border-radius:var(--rl);padding:12px;margin-bottom:16px;border-left:3px solid var(--accent)">
+          <div style="font-weight:600;margin-bottom:8px;font-size:13px">自家消費パターン設定</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn sm" style="font-size:11px;padding:6px 10px" onclick="C_applySelfPattern('typical')">📊 標準パターン</button>
+            <button class="btn sm" style="font-size:11px;padding:6px 10px" onclick="C_applySelfPattern('summer')">☀ 夏型（外出多）</button>
+            <button class="btn sm" style="font-size:11px;padding:6px 10px" onclick="C_applySelfPattern('winter')">❄ 冬型（在宅多）</button>
+            <button class="btn sm" style="font-size:11px;padding:6px 10px" onclick="C_applySelfPattern('uniform')">⚙ 均一</button>
+          </div>
+        </div>
+
+        <!-- 価格マスタ -->
+        <div style="background:var(--warn-light);border-radius:var(--rl);padding:12px;margin-bottom:16px;border-left:3px solid var(--warn)">
+          <div style="font-weight:600;margin-bottom:8px;font-size:13px">見積価格マスタ</div>
+          <div class="form-row c3">
+            <div class="field">
+              <label style="font-size:11px">パネル単価（円/枚）</label>
+              <input type="number" id="price-panel" value="25000">
+            </div>
+            <div class="field">
+              <label style="font-size:11px">PCS単価（円/台）</label>
+              <input type="number" id="price-pcs" value="150000">
+            </div>
+            <div class="field">
+              <label style="font-size:11px">工事費（円/kWp）</label>
+              <input type="number" id="price-construction" value="80000">
+            </div>
+          </div>
+        </div>
+
+        <!-- シミュレーション設定 -->
+        <div style="background:var(--info-light);border-radius:var(--rl);padding:12px;border-left:3px solid var(--info)">
+          <div style="font-weight:600;margin-bottom:8px;font-size:13px">シミュレーション設定</div>
+          <div class="form-row c3">
+            <div class="field">
+              <label style="font-size:11px">デフォルト損失係数（%）</label>
+              <input type="number" id="default-loss" value="15" min="0" max="100">
+            </div>
+            <div class="field">
+              <label style="font-size:11px">発電劣化率（%/年）</label>
+              <input type="number" id="default-degradation" value="0.5" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label style="font-size:11px">計算期間（年）</label>
+              <input type="number" id="cf-years" value="20" min="10" max="30">
+            </div>
+          </div>
         </div>
       </div>
     </div>
