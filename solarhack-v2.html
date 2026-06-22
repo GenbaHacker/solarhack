@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>太陽光発電 提案ツール v2</title>
+<title>SolarHack</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -172,19 +172,42 @@ table td {
 
 .hidden { display: none !important; }
 .loading { opacity: 0.6; pointer-events: none; }
+.card-header-toggle {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-header-toggle:hover { opacity: 0.8; }
+.card-toggle-btn {
+  font-size: 11px;
+  color: #999;
+  background: #f5f5f5;
+  border: none;
+  border-radius: 3px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.card-body-content { transition: max-height 0.3s ease; max-height: 9999px; overflow: hidden; }
+.card-body-content.collapsed { max-height: 0; }
 </style>
 </head>
 <body>
 
 <div class="container">
   <div class="header">
-    <h1>☀️ 太陽光発電 提案ツール v2</h1>
-    <p>ロジック共有版 - 計算エンジンはv1と同一</p>
+    <h1>☀️ SolarHack</h1>
+    <p>Solar Proposal Tool v2.0 | SAWADA</p>
   </div>
 
   <!-- === 案件情報 === -->
   <div class="card">
-    <h2>📋 案件情報</h2>
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>📋 案件情報</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
     <div class="form-row">
       <div class="form-group">
         <label>顧客名</label>
@@ -203,7 +226,11 @@ table td {
 
   <!-- === 設置場所（地図） === -->
   <div class="card">
-    <h2>📍 設置場所</h2>
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>📍 設置場所</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
     <div style="display:flex;gap:10px;margin-bottom:10px">
       <input type="text" id="map-address" placeholder="例：広島県福山市（市区町村まで）"
         style="flex:1;padding:8px 12px;border-radius:6px;border:1px solid var(--border);font-size:13px">
@@ -221,7 +248,11 @@ table td {
 
   <!-- === パネル選択 === -->
   <div class="card">
-    <h2>☀️ パネル選択</h2>
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>☀️ パネル選択</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
     <div class="form-row">
       <div class="form-group">
         <label>メーカー</label>
@@ -254,7 +285,11 @@ table td {
 
   <!-- === PCS選択 === -->
   <div class="card">
-    <h2>⚡ PCS選択</h2>
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>⚡ PCS選択</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
     <div class="form-row">
       <div class="form-group">
         <label>メーカー</label>
@@ -287,7 +322,11 @@ table td {
 
   <!-- === システム設計 === -->
   <div class="card">
-    <h2>⚙️ システム設計</h2>
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>⚙️ システム設計</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
     <div class="form-group">
       <label>設置パネル枚数</label>
       <input type="number" id="totalPanels" value="20" min="1" onchange="C_calcString()">
@@ -308,7 +347,11 @@ table td {
 
   <!-- === シミュレーション === -->
   <div class="card">
-    <h2>📊 発電シミュレーション</h2>
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>📊 発電シミュレーション</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
     <div class="form-group">
       <label>年間発電量 (kWh)</label>
       <input type="number" id="annualGen" readonly placeholder="-">
@@ -322,7 +365,11 @@ table td {
 
   <!-- === CF・IRR計算 === -->
   <div class="card">
-    <h2>💰 CF・IRR計算</h2>
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>💰 CF・IRR計算</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
     <div class="form-row">
       <div class="form-group">
         <label>計算期間 (年)</label>
@@ -639,6 +686,17 @@ window.addEventListener('load', function() {
     setTimeout(V2_initMap, 100);
   }
 });
+</script>
+
+
+<script>
+function toggleCard(btn) {
+  const body = btn.closest('.card').querySelector('.card-body-content');
+  if (body) {
+    body.classList.toggle('collapsed');
+    btn.textContent = body.classList.contains('collapsed') ? '▼' : '▲';
+  }
+}
 </script>
 
 </body>
