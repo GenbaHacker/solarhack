@@ -699,5 +699,69 @@ function toggleCard(btn) {
 }
 </script>
 
+
+// ===== 工事単価マスタ（2026年版） =====
+const COST_MASTER = {
+  panel_install: 6500,
+  pv_cable_50m:    13750,
+  ac_cable_50m:    22000,
+  conduit_20m:     13750,
+  junction_box:    13750,
+  earth_d:         8250,
+  pcs_install_low: 10000,
+  pcs_install_high: 80000,
+  panel_board_ind: 30800,
+  rpr_ovgr_low:    26400,
+  rpr_high:        77000,
+  grid_connect_low: 33000,
+  grid_connect_high:77000,
+  pre_inspection_low: 330000,
+  pre_inspection_high:616000,
+  single_line_low:  33000,
+  single_line_high: 77000,
+  scaffold:        330000,
+  waste_disposal:  8250,
+};
+
+function V2_calcEstimate() {
+  const panels  = parseInt(document.getElementById('est-panels')?.value  || 0);
+  const pcsKw   = parseFloat(document.getElementById('est-pcs-kw')?.value || 0);
+  const isHigh  = document.getElementById('est-is-high')?.checked || false;
+  const panelUnitPrice = parseFloat(document.getElementById('est-panel-price')?.value || 50000);
+  const pcsUnitPrice   = parseFloat(document.getElementById('est-pcs-price')?.value  || 150000);
+  const pcsUnits = parseInt(document.getElementById('est-pcs-units')?.value || 1);
+
+  const panelCost = panels * panelUnitPrice;
+  const pcsCost   = pcsUnits * pcsUnitPrice;
+  const installPanel = panels * COST_MASTER.panel_install;
+  const elecWork = COST_MASTER.pv_cable_50m + COST_MASTER.ac_cable_50m + COST_MASTER.conduit_20m + COST_MASTER.junction_box + COST_MASTER.earth_d;
+  const pcsWork = pcsKw * (isHigh ? COST_MASTER.pcs_install_high : COST_MASTER.pcs_install_low);
+  const protWork = isHigh ? COST_MASTER.rpr_high : COST_MASTER.panel_board_ind + COST_MASTER.rpr_ovgr_low;
+  const appWork = isHigh ? COST_MASTER.grid_connect_high + COST_MASTER.pre_inspection_high + COST_MASTER.single_line_high : COST_MASTER.grid_connect_low + COST_MASTER.pre_inspection_low + COST_MASTER.single_line_low;
+  const otherWork = COST_MASTER.scaffold + COST_MASTER.waste_disposal;
+
+  const materialCost = panelCost + pcsCost;
+  const workCost     = installPanel + elecWork + pcsWork + protWork + appWork + otherWork;
+  const subTotal     = materialCost + workCost;
+  const tax          = subTotal * 0.1;
+  const total        = subTotal + tax;
+  const kw           = panels * parseFloat(document.getElementById('est-panel-wp')?.value || 485) / 1000;
+
+  const fmt = v => Math.round(v).toLocaleString();
+  const setVal = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  setVal('est-material',   fmt(materialCost));
+  setVal('est-work',       fmt(workCost));
+  setVal('est-subtotal',   fmt(subTotal));
+  setVal('est-tax',        fmt(tax));
+  setVal('est-total',      fmt(total));
+  setVal('est-per-kw',     kw>0 ? fmt(total/kw)+'/kWp' : '—');
+  setVal('est-work-panel', fmt(installPanel));
+  setVal('est-work-elec',  fmt(elecWork));
+  setVal('est-work-pcs',   fmt(pcsWork));
+  setVal('est-work-prot',  fmt(protWork));
+  setVal('est-work-app',   fmt(appWork));
+  setVal('est-work-other', fmt(otherWork));
+}
+
 </body>
 </html>
