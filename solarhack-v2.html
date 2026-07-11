@@ -268,12 +268,19 @@ table td {
     </div>
     <div class="card-body-content">
     <div style="display:flex;gap:10px;margin-bottom:10px">
-      <input type="text" id="map-address" placeholder="例：広島県福山市（市区町村まで）"
+      <input type="text" id="map-address" placeholder="住所（町名まで可）または Google座標 34.48,133.36"
         style="flex:1;padding:8px 12px;border-radius:6px;border:1px solid var(--border);font-size:13px">
       <button onclick="V2_searchAddress()"
         style="padding:8px 18px;background:var(--warn);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">
         🔍 検索
       </button>
+    </div>
+    <div id="map-guide" style="padding:10px 14px;background:rgba(255,124,42,0.08);border-left:3px solid #ff7c2a;border-radius:0 6px 6px 0;font-size:12px;line-height:1.7;margin-bottom:8px">
+      <strong style="color:#ff7c2a">📍 屋根指定の手順</strong><br>
+      ① 住所検索（町名までOK）または Googleマップの座標を貼り付け<br>
+      ② 地図をズームして屋根の角を順にクリック（3点以上）<br>
+      ③ ポイントはドラッグで微調整可能<br>
+      ④ 勾配・方位を設定 →「パネル配置を描画」
     </div>
     <div id="v2-map" style="height:350px;border-radius:var(--r);border:1px solid var(--border);background:#f0f0f0"></div>
     <div style="font-size:11px;color:var(--text3);margin-top:8px">
@@ -281,13 +288,13 @@ table td {
     </div>
     <div id="map-result" style="margin-top:8px;font-size:12px;color:var(--warn);min-height:20px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-      <button onclick="V2_clearPanelLayout()"
+      <button onclick="V2_undoPoint()"
         style="padding:8px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">
-        🔄 リセット
+        🔄 1つ戻る
       </button>
-      <button onclick="V2_clearPanelLayout()"
+      <button onclick="V2_clearPoints()"
         style="padding:8px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">
-        🗑️ クリア
+        🗑️ 全消去
       </button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
@@ -850,42 +857,128 @@ function V2_initMap() {
 
 async function V2_searchAddress() {
   const addr = document.getElementById('map-address').value.trim();
-  if (!addr) { alert('住所を入力してください'); return; }
+  if (!addr) return;
+
+  // Google Mapsの座標貼り付け対応（例: 34.4857, 133.3622 / @34.4857,133.3622,18z）
+  const coordMatch = addr.match(/(-?\d{1,2}\.\d{3,}),\s*(-?\d{2,3}\.\d{3,})/);
+  if (coordMatch) {
+    const lat = parseFloat(coordMatch[1]);
+    const lon = parseFloat(coordMatch[2]);
+    v2Map.setView([lat, lon], 19);
+    await V2_fetchIrr(lat, lon);
+    V2_setMapStatus(`📍 座標指定: ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+    return;
+  }
+
   try {
-    const response = await fetch(
+    // 国土地理院ジオコーダ（町名・番地レベルまで対応・日本特化）
+    const res = await fetch(
+      `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(addr)}`
+    ).then(r => r.json());
+
+    if (res && res.length > 0) {
+      const [lon, lat] = res[0].geometry.coordinates;
+      v2Map.setView([lat, lon], 18);
+      await V2_fetchIrr(lat, lon);
+      V2_setMapStatus(`📍 ${res[0].properties.title}`);
+      return;
+    }
+
+    // フォールバック: Nominatim
+    const geo = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&countrycodes=jp`
-    );
-    const geo = await response.json();
-    if (!geo.length) { alert('住所が見つかりません'); return; }
+    ).then(r => r.json());
+    if (!geo.length) {
+      alert('住所が見つかりませんでした。\n「福山市南手城町」のように市区町村＋町名で入力するか、\nGoogleマップの座標（例: 34.4857, 133.3622）を貼り付けてください。');
+      return;
+    }
     const lat = parseFloat(geo[0].lat);
     const lon = parseFloat(geo[0].lon);
-    v2Map.setView([lat, lon], 17);
-    document.getElementById('map-result').textContent = `✓ ${geo[0].address?.city || geo[0].display_name} (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+    v2Map.setView([lat, lon], 18);
     await V2_fetchIrr(lat, lon);
-  } catch(e) { alert('エラー: ' + e.message); }
+    V2_setMapStatus(`📍 ${geo[0].display_name.split(',')[0]}`);
+  } catch(e) {
+    alert('検索エラー: ' + e.message);
+  }
+}
+
+function V2_setMapStatus(msg) {
+  const el = document.getElementById('map-result');
+  if (el) el.textContent = msg;
 }
 
 function V2_addPoint(e) {
-  if (!v2Map) return;
+  const idx = v2MapPoints.length;
   v2MapPoints.push(e.latlng);
-  const marker = L.circleMarker(e.latlng, {
-    radius: 8, color: '#ff7c2a', fillColor: '#ff7c2a', fillOpacity: 0.9, weight: 2
-  }).addTo(v2Map);
-  v2MapMarkers.push(marker);
 
+  const marker = L.marker(e.latlng, {
+    draggable: true,
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="width:16px;height:16px;background:#ff7c2a;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
+      iconSize: [16,16], iconAnchor: [8,8]
+    })
+  }).addTo(v2Map);
+
+  marker.on('drag', function(ev) {
+    v2MapPoints[idx] = ev.target.getLatLng();
+    V2_redrawPoly();
+  });
+  marker.on('dragend', function() {
+    V2_updateAreaDisplay();
+  });
+
+  v2MapMarkers.push(marker);
+  V2_redrawPoly();
+  V2_updateAreaDisplay();
+}
+
+function V2_redrawPoly() {
+  if (v2MapPoly) { v2Map.removeLayer(v2MapPoly); v2MapPoly = null; }
   if (v2MapPoints.length >= 3) {
-    if (v2MapPoly) v2Map.removeLayer(v2MapPoly);
     v2MapPoly = L.polygon(v2MapPoints, {
-      color: '#ff7c2a', fillColor: '#ff7c2a', fillOpacity: 0.2, weight: 2
+      color: '#ff7c2a', fillColor: '#ff7c2a',
+      fillOpacity: 0.15, weight: 2
     }).addTo(v2Map);
   }
+}
 
-  if (v2MapPoints.length === 4) {
-    document.getElementById('map-result').textContent += ` → 4点確定。屋根面積計算準備完了`;
-    v2MapPoints = [];
-    v2MapMarkers = [];
-    if (v2MapPoly) v2Map.removeLayer(v2MapPoly);
+function V2_updateAreaDisplay() {
+  if (v2MapPoints.length < 3) return;
+  const area = V2_calcArea(v2MapPoints);
+  V2_setMapStatus(`✅ ${v2MapPoints.length}点指定 / 面積: ${area.toFixed(0)}㎡`);
+}
+
+function V2_calcArea(pts) {
+  const R = 6371000;
+  let area = 0;
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i+1) % n;
+    const xi = pts[i].lng*Math.PI/180, yi = pts[i].lat*Math.PI/180;
+    const xj = pts[j].lng*Math.PI/180, yj = pts[j].lat*Math.PI/180;
+    area += (xj-xi) * (2 + Math.sin(yi) + Math.sin(yj));
   }
+  return Math.abs(area * R * R / 2);
+}
+
+function V2_undoPoint() {
+  if (!v2MapPoints.length) return;
+  v2MapPoints.pop();
+  const m = v2MapMarkers.pop();
+  if (m) v2Map.removeLayer(m);
+  V2_redrawPoly();
+  if (v2MapPoints.length >= 3) V2_updateAreaDisplay();
+  else V2_setMapStatus(v2MapPoints.length + '点指定中（3点以上で範囲表示）');
+}
+
+function V2_clearPoints() {
+  v2MapPoints = [];
+  v2MapMarkers.forEach(m => v2Map.removeLayer(m));
+  v2MapMarkers = [];
+  if (v2MapPoly) { v2Map.removeLayer(v2MapPoly); v2MapPoly = null; }
+  V2_clearPanelLayout && V2_clearPanelLayout();
+  V2_setMapStatus('');
 }
 
 // ===== 日射量取得（MONSOLA11m） =====
