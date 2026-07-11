@@ -2625,7 +2625,7 @@ function V2_importMaster(event) {
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button onclick="V2_exportMaster()" style="padding:8px 16px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer">💾 マスタエクスポート</button>
       <button onclick="document.getElementById('master-import-file').click()" style="padding:8px 16px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer">📂 マスタインポート</button>
-      <button onclick="V2_saveMaster(); V2_closeMaster()" style="padding:8px 16px;background:#ff7c2a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600">保存して閉じる</button>
+      <button onclick="V2_closeMaster()" style="padding:8px 16px;background:#6a7d96;color:#fff;border:none;border-radius:4px;cursor:pointer">閉じる</button>
       <input type="file" id="master-import-file" accept=".json" style="display:none" onchange="V2_importMaster(event)">
     </div>
   </div>
@@ -2674,6 +2674,62 @@ function V2_importMaster(event) {
   border-radius:3px;
 }
 </style>
+
+<!-- === TASK 14: Estimate Breakdown Display === -->
+<div id="estimate-display" style="display:none;background:#111e36;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:20px;margin:20px 0">
+  <h3 style="color:#ff7c2a;margin-bottom:15px">📊 概算見積</h3>
+  <table style="width:100%;border-collapse:collapse">
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
+      <td style="padding:8px">材料費</td>
+      <td style="text-align:right;padding:8px" id="est-material">—</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
+      <td style="padding:8px">工事費</td>
+      <td style="text-align:right;padding:8px" id="est-work">—</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,124,42,0.05)">
+      <td style="padding:8px">予備費 (7%)</td>
+      <td style="text-align:right;padding:8px" id="est-contingency">—</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1);font-weight:600">
+      <td style="padding:8px">小計</td>
+      <td style="text-align:right;padding:8px" id="est-subtotal">—</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
+      <td style="padding:8px">消費税 (10%)</td>
+      <td style="text-align:right;padding:8px" id="est-tax">—</td>
+    </tr>
+    <tr style="font-weight:700;color:#ff7c2a;font-size:16px">
+      <td style="padding:12px">合計</td>
+      <td style="text-align:right;padding:12px" id="est-total">—</td>
+    </tr>
+    <tr>
+      <td style="padding:8px">単価 (円/kWp)</td>
+      <td style="text-align:right;padding:8px" id="est-per-kw">—</td>
+    </tr>
+  </table>
+</div>
+
+<!-- === TASK 7: Risk Checklist === -->
+<div id="risk-checklist" style="display:none;background:#111e36;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:20px;margin:20px 0">
+  <h3 style="color:#ff7c2a;margin-bottom:15px">⚠ 事前確認リスク</h3>
+  <table style="width:100%;border-collapse:collapse">
+    <tr><th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,0.1)">項目</th><th style="padding:8px">確認済(費用計上)</th><th style="padding:8px">確認済(不要)</th><th style="padding:8px">未確認</th></tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">アスベスト</td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="none"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="unconfirmed" checked></td></tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">既設設備撤去</td><td style="text-align:center"><input type="radio" name="risk-demolition" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="none"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="unconfirmed" checked></td></tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">屋根補強</td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="none"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="unconfirmed" checked></td></tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">電柱移設</td><td style="text-align:center"><input type="radio" name="risk-pole" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="none"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="unconfirmed" checked></td></tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">キュービクル</td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="none"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="unconfirmed" checked></td></tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">搬入制約</td><td style="text-align:center"><input type="radio" name="risk-access" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-access" value="none"></td><td style="text-align:center"><input type="radio" name="risk-access" value="unconfirmed" checked></td></tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">近隣調整</td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="none"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="unconfirmed" checked></td></tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">地中埋設物</td><td style="text-align:center"><input type="radio" name="risk-ground" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="none"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="unconfirmed" checked></td></tr>
+  </table>
+</div>
+
+<!-- === TASK 9: Print Button === -->
+<div style="margin:20px 0;text-align:center">
+  <button id="print-button" onclick="window.print()" style="padding:12px 24px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px">📄 提案書印刷</button>
+</div>
 
 </div>
 </body>

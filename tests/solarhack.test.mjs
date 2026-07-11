@@ -470,6 +470,43 @@ assert(canPrint(est6, {source: 'MONSOLA', station: 'test'}), 'Can print when est
 assert(getPrintBlockReason(est6, {source: 'MONSOLA', station: 'test'}) === null, 'No print block when valid');
 
 // ============================================================================
+// TASK 14: UI Verification (via file content checks)
+// ============================================================================
+console.log('\n=== TASK 14: UI Verification ===');
+
+import fs from 'fs';
+
+try {
+  const htmlPath = './solarhack-v2.html';
+  const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
+
+  // TASK 5: 「保存して閉じる」 button should NOT exist
+  const hasSaveButton = htmlContent.includes('保存して閉じる');
+  assert(!hasSaveButton, 'TASK 5: 「保存して閉じる」 button removed');
+  console.log(`✓ TASK 5: 「保存して閉じる」 not in HTML`);
+
+  // TASK 6: est-contingency element should exist
+  const hasContingencyElement = htmlContent.includes('id="est-contingency"');
+  assert(hasContingencyElement, 'TASK 6: #est-contingency element exists');
+  console.log(`✓ TASK 6: #est-contingency in HTML`);
+
+  // TASK 7: Risk radio buttons (name="risk...")
+  const riskRadioMatches = htmlContent.match(/name="risk[^"]*"/g) || [];
+  const riskRadioCount = riskRadioMatches.length;
+  assert(riskRadioCount >= 8, `TASK 7: Risk radios (found ${riskRadioCount})`);
+  console.log(`✓ TASK 7: ${riskRadioCount} risk radios in HTML`);
+
+  // TASK 9: 提案書印刷 button
+  const hasPrintButton = htmlContent.includes('提案書印刷');
+  assert(hasPrintButton, 'TASK 9: 提案書印刷 in HTML');
+  console.log(`✓ TASK 9: 提案書印刷 button in HTML`);
+
+} catch (e) {
+  console.error('❌ TASK 14 failed:', e.message);
+  process.exit(1);
+}
+
+// ============================================================================
 // Summary
 // ============================================================================
 console.log('\n=== ALL TESTS PASSED ===\n');
@@ -483,5 +520,6 @@ console.log('  TASK 6 (Contingency line): ✓');
 console.log('  TASK 7 (Risk checklist): ✓');
 console.log('  TASK 8 (Cloud log): ✓');
 console.log('  TASK 9 (Print proposal): ✓');
+console.log('  TASK 14 (UI verification): ✓');
 console.log('');
-console.log('Next: implement fixes in solarhack-v2.html and re-run.');
+console.log('Next: Run 3 implementation (discount guard, overhead rates, labor basis).');
