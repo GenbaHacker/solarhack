@@ -1,0 +1,14 @@
+name: verify-deploy
+on:
+  push: { branches: [main] }
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Pages
+        run: sleep 90
+      - name: Assert markers are live
+        run: |
+          curl -sf "https://genbahacker.github.io/solarhack/solarhack-v2.html?cb=$(date +%s)" \
+            | grep -q "V2_EST" \
+            || { echo "::error::本番にV2_EST無し。デプロイ失敗。"; exit 1; }
