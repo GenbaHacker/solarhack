@@ -337,6 +337,11 @@ input[type="range"] { accent-color:#ff7c2a; }
       ☀ パネル配置を描画
     </button>
     <div id="layout-result" style="margin-top:8px;font-size:13px;color:#00c896"></div>
+    <button onclick="V2_confirmFace()"
+      style="width:100%;margin-top:8px;padding:10px;background:#00c896;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">
+      ✓ この屋根面を確定
+    </button>
+    <div id="face-list" style="margin-top:10px"></div>
     </div>
   </div>
 
@@ -704,6 +709,13 @@ function C_applyPanel() {
   sv('panelTvoc', panel.tvoc);
   sv('panelWidth', panel.w);
   sv('panelHeight', panel.h);
+
+  // 確定済み面を再レイアウト（パネルサイズ変更対応）
+  if (v2RoofFaces.length) {
+    v2RoofFaces.forEach(f => V2_layoutFace(f));
+    V2_renderFaceList();
+    V2_syncTotals();
+  }
 }
 
 function C_buildPcsModels() {
@@ -849,32 +861,42 @@ function C_calcString() {
 }
 
 function C_runSim() {
-  const panels = parseInt(gv('est-panels') || gv('totalPanels')) || 0;
-  const wp = parseFloat(gv('est-panel-wp') || gv('panelWp')) || 485;
-  const kw = panels * wp / 1000;
-  if (kw <= 0) { alert('パネル枚数を入力してください'); return; }
-
-  // 日射量：取得済みならそれを使用、なければ全国平均3.7
-  const irr = V2_IRR.monthly || [2.9,3.4,3.9,4.3,4.5,4.1,4.3,4.5,3.9,3.4,2.9,2.7];
   const days = [31,28,31,30,31,30,31,31,30,31,30,31];
-  const K = 0.85;            // 総合損失係数
+  const K = 0.85;
   const elecPrice = parseFloat(document.getElementById('elec-price')?.value || 27.85);
   const sellPrice = parseFloat(document.getElementById('sell-price')?.value || 8.3);
   const sellMode = document.getElementById('sell-mode')?.value || 'surplus';
   const selfRate = sellMode === 'full-self' ? 1.0 : 0.5;
 
+  const wp = parseFloat(gv('est-panel-wp') || gv('panelWp')) || 485;
+  const faces = v2RoofFaces.length ? v2RoofFaces
+    : [{ count: parseInt(gv('est-panels') || gv('totalPanels')) || 0, tilt: 30, azimuth: 180 }];
+
+  const totalKw = faces.reduce((s,f)=>s+(f.count || 0), 0) * wp / 1000;
+  if (totalKw <= 0) { alert('パネル枚数を入力してください'); return; }
+
   let totalGen = 0, totalBenefit = 0;
   const rows = [];
   for (let m = 0; m < 12; m++) {
-    const gen = kw * irr[m] * days[m] * K;   // E = P×H×日数×K
-    const selfKwh = gen * selfRate;
-    const sellKwh = gen - selfKwh;
+    let genM = 0;
+    for (const f of faces) {
+      const fkw = (f.count || 0) * wp / 1000;
+      if (!fkw) continue;
+      const irrF = V2_getIrrFor(f.azimuth, f.tilt)[m];
+      const snowCm = V2_IRR.snow ? (V2_IRR.snow[m] || 0) : 0;
+      const snowLoss = Math.min(0.30, snowCm * 0.0025);
+      const ambT = V2_IRR.temp ? V2_IRR.temp[m] / 10 : 15;
+      const tempFactor = 1 + ((ambT + 25) - 25) * (-0.004);
+      genM += fkw * irrF * days[m] * K * (1 - snowLoss) * tempFactor;
+    }
+    const selfKwh = genM * selfRate;
+    const sellKwh = genM - selfKwh;
     const benefit = selfKwh * elecPrice + sellKwh * sellPrice;
-    totalGen += gen; totalBenefit += benefit;
-    rows.push({m: m+1, gen, benefit});
+    totalGen += genM; totalBenefit += benefit;
+    rows.push({m: m+1, gen: genM, benefit});
   }
 
-  window.V2_SIM = { kw, totalGen, totalBenefit, rows };
+  window.V2_SIM = { kw: totalKw, totalGen, totalBenefit, rows };
 
   const fmt = v => Math.round(v).toLocaleString();
   sv('annualGen', Math.round(totalGen));
@@ -945,6 +967,7 @@ function C_runCF() {
 
 // ===== 地図関数 =====
 let v2Map, v2MapPoints = [], v2MapMarkers = [], v2MapPoly = null;
+let v2RoofFaces = [], v2FaceSeq = 0;
 
 function V2_initMap() {
   const el = document.getElementById('v2-map');
@@ -1035,6 +1058,85 @@ function V2_azLabel(v) {
   const dirs = ['北','北北東','北東','東北東','東','東南東','南東','南南東',
                 '南','南南西','南西','西南西','西','西北西','北西','北北西'];
   return dirs[Math.round(v / 22.5) % 16];
+}
+
+// 方位角別放射量取得（MONSOLA形式: 0=南, 180=北）
+function V2_getIrrFor(compassAz, tiltDeg) {
+  if (!V2_IRR.raw) return V2_IRR.monthly ||
+    [2.9,3.4,3.9,4.3,4.5,4.1,4.3,4.5,3.9,3.4,2.9,2.7];
+  const azSteps   = [0,22.5,45,67.5,90,112.5,135,157.5,180];
+  const tiltSteps = [0,10,20,30,40,50,60,70,90];
+  const mAz = Math.abs(compassAz - 180);
+  const azI = azSteps.reduce((bi,v,i)=>Math.abs(v-mAz)<Math.abs(azSteps[bi]-mAz)?i:bi,0);
+  const tI  = tiltSteps.reduce((bi,v,i)=>Math.abs(v-tiltDeg)<Math.abs(tiltSteps[bi]-tiltDeg)?i:bi,0);
+  return Array.from({length:12},(_,m)=>(V2_IRR.raw[azI*9*12+tI*12+m]||350)/100);
+}
+
+// ===== 屋根面確定・管理 =====
+function V2_confirmFace() {
+  if (v2MapPoints.length < 3) { alert('3点以上指定してください'); return; }
+  const tilt = parseFloat(document.getElementById('roof-tilt').value);
+  const az   = parseFloat(document.getElementById('roof-azimuth').value);
+  const face = {
+    id: ++v2FaceSeq,
+    points: [...v2MapPoints],
+    tilt, azimuth: az,
+    count: 0, kw: 0, layers: []
+  };
+  v2RoofFaces.push(face);
+  // 現在の点をリセット（次の面用）
+  v2MapPoints = [];
+  v2MapMarkers.forEach(m => v2Map.removeLayer(m));
+  v2MapMarkers = [];
+  if (v2MapPoly) { v2Map.removeLayer(v2MapPoly); v2MapPoly = null; }
+  V2_layoutFace(face);
+  V2_renderFaceList();
+  V2_syncTotals();
+}
+
+function V2_removeFace(id) {
+  const idx = v2RoofFaces.findIndex(f => f.id === id);
+  if (idx < 0) return;
+  v2RoofFaces[idx].layers.forEach(l => v2Map.removeLayer(l));
+  v2RoofFaces.splice(idx, 1);
+  V2_renderFaceList();
+  V2_syncTotals();
+}
+
+function V2_updateFace(id, key, val) {
+  const f = v2RoofFaces.find(f => f.id === id);
+  if (!f) return;
+  f[key] = parseFloat(val);
+  V2_layoutFace(f);
+  V2_renderFaceList();
+  V2_syncTotals();
+}
+
+function V2_renderFaceList() {
+  const el = document.getElementById('face-list');
+  if (!v2RoofFaces.length) { el.innerHTML = ''; return; }
+  el.innerHTML = v2RoofFaces.map(f => `
+    <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <strong style="color:#ff7c2a">面${f.id}</strong>
+      <label style="font-size:11px">勾配
+        <input type="number" value="${f.tilt}" min="0" max="60" style="width:52px"
+          onchange="V2_updateFace(${f.id},'tilt',this.value)">°</label>
+      <label style="font-size:11px">方位
+        <input type="number" value="${f.azimuth}" min="0" max="359" style="width:56px"
+          onchange="V2_updateFace(${f.id},'azimuth',this.value)">°(${V2_azLabel(f.azimuth)})</label>
+      <span style="font-size:12px;color:#00c896">${f.count}枚 / ${f.kw.toFixed(2)}kW</span>
+      <button onclick="V2_removeFace(${f.id})"
+        style="margin-left:auto;font-size:11px;padding:3px 10px;background:transparent;color:#ff4d6a;border:1px solid rgba(255,77,106,0.4);border-radius:4px;cursor:pointer">削除</button>
+    </div>`).join('');
+}
+
+function V2_syncTotals() {
+  const total = v2RoofFaces.reduce((s,f)=>s+f.count, 0);
+  const tp = document.getElementById('totalPanels');
+  if (tp) tp.value = total;
+  const ep = document.getElementById('est-panels');
+  if (ep) ep.value = total;
+  V2_setMapStatus(`✅ 屋根面${v2RoofFaces.length}面 / 合計${total}枚`);
 }
 
 function V2_addPoint(e) {
@@ -1201,6 +1303,72 @@ function V2_shrinkPoly(poly, margin) {
   });
 }
 
+// 屋根面のパネル配置を計算・描画（確定面専用）
+function V2_layoutFace(face) {
+  // 既存のレイヤーを削除
+  face.layers.forEach(l => v2Map.removeLayer(l));
+  face.layers = [];
+
+  const panelW = (parseFloat(document.getElementById('panelWidth')?.value) || 1762) / 1000;  // m
+  const panelH = (parseFloat(document.getElementById('panelHeight')?.value) || 1134) / 1000; // m
+  const gap = 0.02;
+
+  if (face.points.length < 3) return;
+
+  const origin = {
+    lat: face.points.reduce((s,p)=>s+p.lat,0) / face.points.length,
+    lng: face.points.reduce((s,p)=>s+p.lng,0) / face.points.length,
+  };
+
+  const polyM = face.points.map(p => V2_toMeters(p, origin));
+  let margin;
+  if (face.tilt > 10) {
+    margin = 0.3;
+  } else {
+    const edges = [];
+    for (let i = 0; i < polyM.length; i++) {
+      const j = (i + 1) % polyM.length;
+      edges.push(Math.hypot(polyM[j].x - polyM[i].x, polyM[j].y - polyM[i].y));
+    }
+    const avgEdge = edges.reduce((a,b)=>a+b,0) / edges.length;
+    margin = Math.min(avgEdge * 0.1, 2.0);
+  }
+
+  const effective = V2_shrinkPoly(polyM, margin);
+  const rot = (face.azimuth - 180) * Math.PI / 180;
+  const cosR = Math.cos(rot), sinR = Math.sin(rot);
+  const toLocal  = p => ({ x: p.x*cosR + p.y*sinR, y: -p.x*sinR + p.y*cosR });
+  const toGlobal = p => ({ x: p.x*cosR - p.y*sinR, y: p.x*sinR + p.y*cosR });
+
+  const localPoly = effective.map(toLocal);
+  const xs = localPoly.map(p=>p.x), ys = localPoly.map(p=>p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+
+  let count = 0;
+  const stepX = panelW + gap, stepY = panelH + gap;
+  for (let y = minY; y + panelH <= maxY; y += stepY) {
+    for (let x = minX; x + panelW <= maxX; x += stepX) {
+      const corners = [
+        {x, y}, {x: x+panelW, y}, {x: x+panelW, y: y+panelH}, {x, y: y+panelH}
+      ];
+      if (!corners.every(c => V2_pointInPoly(c, localPoly))) continue;
+      count++;
+      const latlngs = corners.map(c => V2_toLatLng(toGlobal(c), origin));
+      const rect = L.polygon(latlngs, {
+        color: '#2a7fff', fillColor: '#2a7fff',
+        fillOpacity: 0.55, weight: 1
+      }).addTo(v2Map);
+      face.layers.push(rect);
+    }
+  }
+
+  const wp = parseFloat(document.getElementById('panelWp')?.value || 485);
+  face.count = count;
+  face.kw = count * wp / 1000;
+}
+
+// 現在の入力値でプレビュー描画（未確定面）
 function V2_renderPanelLayout() {
   if (v2MapPoints.length < 3) {
     alert('先に地図上で屋根の頂点を3点以上指定してください');
@@ -1210,21 +1378,17 @@ function V2_renderPanelLayout() {
 
   const tilt = parseFloat(document.getElementById('roof-tilt')?.value || 20);
   const azimuth = parseFloat(document.getElementById('roof-azimuth')?.value || 180);
-  const panelW = (parseFloat(document.getElementById('panelWidth')?.value) || 1762) / 1000;  // m
-  const panelH = (parseFloat(document.getElementById('panelHeight')?.value) || 1134) / 1000; // m
-  const gap = 0.02; // パネル間隙間20mm
+  const panelW = (parseFloat(document.getElementById('panelWidth')?.value) || 1762) / 1000;
+  const panelH = (parseFloat(document.getElementById('panelHeight')?.value) || 1134) / 1000;
+  const gap = 0.02;
 
-  // 原点（頂点の重心）
   const origin = {
     lat: v2MapPoints.reduce((s,p)=>s+p.lat,0) / v2MapPoints.length,
     lng: v2MapPoints.reduce((s,p)=>s+p.lng,0) / v2MapPoints.length,
   };
 
-  // メートル座標に変換
   const polyM = v2MapPoints.map(p => V2_toMeters(p, origin));
 
-  // 離隔距離の計算
-  // 勾配10度超: 300mm / 10度以下: 各辺長の10%（最大2m）
   let margin;
   if (tilt > 10) {
     margin = 0.3;
@@ -1240,11 +1404,7 @@ function V2_renderPanelLayout() {
   document.getElementById('margin-display').textContent =
     margin >= 1 ? margin.toFixed(2) + ' m' : (margin*1000).toFixed(0) + ' mm';
 
-  // 離隔を除いた有効エリア
   const effective = V2_shrinkPoly(polyM, margin);
-
-  // 方位に沿った回転座標系でパネルを敷き詰め
-  // 方位角180(南)=回転0度とする。回転角 = azimuth - 180
   const rot = (azimuth - 180) * Math.PI / 180;
   const cosR = Math.cos(rot), sinR = Math.sin(rot);
   const toLocal  = p => ({ x: p.x*cosR + p.y*sinR, y: -p.x*sinR + p.y*cosR });
@@ -1259,13 +1419,11 @@ function V2_renderPanelLayout() {
   const stepX = panelW + gap, stepY = panelH + gap;
   for (let y = minY; y + panelH <= maxY; y += stepY) {
     for (let x = minX; x + panelW <= maxX; x += stepX) {
-      // パネル四隅すべてが有効エリア内にあるか
       const corners = [
         {x, y}, {x: x+panelW, y}, {x: x+panelW, y: y+panelH}, {x, y: y+panelH}
       ];
       if (!corners.every(c => V2_pointInPoly(c, localPoly))) continue;
       count++;
-      // 地図に描画
       const latlngs = corners.map(c => V2_toLatLng(toGlobal(c), origin));
       const rect = L.polygon(latlngs, {
         color: '#2a7fff', fillColor: '#2a7fff',
@@ -1275,13 +1433,11 @@ function V2_renderPanelLayout() {
     }
   }
 
-  // 結果表示＋シミュ連動
   const wp = parseFloat(document.getElementById('panelWp')?.value || 485);
   const kw = (count * wp / 1000).toFixed(2);
   document.getElementById('layout-result').textContent =
     `✅ 配置可能: ${count}枚 / ${kw}kW（離隔${margin >= 1 ? margin.toFixed(2)+'m' : (margin*1000).toFixed(0)+'mm'}）`;
 
-  // パネル枚数の入力欄に自動反映
   const tp = document.getElementById('totalPanels');
   if (tp) tp.value = count;
   const ep = document.getElementById('est-panels');
@@ -1440,7 +1596,7 @@ async function V2_fetchIrr(lat, lon) {
     const monthly = Array.from({length:12}, (_,m) =>
       (st.i[az_i*9*12 + tilt_i*12 + m] || 350) / 100
     );
-    V2_IRR = { monthly, station: name, dist: minD };
+    V2_IRR = { monthly, station: name, dist: minD, raw: st.i, snow: st.s || null, temp: st.t || null };
     const el = document.getElementById('map-result');
     if (el) el.textContent += ` ☀観測所:${name}(${minD.toFixed(0)}km) 年平均${(monthly.reduce((a,b)=>a+b,0)/12).toFixed(2)}kWh/m2/日`;
     return true;
