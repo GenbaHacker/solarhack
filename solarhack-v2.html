@@ -681,6 +681,91 @@ input[type="range"] { accent-color:#ff7c2a; }
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
     </div>
     <div class="card-body-content">
+    <!-- TASK 70: Estimate summary (was in hidden #estimate-display) -->
+    <div style="background:#111e36;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:20px;margin:0 0 20px 0">
+      <h3 style="color:#ff7c2a;margin-bottom:15px;margin-top:0">📊 概算見積</h3>
+
+      <!-- Margin Gate Banner — ABOVE EVERYTHING -->
+      <div id="est-margin-banner" style="display:none;padding:12px;border-radius:4px;margin-bottom:15px;font-weight:600;border-left:4px solid"></div>
+
+      <!-- Component validation error -->
+      <div id="est-component-error" style="display:none;padding:12px;border-radius:4px;margin-bottom:15px;font-weight:600;background:rgba(176,58,46,0.2);border-left:4px solid #b03a2e;color:#ff6b6b"></div>
+
+      <table style="width:100%;border-collapse:collapse">
+        <!-- 原価合計 -->
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1);font-weight:600;background:rgba(100,150,200,0.05)">
+          <td style="padding:8px">原価合計</td>
+          <td style="text-align:right;padding:8px" id="est-cost-total">—</td>
+        </tr>
+
+        <!-- 調整値引き -->
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
+          <td style="padding:8px">調整値引き</td>
+          <td style="padding:8px"><input type="number" id="est-discount" value="0" style="width:100px;padding:4px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right" onchange="V2_calcEstimate()" placeholder="円"></td>
+        </tr>
+
+        <!-- 売価（税抜） -->
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(0,200,150,0.05);font-weight:600">
+          <td style="padding:8px">売価（税抜）</td>
+          <td style="text-align:right;padding:8px" id="est-net-price">—</td>
+        </tr>
+
+        <!-- KPI: 粗利額 / 粗利率 -->
+        <tr style="background:rgba(255,200,100,0.1);border-bottom:1px solid rgba(255,255,255,0.1)">
+          <td colspan="2" style="padding:12px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-weight:600">
+              <div style="text-align:left">
+                <div style="font-size:11px;color:#8892b0">粗利額</div>
+                <div style="font-size:18px;color:#00ff88" id="est-gross-profit">—</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:#8892b0">粗利率</div>
+                <div style="font-size:18px;color:#00c8ff" id="est-gross-margin">—</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- 総合計（税抜）/（税込） -->
+        <tr style="font-weight:700;color:#ff7c2a;font-size:14px;border-bottom:1px solid rgba(255,255,255,0.1)">
+          <td style="padding:8px">総合計（税抜）</td>
+          <td style="text-align:right;padding:8px" id="est-total">—</td>
+        </tr>
+        <tr style="font-weight:700;color:#ffb84d;font-size:14px;border-bottom:1px solid rgba(255,255,255,0.1)">
+          <td style="padding:8px">総合計（税込10%）</td>
+          <td style="text-align:right;padding:8px" id="est-total-tax">—</td>
+        </tr>
+
+        <!-- PCS unit count -->
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0;font-size:12px">
+          <td style="padding:4px">PCS台数</td>
+          <td style="text-align:right;padding:4px" id="est-pcs-units-display">—</td>
+        </tr>
+
+        <!-- Breakdown details -->
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0">
+          <td style="padding:4px;font-size:12px">材料費</td>
+          <td style="text-align:right;padding:4px;font-size:12px" id="est-material">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0">
+          <td style="padding:4px;font-size:12px">工事費</td>
+          <td style="text-align:right;padding:4px;font-size:12px" id="est-work">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);background:rgba(255,124,42,0.02);color:#8892b0">
+          <td style="padding:4px;font-size:12px">予備費</td>
+          <td style="text-align:right;padding:4px;font-size:12px" id="est-contingency">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1);color:#8892b0">
+          <td style="padding:4px;font-size:12px">消費税 (10%)</td>
+          <td style="text-align:right;padding:4px;font-size:12px" id="est-tax">—</td>
+        </tr>
+        <tr style="color:#8892b0">
+          <td style="padding:4px;font-size:12px">単価 (円/kWp)</td>
+          <td style="text-align:right;padding:4px;font-size:12px" id="est-per-kw">—</td>
+        </tr>
+      </table>
+    </div>
+
     <div style="font-size:13px;font-weight:600;color:#ff7c2a;margin:14px 0 8px">📦 機器見積</div>
     <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:20px" id="equip-table">
       <tr style="color:#7a91b0;border-bottom:1px solid rgba(255,255,255,0.1)">
@@ -725,6 +810,27 @@ input[type="range"] { accent-color:#ff7c2a; }
       <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#00c896">
         <span>総合計（税込10%）</span><span id="total-with-tax">-</span>
       </div>
+    </div>
+
+    <!-- TASK 70: Risk Checklist (was hidden) -->
+    <div id="risk-checklist" style="background:#111e36;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:20px;margin:20px 0 0 0">
+      <h3 style="color:#ff7c2a;margin-bottom:15px;margin-top:0">⚠ 事前確認リスク</h3>
+      <table style="width:100%;border-collapse:collapse">
+        <tr><th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,0.1)">項目</th><th style="padding:8px">確認済(費用計上)</th><th style="padding:8px">確認済(不要)</th><th style="padding:8px">未確認</th></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">アスベスト</td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="none"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="unconfirmed" checked></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">既設設備撤去</td><td style="text-align:center"><input type="radio" name="risk-demolition" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="none"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="unconfirmed" checked></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">屋根補強</td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="none"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="unconfirmed" checked></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">電柱移設</td><td style="text-align:center"><input type="radio" name="risk-pole" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="none"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="unconfirmed" checked></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">キュービクル</td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="none"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="unconfirmed" checked></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">搬入制約</td><td style="text-align:center"><input type="radio" name="risk-access" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-access" value="none"></td><td style="text-align:center"><input type="radio" name="risk-access" value="unconfirmed" checked></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">近隣調整</td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="none"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="unconfirmed" checked></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">地中埋設物</td><td style="text-align:center"><input type="radio" name="risk-ground" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="none"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="unconfirmed" checked></td></tr>
+      </table>
+    </div>
+
+    <!-- TASK 70: Print Button (was at bottom of document) -->
+    <div style="margin:20px 0 0 0;text-align:center">
+      <button id="print-button" onclick="V2_handlePrint()" style="padding:12px 24px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;disabled-opacity:0.5" title="見積が完成していません">📄 提案書印刷</button>
     </div>
     </div>
   </div>
@@ -819,7 +925,13 @@ function gv(id) {
 
 function sv(id, val) {
   const el = document.getElementById(id);
-  if (el) el.value = val;
+  if (!el) return;
+  // TASK 73: Use .textContent for non-input elements, .value for inputs
+  if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+    el.value = val;
+  } else {
+    el.textContent = val;
+  }
 }
 
 // ドロップダウン初期化（v2向け）
@@ -890,7 +1002,8 @@ function C_applyPanel() {
     V2_renderFaceList();
     V2_syncTotals();
   }
-  V2_buildEquipEstimate();
+  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
+  V2_calcEstimate();
 }
 
 function C_buildPcsModels() {
@@ -920,7 +1033,8 @@ function C_applyPcs() {
   sv('pcsMpptRange', `${pcs.mpptMin}-${pcs.mpptMax}`);
   sv('pcsImaxPerMppt', pcs.imaxPerMppt);
   sv('pcsMpptCount', pcs.mppt);
-  V2_buildEquipEstimate();
+  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
+  V2_calcEstimate();
 }
 
 // ===== PCS自動推奨 =====
@@ -1205,9 +1319,8 @@ function C_runSim() {
     document.getElementById('sim-result')?.classList.remove('hidden');
   }
 
-  // 見積のパネル枚数にも連動
-  const estP = document.getElementById('est-panels');
-  if (estP && estP.value !== panels.toString()) { estP.value = panels; V2_calcEstimate(); }
+  // TASK 74: Removed broken code that referenced undefined variable `panels`
+  // est-panels element doesn't exist; simulation is independent from estimate
 }
 
 function C_runCF() {
@@ -1494,10 +1607,10 @@ function V2_syncTotals() {
   const total = v2RoofFaces.reduce((s,f)=>s+f.count, 0);
   const tp = document.getElementById('totalPanels');
   if (tp) tp.value = total;
-  const ep = document.getElementById('est-panels');
-  if (ep) ep.value = total;
+  // TASK 70: est-panels doesn't exist, removed
   V2_setMapStatus(`✅ 屋根面${v2RoofFaces.length}面 / 合計${total}枚`);
-  V2_buildEquipEstimate();
+  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
+  V2_calcEstimate();
 }
 
 function V2_addPoint(e) {
@@ -1720,12 +1833,11 @@ function V2_applyPlan() {
 
 // ===== 案件区分（高圧・低圧） =====
 function V2_applyVoltageClass() {
-  const isHigh = document.getElementById('voltage-class').value === 'high';
-  // 見積の高圧チェックボックスと連動
-  const estHigh = document.getElementById('est-is-high');
-  if (estHigh) { estHigh.checked = isHigh; V2_calcEstimate(); }
-  V2_buildEquipEstimate();
+  // TASK 70: est-is-high doesn't exist, removed; voltage-class is the source of truth
+  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
+  V2_calcEstimate();
   // 電気料金プランを自動切替
+  const isHigh = document.getElementById('voltage-class').value === 'high';
   const planSel = document.getElementById('elec-plan');
   if (planSel) {
     planSel.value = isHigh ? 'highv_a' : 'lowv';
@@ -2146,7 +2258,8 @@ window.addEventListener('load', function() {
   C_initDropdowns();
   const savedProposer = localStorage.getItem('sh_proposer');
   if (savedProposer) document.getElementById('proposer-name').value = savedProposer;
-  V2_buildEquipEstimate();
+  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
+  V2_calcEstimate();
   if (document.getElementById('v2-map')) {
     setTimeout(V2_initMap, 100);
   }
@@ -2311,29 +2424,46 @@ function V2_buildEquipEstimate() {
   document.getElementById('equip-total').textContent = fmt(equipTotal);
   window.V2_EQUIP_TOTAL = equipTotal;
 
-  // 工事費計算
+  // TASK 71: 工事費計算 — Use current (v16-derived) COST_MASTER keys
+  const need = k => {
+    const v = COST_MASTER[k];
+    if (typeof v !== 'number' || !isFinite(v)) throw new Error(`❌ COST_MASTER.${k} 未定義或無効`);
+    return v;
+  };
+
   const isHigh = document.getElementById('voltage-class')?.value === 'high';
-  const installPanel = panels * COST_MASTER.panel_install;
-  const elecWork = COST_MASTER.pv_cable_50m + COST_MASTER.ac_cable_50m +
-                   COST_MASTER.conduit_20m + COST_MASTER.junction_box + COST_MASTER.earth_d;
-  const pcsWork = pcsKw * (isHigh ? COST_MASTER.pcs_install_high : COST_MASTER.pcs_install_low);
-  const protWork = isHigh ? COST_MASTER.rpr_high :
-                   (COST_MASTER.panel_board_ind + COST_MASTER.rpr_ovgr_low);
-  const appWork = isHigh ?
-    (COST_MASTER.grid_connect_high + COST_MASTER.pre_inspection_high + COST_MASTER.single_line_high) :
-    (COST_MASTER.grid_connect_low + COST_MASTER.pre_inspection_low + COST_MASTER.single_line_low);
-  const otherWork = COST_MASTER.scaffold + COST_MASTER.waste_disposal;
-  const workTotal = installPanel + elecWork + pcsWork + protWork + appWork + otherWork;
+
+  // v16 work rate structure (¥/kW based)
+  const fixBracket = dcKw * need('fix_bracket_per_kw');
+  const otherMaterial = dcKw * need('other_material_per_kw');
+  const mountInstall = dcKw * need('mount_install_per_kw');
+  const elecWork = dcKw * need('elec_work_per_kw');
+  const tempWork = dcKw * need('temp_work_per_kw');
+  const finalInspection = need('final_inspection');
+  const units = V2_SPEC.pcsUnits || 1;
+  const warrantyPerPcs = units * need('warranty_per_pcs');
+
+  let highVoltageWork = 0;
+  if (isHigh) {
+    highVoltageWork = need('cubicle_connect') + need('withstand_test');
+  }
+
+  const workTotal = fixBracket + otherMaterial + mountInstall + elecWork + tempWork + finalInspection + warrantyPerPcs + highVoltageWork;
 
   const workRows = [
-    { item:'パネル取付工', price:COST_MASTER.panel_install, qty:panels+'枚', amount:installPanel },
-    { item:'電気工事', price:elecWork, qty:'一式', amount:elecWork },
-    { item:'PCS設置工', price:pcsKw*(isHigh?COST_MASTER.pcs_install_high:COST_MASTER.pcs_install_low),
-      qty:pcsKw.toFixed(1)+'kW', amount:pcsWork },
-    { item:'保護装置工', price:protWork, qty:'一式', amount:protWork },
-    { item:'申請工', price:appWork, qty:'一式', amount:appWork },
-    { item:'その他工事', price:otherWork, qty:'一式', amount:otherWork },
+    { item:'固定金具（材料）', price:need('fix_bracket_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:fixBracket },
+    { item:'その他電材（材料）', price:need('other_material_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:otherMaterial },
+    { item:'架台・パネル設置工', price:need('mount_install_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:mountInstall },
+    { item:'電気工事', price:need('elec_work_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:elecWork },
+    { item:'仮設・搬入工事', price:need('temp_work_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:tempWork },
+    { item:'完了検査', price:need('final_inspection'), qty:'一式', amount:finalInspection },
+    { item:'ワランティ保証（PCS）', price:need('warranty_per_pcs'), qty:units+'台', amount:warrantyPerPcs },
   ];
+
+  if (isHigh) {
+    workRows.push({ item:'キュービクル接続工', price:need('cubicle_connect'), qty:'一式', amount:need('cubicle_connect') });
+    workRows.push({ item:'耐圧試験', price:need('withstand_test'), qty:'一式', amount:need('withstand_test') });
+  }
 
   const workTbody = document.getElementById('work-tbody');
   workTbody.innerHTML = workRows.map(r => `
@@ -2353,8 +2483,8 @@ function V2_buildEquipEstimate() {
 
 function V2_updateEquipPrice(idx, newPrice) {
   const pv = parseFloat(newPrice);
-  // rows recalculate...省略簡易版：全体再描画
-  V2_buildEquipEstimate();
+  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
+  V2_calcEstimate();
 }
 
 function V2_updateGrandTotal() {
@@ -2379,9 +2509,13 @@ function V2_getContingencyRate(dcKwTotal) {
 }
 
 function V2_calcEstimate() {
-  const panels  = parseInt(document.getElementById('est-panels')?.value  || 0);
-  const roofType = document.getElementById('roofMaterial')?.value || 'flatroof';
-  const isHigh  = document.getElementById('est-is-high')?.checked || false;
+  // TASK 70: Render equipment/work tables first (they're always visible)
+  V2_buildEquipEstimate();
+
+  // TASK 70: Read from actual DOM elements (not est-panels, roofMaterial, est-is-high)
+  const panels  = parseInt(document.getElementById('totalPanels')?.value || 0);
+  const roofType = document.getElementById('roof-material')?.value || 'flatroof';
+  const isHigh  = document.getElementById('voltage-class')?.value === 'high';
 
   // ===== Component validation (TASK 3: 未選択チェック) =====
   let componentError = null;
@@ -2396,7 +2530,7 @@ function V2_calcEstimate() {
   const panelMaker = document.getElementById('panelMaker')?.value;
   const panelModel = document.getElementById('panelModel')?.value;
   let panelCostEach = null;
-  let panelWp = parseFloat(document.getElementById('est-panel-wp')?.value || 485);
+  let panelWp = 485;  // TASK 70: Will be overridden by selected panel below
 
   if (panelMaker && panelModel && C_PANEL_DB[panelMaker]) {
     const selectedPanel = C_PANEL_DB[panelMaker].find(p => p.model === panelModel);
@@ -2687,27 +2821,6 @@ function V2_renderCostMaster(el) {
   el.innerHTML = html;
 }
 
-function V2_saveMaster() {
-  localStorage.setItem('sh_master', JSON.stringify({
-    panels: C_PANEL_DB, pcs: C_PCS_DB,
-    equip: EQUIP_PRICES, cost: COST_MASTER, savedAt: Date.now()
-  }));
-  C_initDropdowns();
-  V2_buildEquipEstimate();
-  alert('マスタが保存されました');
-}
-
-function V2_loadMaster() {
-  try {
-    const m = JSON.parse(localStorage.getItem('sh_master') || 'null');
-    if (!m) return;
-    if (m.panels) Object.assign(C_PANEL_DB, m.panels);
-    if (m.pcs) Object.assign(C_PCS_DB, m.pcs);
-    if (m.equip) Object.assign(EQUIP_PRICES, m.equip);
-    if (m.cost) Object.assign(COST_MASTER, m.cost);
-  } catch(e) { console.warn('master restore failed', e); }
-}
-
 // ===== 屋根材・Info popup =====
 const INFO_CONTENT = {
   'roofmat': `
@@ -2777,7 +2890,8 @@ function V2_applyRoofMat() {
   document.getElementById('waterproof-wrap').style.display =
     mat === 'flat_roof' ? '' : 'none';
   document.getElementById('roofmat-note').textContent = ROOFMAT_NOTES[mat] || '';
-  V2_buildEquipEstimate();
+  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
+  V2_calcEstimate();
 }
 
 document.addEventListener('click', () => {
@@ -2892,115 +3006,6 @@ function V2_importMaster(event) {
   border-radius:3px;
 }
 </style>
-
-<!-- === TASK 14: Estimate Breakdown Display === -->
-<div id="estimate-display" style="display:none;background:#111e36;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:20px;margin:20px 0">
-  <h3 style="color:#ff7c2a;margin-bottom:15px">📊 概算見積</h3>
-
-  <!-- TASK 11/22: Margin Gate Banner — ABOVE EVERYTHING -->
-  <div id="est-margin-banner" style="display:none;padding:12px;border-radius:4px;margin-bottom:15px;font-weight:600;border-left:4px solid"></div>
-
-  <!-- Component validation error -->
-  <div id="est-component-error" style="display:none;padding:12px;border-radius:4px;margin-bottom:15px;font-weight:600;background:rgba(176,58,46,0.2);border-left:4px solid #b03a2e;color:#ff6b6b"></div>
-
-  <table style="width:100%;border-collapse:collapse">
-    <!-- 原価合計 (NEW) -->
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1);font-weight:600;background:rgba(100,150,200,0.05)">
-      <td style="padding:8px">原価合計</td>
-      <td style="text-align:right;padding:8px" id="est-cost-total">—</td>
-    </tr>
-
-    <!-- 調整値引き -->
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
-      <td style="padding:8px">調整値引き</td>
-      <td style="padding:8px"><input type="number" id="est-discount" value="0" style="width:100px;padding:4px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right" onchange="V2_calcEstimate()" placeholder="円"></td>
-    </tr>
-
-    <!-- 売価（税抜） -->
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(0,200,150,0.05);font-weight:600">
-      <td style="padding:8px">売価（税抜）</td>
-      <td style="text-align:right;padding:8px" id="est-net-price">—</td>
-    </tr>
-
-    <!-- KPI: 粗利額 / 粗利率 (ABOVE 総合計) -->
-    <tr style="background:rgba(255,200,100,0.1);border-bottom:1px solid rgba(255,255,255,0.1)">
-      <td colspan="2" style="padding:12px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-weight:600">
-          <div style="text-align:left">
-            <div style="font-size:11px;color:#8892b0">粗利額</div>
-            <div style="font-size:18px;color:#00ff88" id="est-gross-profit">—</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:11px;color:#8892b0">粗利率</div>
-            <div style="font-size:18px;color:#00c8ff" id="est-gross-margin">—</div>
-          </div>
-        </div>
-      </td>
-    </tr>
-
-    <!-- 総合計（税抜）/（税込） -->
-    <tr style="font-weight:700;color:#ff7c2a;font-size:14px;border-bottom:1px solid rgba(255,255,255,0.1)">
-      <td style="padding:8px">総合計（税抜）</td>
-      <td style="text-align:right;padding:8px" id="est-total">—</td>
-    </tr>
-    <tr style="font-weight:700;color:#ffb84d;font-size:14px;border-bottom:1px solid rgba(255,255,255,0.1)">
-      <td style="padding:8px">総合計（税込10%）</td>
-      <td style="text-align:right;padding:8px" id="est-total-tax">—</td>
-    </tr>
-
-    <!-- PCS unit count (TASK 50) -->
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0;font-size:12px">
-      <td style="padding:4px">PCS台数</td>
-      <td style="text-align:right;padding:4px" id="est-pcs-units-display">—</td>
-    </tr>
-
-    <!-- Breakdown (collapsed by default) -->
-    <tr style="display:none">
-      <td colspan="2" style="padding:8px;color:#8892b0;font-size:11px">— 内訳 —</td>
-    </tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0">
-      <td style="padding:4px;font-size:12px">材料費</td>
-      <td style="text-align:right;padding:4px;font-size:12px" id="est-material">—</td>
-    </tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0">
-      <td style="padding:4px;font-size:12px">工事費</td>
-      <td style="text-align:right;padding:4px;font-size:12px" id="est-work">—</td>
-    </tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.05);background:rgba(255,124,42,0.02);color:#8892b0">
-      <td style="padding:4px;font-size:12px">予備費</td>
-      <td style="text-align:right;padding:4px;font-size:12px" id="est-contingency">—</td>
-    </tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1);color:#8892b0">
-      <td style="padding:4px;font-size:12px">消費税 (10%)</td>
-      <td style="text-align:right;padding:4px;font-size:12px" id="est-tax">—</td>
-    </tr>
-    <tr style="color:#8892b0">
-      <td style="padding:4px;font-size:12px">単価 (円/kWp)</td>
-      <td style="text-align:right;padding:4px;font-size:12px" id="est-per-kw">—</td>
-    </tr>
-  </table>
-</div>
-
-<!-- === TASK 7: Risk Checklist === -->
-<div id="risk-checklist" style="display:none;background:#111e36;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:20px;margin:20px 0">
-  <h3 style="color:#ff7c2a;margin-bottom:15px">⚠ 事前確認リスク</h3>
-  <table style="width:100%;border-collapse:collapse">
-    <tr><th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,0.1)">項目</th><th style="padding:8px">確認済(費用計上)</th><th style="padding:8px">確認済(不要)</th><th style="padding:8px">未確認</th></tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">アスベスト</td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="none"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="unconfirmed" checked></td></tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">既設設備撤去</td><td style="text-align:center"><input type="radio" name="risk-demolition" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="none"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="unconfirmed" checked></td></tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">屋根補強</td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="none"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="unconfirmed" checked></td></tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">電柱移設</td><td style="text-align:center"><input type="radio" name="risk-pole" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="none"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="unconfirmed" checked></td></tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">キュービクル</td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="none"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="unconfirmed" checked></td></tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">搬入制約</td><td style="text-align:center"><input type="radio" name="risk-access" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-access" value="none"></td><td style="text-align:center"><input type="radio" name="risk-access" value="unconfirmed" checked></td></tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">近隣調整</td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="none"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="unconfirmed" checked></td></tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">地中埋設物</td><td style="text-align:center"><input type="radio" name="risk-ground" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="none"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="unconfirmed" checked></td></tr>
-  </table>
-</div>
-
-<!-- === TASK 3/22: Print Button — Multiple guards === -->
-<div style="margin:20px 0;text-align:center">
-  <button id="print-button" onclick="V2_handlePrint()" style="padding:12px 24px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;disabled-opacity:0.5" title="見積が完成していません">📄 提案書印刷</button>
-</div>
 
 <script>
 function V2_handlePrint() {

@@ -4,7 +4,8 @@
       "Bash(node -e ' *)",
       "Bash(git ls-remote *)",
       "Bash(curl -sI \"https://genbahacker.github.io/solarhack/solarhack-v2.html?cb=$\\(date +%s\\)\")",
-      "Bash(node tests/task60-unit-count.test.js)"
+      "Bash(node tests/task60-unit-count.test.js)",
+      "Bash(awk '/^function V2_calcEstimate\\\\\\(\\\\\\)/,/^}/' solarhack-v2.html)"
     ]
   }
 }
