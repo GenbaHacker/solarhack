@@ -219,10 +219,13 @@ export function DenkiHack_calc(params) {
   // =========================================================================
   // 3. Cable Rack (if mounting on roof)
   // =========================================================================
+  // NOTE: Only AC run (PCS→Grid) uses outdoor racks; DC runs are in ducts/conduit
   let rackCost = 0;
   if (mountType === 'roof') {
-    const rackCalc = calcRackRequired(distPvToPcs_m, distPcsToGrid_m);
-    // TASK 102: Consider ALL cables (DC + AC), not just AC
+    // TASK 102: Rack length should be AC run only (not DC+AC)
+    // DC runs are indoor/in-duct; only AC exposure run uses exposed racks
+    const rackCalc = calcRackRequired(0, distPcsToGrid_m);  // Only AC distance
+    // TASK 102: Width considers ALL cables (DC + AC cross-section) for sizing
     const dcArea = stringCount * 5.5 * 2;  // DC cable area (mm²)
     const acArea = acCableSize * 3.5;      // AC cable area (mm²)
     const totalArea = dcArea + acArea;

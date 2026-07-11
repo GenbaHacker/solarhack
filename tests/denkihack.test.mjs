@@ -26,7 +26,8 @@ const caseA = DenkiHack_calc({
   pcsKwTotal: 50,
   acVoltage: 440,
   stringCount: 4,              // estimate from DC layout
-  distPvToPcs_m: 50,           // estimate: indoor runs ≈ same as outdoor AC
+  // TASK 101: For roof systems, default is 25m (平均距離、最遠距離の約6割)
+  distPvToPcs_m: 25,           // Corrected: 25m average for roof mount
   distPcsToGrid_m: 135,        // KNOWN from AC cable CET60 × 135m
   routing: 'outdoor',
   supply: 'high',
@@ -87,7 +88,8 @@ const caseB = DenkiHack_calc({
   pcsKwTotal: 150,             // estimate: typical ratio for this size
   acVoltage: 440,
   stringCount: 10,             // rough estimate
-  distPvToPcs_m: 80,
+  // TASK 101: Roof system → 25m average distance for DC
+  distPvToPcs_m: 25,
   distPcsToGrid_m: 300,        // KNOWN from ケイテック notes
   routing: 'outdoor',
   supply: 'high',
@@ -130,7 +132,8 @@ const caseC_low = DenkiHack_calc({
   pcsKwTotal: 50,
   acVoltage: 440,
   stringCount: 4,
-  distPvToPcs_m: 50,
+  // TASK 101: Roof system → 25m average distance
+  distPvToPcs_m: 25,
   distPcsToGrid_m: 135,
   routing: 'outdoor',
   supply: 'low',              // ← low voltage
@@ -142,7 +145,8 @@ const caseC_high = DenkiHack_calc({
   pcsKwTotal: 50,
   acVoltage: 440,
   stringCount: 4,
-  distPvToPcs_m: 50,
+  // TASK 101: Roof system → 25m average distance
+  distPvToPcs_m: 25,
   distPcsToGrid_m: 135,
   routing: 'outdoor',
   supply: 'high',             // ← high voltage
