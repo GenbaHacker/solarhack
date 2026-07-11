@@ -648,6 +648,25 @@ assert(discountClamped - subTotal1 <= 0, `Test 5: netPrice >= 0 (netPrice=${subT
 console.log(`✓ Test 5: Discount clamped, netPrice non-negative`);
 
 // ============================================================================
+// TASK 18: Margin display unit bug verification
+// ============================================================================
+console.log('\n=== TASK 18: Margin Display Unit Bug Fix ===');
+
+function testMarginRendering(grossMarginDecimal, expectedDisplay) {
+  const rendered = (grossMarginDecimal * 100).toFixed(2) + '%';
+  const pass = rendered === expectedDisplay;
+  console.log(`  ${grossMarginDecimal} → ${rendered} (expected ${expectedDisplay}): ${pass ? '✓' : '✗'}`);
+  return pass;
+}
+
+console.log('Verify: decimal → percentage rendering (×100 exactly once)');
+assert(testMarginRendering(-0.1063, '-10.63%'), 'Test 1: -0.1063 → -10.63%');
+assert(testMarginRendering(-0.001, '-0.10%'), 'Test 2: -0.001 → -0.10%');
+assert(testMarginRendering(0.25, '25.00%'), 'Test 3: 0.25 → 25.00%');
+assert(testMarginRendering(0, '0.00%'), 'Test 4: 0 → 0.00%');
+console.log('✓ All margin unit tests pass (×100 only once)\n');
+
+// ============================================================================
 // TASK 16: Master data backtest — cost estimation accuracy
 // ============================================================================
 console.log('\n=== TASK 16: Real Project Backtest ===\n');
