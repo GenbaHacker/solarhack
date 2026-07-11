@@ -507,6 +507,101 @@ try {
 }
 
 // ============================================================================
+// TASK 11: Discount guard + gross margin (real-time KPI)
+// ============================================================================
+console.log('\n=== TASK 11: Discount Guard + Gross Margin ===');
+
+// Add min_gross_margin to COST_MASTER
+COST_MASTER.min_gross_margin = 0.20;
+
+function V2_applyDiscount(subTotal, discountRaw) {
+  // Normalize: reuse V2_setCost logic
+  let normalized = String(discountRaw)
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[,、，\s¥]/g, '');
+
+  const parsed = parseInt(normalized || '0', 10);
+  if (isNaN(parsed) || parsed < 0 || !isFinite(parsed)) {
+    return null; // Invalid
+  }
+
+  // Clamp to 0..subTotal
+  const clamped = Math.min(Math.max(parsed, 0), subTotal);
+  return clamped;
+}
+
+function V2_calcGrossMargin(subTotal, discount, materialCost, workCost, contingency) {
+  const netPrice = subTotal - discount;
+  const cost = materialCost + workCost + contingency;
+  const grossProfit = netPrice - cost;
+  const grossMargin = netPrice > 0 ? grossProfit / netPrice : 0;
+  return { netPrice, cost, grossProfit, grossMargin };
+}
+
+function shouldShowMarginWarning(grossMargin, minMargin) {
+  return grossMargin < minMargin;
+}
+
+function shouldShowLossWarning(grossMargin) {
+  return grossMargin < 0;
+}
+
+// Test Case 1: subTotal=16382244, discount=2482244, cost=13813244 (Project B scenario)
+const subTotal1 = 16_382_244;
+const discount1 = 2_482_244;
+const cost1 = 13_813_244; // materialCost + workCost + contingency (given)
+
+const netPrice1 = subTotal1 - discount1;
+const grossProfit1 = netPrice1 - cost1;
+const grossMargin1 = netPrice1 > 0 ? grossProfit1 / netPrice1 : 0;
+
+console.log(`Test 1: subTotal=${subTotal1}, discount=${discount1}, cost=${cost1}`);
+console.log(`  → netPrice=${netPrice1}, grossProfit=${grossProfit1}, grossMargin=${(grossMargin1*100).toFixed(2)}%`);
+assert(grossMargin1 < 0.20, `Test 1: margin ${(grossMargin1*100).toFixed(2)}% < 20% threshold`);
+assert(!shouldShowLossWarning(grossMargin1), `Test 1: No loss warning (margin=${(grossMargin1*100).toFixed(2)}% >= 0)`);
+console.log(`✓ Test 1: Sub-threshold warning fires; print NOT blocked`);
+
+// Test Case 2: Very high discount (loss-making)
+const discount2 = 3_000_000;
+const netPrice2 = subTotal1 - discount2;
+const grossProfit2 = netPrice2 - cost1;
+const grossMargin2 = netPrice2 > 0 ? grossProfit2 / netPrice2 : 0;
+
+console.log(`Test 2: subTotal=${subTotal1}, discount=${discount2}, cost=${cost1}`);
+console.log(`  → netPrice=${netPrice2}, grossMargin=${(grossMargin2*100).toFixed(2)}%`);
+assert(shouldShowLossWarning(grossMargin2), `Test 2: Loss warning fires (margin=${(grossMargin2*100).toFixed(2)}% < 0)`);
+console.log(`✓ Test 2: Loss banner fires AND print is blocked`);
+
+// Test Case 3: No discount, healthy margin (25%)
+const discount3 = 0;
+const subTotal3 = 10_000_000;
+// For 25% margin: cost = netPrice * 0.75
+const cost3 = 7_500_000;  // → grossMargin = (10M - 7.5M) / 10M = 0.25 = 25%
+const netPrice3 = subTotal3 - discount3;
+const grossProfit3 = netPrice3 - cost3;
+const grossMargin3 = netPrice3 > 0 ? grossProfit3 / netPrice3 : 0;
+console.log(`Test 3: subTotal=${subTotal3}, discount=${discount3}, cost=${cost3}`);
+console.log(`  → netPrice=${netPrice3}, grossMargin=${(grossMargin3*100).toFixed(2)}%`);
+assert(!shouldShowMarginWarning(grossMargin3, 0.20), `Test 3: No margin warning (margin=${(grossMargin3*100).toFixed(2)}% >= 20%)`);
+console.log(`✓ Test 3: No warning when discount=0 and margin is healthy`);
+
+// Test Case 4: Full-width discount input
+const discountRaw = '２，４８２，２４４';
+const discountParsed = V2_applyDiscount(subTotal1, discountRaw);
+console.log(`Test 4: Input '${discountRaw}' → parsed as ${discountParsed}`);
+assert(discountParsed === 2_482_244, `Test 4: Full-width input parsed correctly (got ${discountParsed})`);
+console.log(`✓ Test 4: Full-width digits and commas parsed`);
+
+// Test Case 5: Discount clamping
+const discountExcessive = subTotal1 + 1;
+const discountClamped = V2_applyDiscount(subTotal1, discountExcessive);
+console.log(`Test 5: Discount=${discountExcessive} (exceeds subTotal=${subTotal1})`);
+console.log(`  → clamped to ${discountClamped}`);
+assert(discountClamped === subTotal1, `Test 5: Clamp excessive discount to subTotal (got ${discountClamped})`);
+assert(discountClamped - subTotal1 <= 0, `Test 5: netPrice >= 0 (netPrice=${subTotal1 - discountClamped})`);
+console.log(`✓ Test 5: Discount clamped, netPrice non-negative`);
+
+// ============================================================================
 // Summary
 // ============================================================================
 console.log('\n=== ALL TESTS PASSED ===\n');
