@@ -213,6 +213,7 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div class="nav-item" onclick="V2_scrollTo('sec-estimate')">💴 概算見積</div>
     <div class="nav-item" onclick="V2_scrollTo('sec-cf')">💹 CF・IRR</div>
     <div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:12px;padding-top:12px">
+      <div class="nav-item" onclick="V2_openMaster()">🗄 マスタ管理</div>
       <div class="nav-item" onclick="V2_saveJSON()">💾 保存（JSON）</div>
       <div class="nav-item" onclick="document.getElementById('load-file').click()">📂 読込</div>
       <div class="nav-item" onclick="V2_exportExcel()">📊 Excel出力</div>
@@ -768,8 +769,19 @@ function sv(id, val) {
 
 // ドロップダウン初期化（v2向け）
 function C_initDropdowns() {
+  // Set default stringsPerMppt for all PCS entries
+  for (const maker in C_PCS_DB) {
+    C_PCS_DB[maker].forEach(pcs => {
+      if (!pcs.stringsPerMppt) pcs.stringsPerMppt = 2;
+    });
+  }
+
   const pmMaker = document.getElementById('panelMaker');
   const pcsMaker = document.getElementById('pcsMaker');
+
+  // Clear existing options
+  pmMaker.innerHTML = '<option value="">選択してください</option>';
+  pcsMaker.innerHTML = '<option value="">選択してください</option>';
 
   Object.keys(C_PANEL_DB).forEach(maker => {
     const opt = document.createElement('option');
@@ -935,38 +947,115 @@ function V2_applyRecommend(maker, model, quantity) {
   }, 50);
 }
 
+function C_getSelectedPcs() {
+  const maker = gv('pcsMaker');
+  const model = gv('pcsModel');
+  if (!maker || !C_PCS_DB[maker]) return null;
+  return C_PCS_DB[maker].find(p => p.model === model) || null;
+}
+
 function C_calcString() {
-  const totalPanels = parseFloat(gv('totalPanels')) || 20;
-  const panelWp = parseFloat(gv('panelWp')) || 485;
-  const voc = parseFloat(gv('panelVoc')) || 40.4;
-  const vmp = parseFloat(gv('panelVmp')) || 33.4;
-  const tvoc = parseFloat(gv('panelTvoc')) || -0.2;
-  const pcsKw = parseFloat(gv('pcsKw')) || 20;
-  const vmax = 1000; // simplified
+  const panels = parseInt(document.getElementById('totalPanels')?.value || 0);
+  const voc = parseFloat(document.getElementById('panelVoc')?.value || 0);
+  const vmp = parseFloat(document.getElementById('panelVmp')?.value || 0);
+  const imp = parseFloat(document.getElementById('panelImp')?.value || 0);
+  const tvoc = parseFloat(document.getElementById('panelTvoc')?.value || -0.29);
+  const wp = parseFloat(document.getElementById('panelWp')?.value || 485);
+  const pcs = C_getSelectedPcs();
+  const el = document.getElementById('safety-checks');
 
-  const tLow = -15;
-  const vocLow = voc * (1 + tvoc/100 * (tLow - 25));
-  const maxS = Math.floor(vmax / vocLow);
-  const optS = Math.floor(vmax / vmp);
-  const maxPar = 2;
+  if (!panels || !voc || !pcs) {
+    if (el) el.innerHTML = '<span style="color:#7a91b0">パネル・PCSを選択し枚数を入力してください</span>';
+    return;
+  }
 
-  const totalDcWp = totalPanels * panelWp;
-  const dcacRatio = (totalDcWp / 1000 / pcsKw).toFixed(3);
-  const units = Math.ceil(totalPanels / (optS * maxPar));
+  const T_LOW = -15, T_HIGH = 70;
+  const vocLow  = voc * (1 + (tvoc/100) * (T_LOW - 25));
+  const vmpHigh = vmp * (1 + (tvoc/100) * (T_HIGH - 25));
+  const sMax = Math.floor((pcs.vmax) / vocLow);
+  const sMaxMppt = Math.floor(pcs.mpptMax / vmp);
+  const sMin = Math.ceil(pcs.mpptMin / vmpHigh);
+  const seriesCap = Math.min(sMax, sMaxMppt);
 
-  sv('opt-series', optS);
-  sv('opt-parallel', maxPar);
-  sv('panels-per-mppt', optS * maxPar);
-  sv('pcs-units', units);
-  sv('dcac-ratio', dcacRatio);
+  if (sMin > seriesCap) {
+    if (el) el.innerHTML = `<span style="color:#ff4d6a">✗ 適合する直列数がありません（下限${sMin} > 上限${seriesCap}）。パネルまたはPCSを変更してください。</span>`;
+    return;
+  }
 
-  // 安全チェック
-  const checks = [];
-  checks.push(`<strong>低温時Voc:</strong> ${vocLow.toFixed(0)}V ${vocLow * optS <= vmax ? '✓' : '❌'}`);
-  checks.push(`<strong>DC/AC比:</strong> ${dcacRatio} ${dcacRatio >= 0.8 && dcacRatio <= 2.0 ? '✓' : '⚠'}`);
+  const spm = pcs.stringsPerMppt || 2;
+  const maxStringsPerUnit = pcs.mppt * spm;
+  let best = null;
 
-  document.getElementById('safety-checks').innerHTML = checks.map(c => `<p>${c}</p>`).join('');
-  document.getElementById('design-result').classList.remove('hidden');
+  // Find best uniform-series configuration
+  for (let s = seriesCap; s >= sMin; s--) {
+    if (panels % s !== 0) continue;
+    const nStr = panels / s;
+    const strPerMpptUsed = Math.ceil(nStr / pcs.mppt);
+    if (strPerMpptUsed > spm) continue;
+    if (imp * strPerMpptUsed > pcs.imaxPerMppt) continue;
+    const units = Math.ceil(nStr / maxStringsPerUnit);
+    best = { s, nStr, units, strPerMppt: strPerMpptUsed };
+    break;
+  }
+
+  // Fallback: multiple PCS units
+  if (!best) {
+    for (let s = seriesCap; s >= sMin; s--) {
+      if (panels % s !== 0) continue;
+      const nStr = panels / s;
+      const units = Math.ceil(nStr / maxStringsPerUnit);
+      const perUnitStr = Math.ceil(nStr / units);
+      const strPerMpptUsed = Math.ceil(perUnitStr / pcs.mppt);
+      if (strPerMpptUsed > spm) continue;
+      if (imp * strPerMpptUsed > pcs.imaxPerMppt) continue;
+      best = { s, nStr, units, strPerMppt: strPerMpptUsed };
+      break;
+    }
+  }
+
+  if (!best) {
+    const suggestions = [];
+    for (let s = seriesCap; s >= sMin && suggestions.length < 3; s--) {
+      const n = Math.floor(panels / s) * s;
+      if (n > 0) suggestions.push(`${n}枚（${s}直列×${Math.floor(n / s)}回路）`);
+    }
+    if (el) el.innerHTML = `<span style="color:#ffc107">△ ${panels}枚では均等なストリング構成が組めません。<br>
+      推奨枚数: ${suggestions.join(' / ')}</span>`;
+    return;
+  }
+
+  const dcKw = panels * wp / 1000;
+  const acKw = best.units * pcs.kw;
+  const dcac = dcKw / acKw;
+
+  const checks = [
+    { label: '低温時Voc', ok: vocLow*best.s <= pcs.vmax,
+      val: `${(vocLow*best.s).toFixed(0)}V ≦ ${pcs.vmax}V` },
+    { label: 'MPPT下限(70℃)', ok: vmpHigh*best.s >= pcs.mpptMin,
+      val: `${(vmpHigh*best.s).toFixed(0)}V ≧ ${pcs.mpptMin}V` },
+    { label: 'MPPT上限', ok: vmp*best.s <= pcs.mpptMax,
+      val: `${(vmp*best.s).toFixed(0)}V ≦ ${pcs.mpptMax}V` },
+    { label: 'MPPT電流', ok: imp*best.strPerMppt <= pcs.imaxPerMppt,
+      val: `${(imp*best.strPerMppt).toFixed(1)}A ≦ ${pcs.imaxPerMppt}A` },
+    { label: 'DC/AC比', ok: dcac >= 0.8 && dcac <= 2.0, val: dcac.toFixed(3) },
+  ];
+
+  if (el) el.innerHTML = `
+    <div style="font-weight:600;margin-bottom:6px">推奨ストリング構成</div>
+    <div style="font-size:13px;line-height:1.9;margin-bottom:8px">
+      <span style="color:#00c896;font-weight:700">${best.s}直列 × ${best.nStr}ストリング</span>
+      （PCS ${best.units}台・各MPPTに${best.strPerMppt}回路）<br>
+      DC ${dcKw.toFixed(2)}kW / AC ${acKw.toFixed(1)}kW / DC/AC比 ${dcac.toFixed(3)}
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px">
+      ${checks.map(c=>`<span style="color:${c.ok?'#00c896':'#ff4d6a'}">${c.ok?'✓':'✗'} ${c.label}: ${c.val}</span>`).join('')}
+    </div>`;
+
+  // Store values for UI
+  sv('opt-series', best.s);
+  sv('opt-parallel', best.nStr);
+  sv('pcs-units', best.units);
+  document.getElementById('design-result')?.classList.remove('hidden');
 }
 
 function C_runSim() {
@@ -1642,6 +1731,10 @@ function V2_collectData() {
       result: window.V2_SIM || null,
     },
     irradiance: window.V2_IRR || null,
+    masterOverrides: {
+      panels: C_PANEL_DB, pcs: C_PCS_DB,
+      equip: EQUIP_PRICES, cost: COST_MASTER,
+    },
   };
 }
 
@@ -1677,6 +1770,13 @@ function V2_loadJSON(ev) {
       s('sell-price', d.simulation?.sellPrice);
       s('elec-escalation', d.simulation?.escalation);
       if (d.irradiance) window.V2_IRR = d.irradiance;
+      if (d.masterOverrides) {
+        if (d.masterOverrides.panels) Object.assign(C_PANEL_DB, d.masterOverrides.panels);
+        if (d.masterOverrides.pcs) Object.assign(C_PCS_DB, d.masterOverrides.pcs);
+        if (d.masterOverrides.equip) Object.assign(EQUIP_PRICES, d.masterOverrides.equip);
+        if (d.masterOverrides.cost) Object.assign(COST_MASTER, d.masterOverrides.cost);
+      }
+      C_initDropdowns();
       alert('読み込みました。シミュレーションを再実行してください。');
     } catch(err) { alert('読込エラー: ' + err.message); }
   };
@@ -1815,6 +1915,7 @@ async function V2_fetchIrr(lat, lon) {
 
 // 初期化
 window.addEventListener('load', function() {
+  V2_loadMaster();
   C_initDropdowns();
   const savedProposer = localStorage.getItem('sh_proposer');
   if (savedProposer) document.getElementById('proposer-name').value = savedProposer;
@@ -2009,7 +2110,253 @@ function V2_calcEstimate() {
   setVal('est-work-app',   fmt(appWork));
   setVal('est-work-other', fmt(otherWork));
 }
+
+// ===== マスタ管理 =====
+function V2_openMaster() {
+  document.getElementById('master-modal').style.display = 'block';
+  V2_masterTab('panel');
+}
+
+function V2_closeMaster() {
+  document.getElementById('master-modal').style.display = 'none';
+}
+
+function V2_masterTab(tab) {
+  ['panel','pcs','equip','cost'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t === tab);
+  });
+
+  const content = document.getElementById('master-content');
+  if (tab === 'panel') {
+    V2_renderPanelMaster(content);
+  } else if (tab === 'pcs') {
+    V2_renderPcsMaster(content);
+  } else if (tab === 'equip') {
+    V2_renderEquipMaster(content);
+  } else if (tab === 'cost') {
+    V2_renderCostMaster(content);
+  }
+}
+
+function V2_renderPanelMaster(el) {
+  let html = '<table class="master-table"><tr><th>メーカー</th><th>型番</th><th>Wp</th><th>Voc</th><th>Vmp</th><th>Isc</th><th>Imp</th><th>tvoc(%)</th><th>W</th><th>H</th><th></th></tr>';
+
+  for (const maker in C_PANEL_DB) {
+    C_PANEL_DB[maker].forEach((p, idx) => {
+      html += `<tr style="background:${idx%2?'rgba(255,255,255,0.02)':''}">
+        <td>${maker}</td>
+        <td><input value="${p.model}" onchange="C_PANEL_DB['${maker}'][${idx}].model=this.value"></td>
+        <td><input value="${p.wp}" type="number" onchange="C_PANEL_DB['${maker}'][${idx}].wp=parseFloat(this.value)"></td>
+        <td><input value="${p.voc}" type="number" step="0.1" onchange="C_PANEL_DB['${maker}'][${idx}].voc=parseFloat(this.value)"></td>
+        <td><input value="${p.vmp}" type="number" step="0.1" onchange="C_PANEL_DB['${maker}'][${idx}].vmp=parseFloat(this.value)"></td>
+        <td><input value="${p.isc}" type="number" step="0.01" onchange="C_PANEL_DB['${maker}'][${idx}].isc=parseFloat(this.value)"></td>
+        <td><input value="${p.imp}" type="number" step="0.01" onchange="C_PANEL_DB['${maker}'][${idx}].imp=parseFloat(this.value)"></td>
+        <td><input value="${p.tvoc}" type="number" step="0.01" onchange="C_PANEL_DB['${maker}'][${idx}].tvoc=parseFloat(this.value)"></td>
+        <td><input value="${p.w}" type="number" onchange="C_PANEL_DB['${maker}'][${idx}].w=parseFloat(this.value)"></td>
+        <td><input value="${p.h}" type="number" onchange="C_PANEL_DB['${maker}'][${idx}].h=parseFloat(this.value)"></td>
+        <td><button onclick="C_PANEL_DB['${maker}'].splice(${idx},1); V2_renderPanelMaster(document.getElementById('master-content'))" style="padding:4px 8px;background:#ff4d6a;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:10px">削除</button></td>
+      </tr>`;
+    });
+  }
+
+  html += '</table>';
+  html += '<button onclick="alert(\'一旦閉じて追加してください\')" style="padding:8px 12px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer">+ 行追加</button>';
+  el.innerHTML = html;
+}
+
+function V2_renderPcsMaster(el) {
+  let html = '<table class="master-table"><tr><th>メーカー</th><th>型番</th><th>kW</th><th>Vmax</th><th>MPPT Min</th><th>MPPT Max</th><th>Imax</th><th>MPPT数</th><th>並列/MPPT</th><th></th></tr>';
+
+  for (const maker in C_PCS_DB) {
+    C_PCS_DB[maker].forEach((p, idx) => {
+      html += `<tr style="background:${idx%2?'rgba(255,255,255,0.02)':''}">
+        <td>${maker}</td>
+        <td><input value="${p.model}" onchange="C_PCS_DB['${maker}'][${idx}].model=this.value"></td>
+        <td><input value="${p.kw}" type="number" step="0.1" onchange="C_PCS_DB['${maker}'][${idx}].kw=parseFloat(this.value)"></td>
+        <td><input value="${p.vmax}" type="number" onchange="C_PCS_DB['${maker}'][${idx}].vmax=parseInt(this.value)"></td>
+        <td><input value="${p.mpptMin}" type="number" onchange="C_PCS_DB['${maker}'][${idx}].mpptMin=parseInt(this.value)"></td>
+        <td><input value="${p.mpptMax}" type="number" onchange="C_PCS_DB['${maker}'][${idx}].mpptMax=parseInt(this.value)"></td>
+        <td><input value="${p.imaxPerMppt}" type="number" step="0.1" onchange="C_PCS_DB['${maker}'][${idx}].imaxPerMppt=parseFloat(this.value)"></td>
+        <td><input value="${p.mppt}" type="number" onchange="C_PCS_DB['${maker}'][${idx}].mppt=parseInt(this.value)"></td>
+        <td><input value="${p.stringsPerMppt||2}" type="number" onchange="C_PCS_DB['${maker}'][${idx}].stringsPerMppt=parseInt(this.value)"></td>
+        <td><button onclick="C_PCS_DB['${maker}'].splice(${idx},1); V2_renderPcsMaster(document.getElementById('master-content'))" style="padding:4px 8px;background:#ff4d6a;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:10px">削除</button></td>
+      </tr>`;
+    });
+  }
+
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+function V2_renderEquipMaster(el) {
+  let html = '<table class="master-table"><tr><th>項目</th><th>単価</th><th>単位</th></tr>';
+  const labels = {
+    panelPerW: 'パネル',
+    pcsPerKw: 'PCS',
+    mountPerPanel: '架台',
+    cablePerKw: 'ケーブル・接続箱',
+    monitorFix: '監視装置',
+  };
+  const units = {
+    panelPerW: '円/W',
+    pcsPerKw: '円/kW',
+    mountPerPanel: '円/枚',
+    cablePerKw: '円/kW',
+    monitorFix: '一式',
+  };
+
+  for (const key in EQUIP_PRICES) {
+    html += `<tr>
+      <td>${labels[key]||key}</td>
+      <td><input value="${EQUIP_PRICES[key]}" type="number" onchange="EQUIP_PRICES['${key}']=parseInt(this.value)"></td>
+      <td>${units[key]||''}</td>
+    </tr>`;
+  }
+
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+function V2_renderCostMaster(el) {
+  let html = '<div style="font-size:11px;color:#7a91b0;margin-bottom:10px">※初期値: SAWADA 2026年版工事単価表</div><table class="master-table"><tr><th>項目</th><th>単価（円）</th></tr>';
+
+  for (const key in COST_MASTER) {
+    const label = key.replace(/_/g, ' ');
+    html += `<tr>
+      <td>${label}</td>
+      <td><input value="${COST_MASTER[key]}" type="number" onchange="COST_MASTER['${key}']=parseInt(this.value)"></td>
+    </tr>`;
+  }
+
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+function V2_saveMaster() {
+  localStorage.setItem('sh_master', JSON.stringify({
+    panels: C_PANEL_DB, pcs: C_PCS_DB,
+    equip: EQUIP_PRICES, cost: COST_MASTER, savedAt: Date.now()
+  }));
+  C_initDropdowns();
+  V2_buildEquipEstimate();
+  alert('マスタが保存されました');
+}
+
+function V2_loadMaster() {
+  try {
+    const m = JSON.parse(localStorage.getItem('sh_master') || 'null');
+    if (!m) return;
+    if (m.panels) Object.assign(C_PANEL_DB, m.panels);
+    if (m.pcs) Object.assign(C_PCS_DB, m.pcs);
+    if (m.equip) Object.assign(EQUIP_PRICES, m.equip);
+    if (m.cost) Object.assign(COST_MASTER, m.cost);
+  } catch(e) { console.warn('master restore failed', e); }
+}
+
+function V2_exportMaster() {
+  const data = {
+    panels: C_PANEL_DB, pcs: C_PCS_DB,
+    equip: EQUIP_PRICES, cost: COST_MASTER
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'solarhack_master_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+}
+
+function V2_importMaster(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const m = JSON.parse(e.target.result);
+      if (m.panels) Object.assign(C_PANEL_DB, m.panels);
+      if (m.pcs) Object.assign(C_PCS_DB, m.pcs);
+      if (m.equip) Object.assign(EQUIP_PRICES, m.equip);
+      if (m.cost) Object.assign(COST_MASTER, m.cost);
+      V2_masterTab('panel');
+      alert('マスタがインポートされました');
+    } catch(err) {
+      alert('ファイルが無効です');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
 </script>
+
+<!-- === マスタ管理モーダル === -->
+<div id="master-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;overflow:auto;padding:20px">
+  <div style="background:#0a1528;border:1px solid rgba(255,255,255,0.2);border-radius:8px;max-width:90%;margin:0 auto;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="margin:0;color:#ff7c2a">🗄 マスタ管理</h2>
+      <button onclick="V2_closeMaster()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer">×</button>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:10px">
+      <button onclick="V2_masterTab('panel')" id="tab-panel" class="master-tab active">パネル</button>
+      <button onclick="V2_masterTab('pcs')" id="tab-pcs" class="master-tab">PCS</button>
+      <button onclick="V2_masterTab('equip')" id="tab-equip" class="master-tab">機器単価</button>
+      <button onclick="V2_masterTab('cost')" id="tab-cost" class="master-tab">工事単価</button>
+    </div>
+
+    <div id="master-content" style="max-height:60vh;overflow-y:auto;margin-bottom:20px"></div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="V2_exportMaster()" style="padding:8px 16px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer">💾 マスタエクスポート</button>
+      <button onclick="document.getElementById('master-import-file').click()" style="padding:8px 16px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer">📂 マスタインポート</button>
+      <button onclick="V2_saveMaster(); V2_closeMaster()" style="padding:8px 16px;background:#ff7c2a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600">保存して閉じる</button>
+      <input type="file" id="master-import-file" accept=".json" style="display:none" onchange="V2_importMaster(event)">
+    </div>
+  </div>
+</div>
+
+<style>
+.master-tab {
+  padding:8px 16px;
+  background:transparent;
+  color:#7a91b0;
+  border:none;
+  border-bottom:2px solid transparent;
+  cursor:pointer;
+  transition:0.2s;
+}
+.master-tab.active {
+  color:#ff7c2a;
+  border-bottom-color:#ff7c2a;
+}
+.master-tab:hover {
+  color:#ff7c2a;
+}
+.master-table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+  margin-bottom:10px;
+}
+.master-table th, .master-table td {
+  padding:8px;
+  text-align:left;
+  border-bottom:1px solid rgba(255,255,255,0.1);
+  color:#fff;
+}
+.master-table th {
+  background:rgba(255,255,255,0.05);
+  color:#ff7c2a;
+  font-weight:600;
+}
+.master-table input {
+  width:100%;
+  padding:4px;
+  background:#162540;
+  border:1px solid rgba(255,255,255,0.2);
+  color:#fff;
+  border-radius:3px;
+}
+</style>
 
 </div>
 </body>
