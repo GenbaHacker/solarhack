@@ -198,6 +198,22 @@ input[type="range"] { accent-color:#ff7c2a; }
 .nav-item { padding:10px 16px; font-size:13px; color:#7a91b0; cursor:pointer; transition:all 0.15s; }
 .nav-item:hover { color:#ff7c2a; background:rgba(255,124,42,0.08); }
 @media (max-width:768px) { #sidenav { display:none; } }
+.info-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:15px; height:15px; margin-left:5px; border-radius:50%;
+  background:#2a3f5f; color:#7a91b0; font-size:10px; font-style:italic;
+  border:none; cursor:pointer; vertical-align:middle;
+}
+.info-btn:hover { background:#ff7c2a; color:#fff; }
+#info-popup {
+  position:fixed; z-index:9999; max-width:420px; max-height:70vh;
+  overflow-y:auto; background:#162540; border:1px solid rgba(255,124,42,0.4);
+  border-radius:10px; padding:16px 18px; font-size:12px; line-height:1.7;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5); display:none;
+}
+#info-popup .info-popup-title { font-weight:700; color:#ff7c2a; margin-bottom:8px; font-size:13px; }
+#info-popup dt { color:#f0f4ff; font-weight:600; margin-top:8px; }
+#info-popup dd { color:#7a91b0; margin:2px 0 0 0; }
 </style>
 </head>
 <body>
@@ -257,6 +273,37 @@ input[type="range"] { accent-color:#ff7c2a; }
         <option value="high">高圧（50kW以上）</option>
       </select>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group">
+        <label>屋根材 <button class="info-btn" onclick="showInfo('roofmat',event)">i</button></label>
+        <select id="roof-material" onchange="V2_applyRoofMat()">
+          <option value="metal_ori" selected>金属（折板）</option>
+          <option value="metal_tate">金属（縦葺・立平葺）</option>
+          <option value="metal_yoko">金属（横葺）</option>
+          <option value="kawara_wa">瓦（和瓦）</option>
+          <option value="kawara_yo">瓦（洋瓦・S瓦）</option>
+          <option value="slate">化粧スレート</option>
+          <option value="asphalt">アスファルトシングル</option>
+          <option value="owave_slate">大波スレート（カバールーフ必須）</option>
+          <option value="flat_roof">陸屋根（防水仕様を選択）</option>
+          <option value="ground">地面（野立て）</option>
+        </select>
+      </div>
+      <div id="waterproof-wrap" style="display:none">
+        <div class="form-group">
+          <label>防水仕様 <button class="info-btn" onclick="showInfo('waterproof',event)">i</button></label>
+          <select id="waterproof-type" onchange="V2_applyRoofMat()">
+            <option value="wp_asphalt_open">アスファルト防水（露出）→置き型架台</option>
+            <option value="wp_asphalt_prot">アスファルト防水（保護）</option>
+            <option value="wp_vinyl">塩ビ系シート防水</option>
+            <option value="wp_rubber">ゴム系シート防水→置き型架台</option>
+            <option value="wp_urethane">ウレタン塗膜防水→置き型架台</option>
+            <option value="wp_frp">FRP防水</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="roofmat-note" style="font-size:11px;color:#ffc107;margin:6px 0"></div>
     <div class="form-group">
       <label>備考</label>
       <textarea id="note" rows="3" placeholder="工事条件など"></textarea>
@@ -331,7 +378,7 @@ input[type="range"] { accent-color:#ff7c2a; }
       </div>
     </div>
     <div style="margin-top:10px;padding:8px;background:#162540;border-radius:6px;font-size:12px;color:#ff7c2a">
-      <strong>離隔距離</strong>: <span id="margin-display">自動計算</span>
+      <strong>離隔距離 <button class="info-btn" onclick="showInfo('margin-rule',event)">i</button></strong>: <span id="margin-display">自動計算</span>
     </div>
     <button onclick="V2_renderPanelLayout()"
       style="width:100%;margin-top:10px;padding:10px;background:#ff7c2a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">
@@ -1041,7 +1088,7 @@ function C_calcString() {
   ];
 
   if (el) el.innerHTML = `
-    <div style="font-weight:600;margin-bottom:6px">推奨ストリング構成</div>
+    <div style="font-weight:600;margin-bottom:6px">推奨ストリング構成 <button class="info-btn" onclick="showInfo('string-design',event)" style="margin-left:0">i</button></div>
     <div style="font-size:13px;line-height:1.9;margin-bottom:8px">
       <span style="color:#00c896;font-weight:700">${best.s}直列 × ${best.nStr}ストリング</span>
       （PCS ${best.units}台・各MPPTに${best.strPerMppt}回路）<br>
@@ -1505,6 +1552,7 @@ function V2_applyVoltageClass() {
   // 見積の高圧チェックボックスと連動
   const estHigh = document.getElementById('est-is-high');
   if (estHigh) { estHigh.checked = isHigh; V2_calcEstimate(); }
+  V2_buildEquipEstimate();
   // 電気料金プランを自動切替
   const planSel = document.getElementById('elec-plan');
   if (planSel) {
@@ -1723,6 +1771,7 @@ function V2_collectData() {
       panelMaker: g('panelMaker'), panelModel: g('panelModel'),
       panelWp: g('panelWp'), panels: g('totalPanels') || g('est-panels'),
       pcsMaker: g('pcsMaker'), pcsModel: g('pcsModel'), pcsKw: g('pcsKw'),
+      roofMaterial: g('roof-material'), waterproofType: g('waterproof-type'),
     },
     simulation: {
       elecPlan: g('elec-plan'), elecPrice: g('elec-price'),
@@ -1769,6 +1818,8 @@ function V2_loadJSON(ev) {
       s('sell-mode', d.simulation?.sellMode);
       s('sell-price', d.simulation?.sellPrice);
       s('elec-escalation', d.simulation?.escalation);
+      s('roof-material', d.system?.roofMaterial);
+      s('waterproof-type', d.system?.waterproofType);
       if (d.irradiance) window.V2_IRR = d.irradiance;
       if (d.masterOverrides) {
         if (d.masterOverrides.panels) Object.assign(C_PANEL_DB, d.masterOverrides.panels);
@@ -1977,6 +2028,13 @@ function V2_buildEquipEstimate() {
   const panelModel = document.getElementById('panelModel')?.value || '-';
   const units = parseInt(document.getElementById('pcs-units')?.value || 1);
 
+  const matCoef = ROOFMAT_MOUNT_COEF[document.getElementById('roof-material')?.value] || 1.0;
+  const matLabels = {
+    metal_ori: '折板用', metal_tate: '金属タテ葺き用', metal_yoko: '金属ヨコ葺き用',
+    kawara_wa: '和瓦用', kawara_yo: '洋瓦用', slate: 'スレート用', asphalt: 'シングル用',
+    owave_slate: '大波スレート用', flat_roof: '陸屋根置き型', ground: '野立て架台',
+  };
+
   const rows = [
     { item:'太陽光パネル', model:panelModel, qty:panels+'枚',
       priceId:'panelPerW', price:EQUIP_PRICES.panelPerW*wp,
@@ -1984,9 +2042,9 @@ function V2_buildEquipEstimate() {
     { item:'パワーコンディショナ', model:pcsModel, qty:units+'台',
       priceId:'pcsPerKw', price:EQUIP_PRICES.pcsPerKw*pcsKw,
       amount:units*EQUIP_PRICES.pcsPerKw*pcsKw },
-    { item:'架台', model:'-', qty:panels+'枚分',
-      priceId:'mountPerPanel', price:EQUIP_PRICES.mountPerPanel,
-      amount:panels*EQUIP_PRICES.mountPerPanel },
+    { item:'架台', model:matLabels[document.getElementById('roof-material')?.value]||'-', qty:panels+'枚分',
+      priceId:'mountPerPanel', price:Math.round(EQUIP_PRICES.mountPerPanel*matCoef),
+      amount:panels*EQUIP_PRICES.mountPerPanel*matCoef },
     { item:'ケーブル・接続箱', model:'-', qty:dcKw.toFixed(1)+'kW',
       priceId:'cablePerKw', price:EQUIP_PRICES.cablePerKw,
       amount:dcKw*EQUIP_PRICES.cablePerKw },
@@ -2253,6 +2311,83 @@ function V2_loadMaster() {
   } catch(e) { console.warn('master restore failed', e); }
 }
 
+// ===== 屋根材・Info popup =====
+const INFO_CONTENT = {
+  'roofmat': `
+    <div class="info-popup-title">屋根材について</div>
+    <p>屋根材の種類により、架台の取付工法・荷重計算・防水処理が異なります。</p>
+    <dl>
+      <dt>金属（折板）</dt><dd>山形の折板にはぜ締め金具で固定。穴あけ不要で高荷重に対応。工場・倉庫・大規模施設に多い。</dd>
+      <dt>金属（縦葺・立平葺）</dt><dd>縦方向のリブにクランプで固定。穴あけ不要。工場・倉庫屋根に多い。</dd>
+      <dt>金属（横葺）</dt><dd>金属板の継ぎ目にクランプを挟み込む工法。穴あけ不要で防水性が高い。</dd>
+      <dt>瓦（和瓦）</dt><dd>引掛け桟工法が一般的。瓦を取り外してビス固定する専用金具を使用。重量があるため構造確認が必要。</dd>
+      <dt>瓦（洋瓦・S瓦）</dt><dd>形状が複雑なため専用のフック金具を使用。瓦の形状に合わせた選定が必要。</dd>
+      <dt>化粧スレート</dt><dd>最も一般的な屋根材。スレートに穴を開けてビス固定する工法。コーキング処理が必須。</dd>
+      <dt>アスファルトシングル</dt><dd>柔軟性があり穴あけ固定後にコーキング処理。北米住宅などに採用例が多い。</dd>
+      <dt>大波スレート ※カバールーフ必須</dt><dd>石綿（アスベスト）含有の可能性があるため、直接穴あけ・切断は原則禁止。既存スレートの上からカバー工法（被せ葺き）を採用し、その上に架台を設置する。事前にアスベスト調査が必要な場合あり。</dd>
+    </dl>`,
+  'waterproof': `
+    <div class="info-popup-title">防水仕様について</div>
+    <p>陸屋根の防水層の種類により、架台固定方法や防水層への影響が異なります。パネル設置前に防水業者との調整が推奨されます。</p>
+    <dl>
+      <dt>アスファルト防水（露出仕上げ）</dt><dd>表面が黒色の改質アスファルトシートが露出。穴あけ固定は防水層を傷めるため、置き型架台（ウエイト式）が基本。</dd>
+      <dt>アスファルト防水（保護仕上げ）</dt><dd>コンクリート押え仕上げ。コンクリートにアンカーを打てるため固定架台も可能だが、防水層貫通には注意が必要。</dd>
+      <dt>塩化ビニール系シート防水</dt><dd>シート表面への溶着や専用アンカーを用いた固定が可能。防水メーカーの指定工法を確認すること。</dd>
+      <dt>ゴム系シート防水（加硫ゴム）</dt><dd>弾性が高く伸縮性があるが、接着剤による固定は難しい。置き型架台が一般的。</dd>
+      <dt>ウレタン塗膜防水</dt><dd>継ぎ目のない塗膜防水。貫通固定は防水層の補修が必要。置き型架台を推奨。</dd>
+      <dt>FRP防水</dt><dd>硬質で強度が高い。ビス固定後に防水補修材を充填する工法が可能。ベランダ・バルコニーに多い。</dd>
+    </dl>`,
+  'margin-rule': `
+    <div class="info-popup-title">離隔距離について</div>
+    <p>JIS C 8955:2017に基づく屋根端部からの離隔ルールです。端部は風圧が強く、パネルの飛散リスクを避けるため設けます。</p>
+    <dl>
+      <dt>勾配10度超の屋根</dt><dd>各辺から300mm以上の離隔。</dd>
+      <dt>勾配10度以下（陸屋根等）</dt><dd>各辺から辺長の10%（最大2m）。</dd>
+    </dl>`,
+  'string-design': `
+    <div class="info-popup-title">ストリング構成について</div>
+    <p>複数のパネルを直列接続した単位を「ストリング」と呼びます。</p>
+    <dl>
+      <dt>直列数を揃える理由</dt><dd>同一MPPT回路内で直列数が異なると動作電圧が揃わず、最大電力点を外れて発電ロスが発生。点検時の異常検知も困難になる。</dd>
+      <dt>低温時Voc</dt><dd>気温が下がるとパネルの開放電圧は上昇する。最低気温-15℃時の電圧がPCS最大入力電圧を超えないよう直列数を制限。</dd>
+      <dt>設計セオリー</dt><dd>「直列数最大かつ並列数最小」が基本。電圧を高く電流を低くすることでケーブルロスを低減。</dd>
+    </dl>`,
+};
+
+const ROOFMAT_MOUNT_COEF = {
+  metal_ori: 1.0,  metal_tate: 1.0, metal_yoko: 1.05,
+  kawara_wa: 1.35, kawara_yo: 1.4,  slate: 1.15, asphalt: 1.2,
+  owave_slate: 1.8,   flat_roof: 1.5,     ground: 1.6,
+};
+const ROOFMAT_NOTES = {
+  owave_slate: '⚠ アスベスト調査＋カバールーフ工事が必要です。見積に反映されています。',
+  flat_roof: '置き型架台（ウエイト式）を想定。防水層への影響を防水業者と要調整。',
+  ground: '野立て架台＋基礎工事を想定。地盤調査費用は含まれていません。',
+};
+
+function showInfo(key, ev) {
+  ev.stopPropagation();
+  const pop = document.getElementById('info-popup');
+  pop.innerHTML = INFO_CONTENT[key] || '';
+  pop.style.display = 'block';
+  const r = ev.target.getBoundingClientRect();
+  pop.style.left = Math.min(r.left, window.innerWidth - 440) + 'px';
+  pop.style.top = Math.min(r.bottom + 6, window.innerHeight - 300) + 'px';
+}
+
+function V2_applyRoofMat() {
+  const mat = document.getElementById('roof-material').value;
+  document.getElementById('waterproof-wrap').style.display =
+    mat === 'flat_roof' ? '' : 'none';
+  document.getElementById('roofmat-note').textContent = ROOFMAT_NOTES[mat] || '';
+  V2_buildEquipEstimate();
+}
+
+document.addEventListener('click', () => {
+  const p = document.getElementById('info-popup');
+  if (p) p.style.display = 'none';
+});
+
 function V2_exportMaster() {
   const data = {
     panels: C_PANEL_DB, pcs: C_PCS_DB,
@@ -2287,6 +2422,9 @@ function V2_importMaster(event) {
   event.target.value = '';
 }
 </script>
+
+<!-- === Info popup === -->
+<div id="info-popup"></div>
 
 <!-- === マスタ管理モーダル === -->
 <div id="master-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;overflow:auto;padding:20px">
