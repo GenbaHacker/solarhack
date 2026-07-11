@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(git ls-remote *)",
+      "Bash(curl -sI \"https://genbahacker.github.io/solarhack/solarhack-v2.html?cb=$\\(date +%s\\)\")",
+      "Bash(node tests/task60-unit-count.test.js)"
     ]
   }
 }
