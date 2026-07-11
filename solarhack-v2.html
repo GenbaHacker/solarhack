@@ -1252,7 +1252,9 @@ function C_runSim() {
   }
 
   const days = [31,28,31,30,31,30,31,31,30,31,30,31];
-  const K = 0.85;
+  // TASK 81: K is base system efficiency (inverter + wiring/soiling), NO temperature loss
+  // Monthly tempFactor applied separately to avoid double-counting with K=0.85
+  const K = COST_MASTER.sim_base_coefficient || 0.92;
   const elecPrice = parseFloat(document.getElementById('elec-price')?.value || 27.85);
   const sellPrice = parseFloat(document.getElementById('sell-price')?.value || 8.3);
   const sellMode = document.getElementById('sell-mode')?.value || 'surplus';
@@ -1328,23 +1330,28 @@ function C_runCF() {
   // TASK 1: Check if estimate has been run
   if (!V2_EST) { alert('先に概算見積を計算してください'); return; }
   const years = parseInt(gv('cfYears')) || 20;
-  const deg = parseFloat(gv('degradeRate')) || 0.5 / 100;
+  // TASK 80: Fix operator precedence — input "0.5" means 0.5%, not 50%/year
+  const deg = (parseFloat(gv('degradeRate')) || 0.5) / 100;
   const esc = parseFloat(document.getElementById('elec-escalation')?.value || 2.0) / 100;
   const discountRate = 0.03;
-  // TASK 1: Use V2_EST.total (canonical investment amount)
+  // TASK 83: Use netPrice (税抜・値引後), not tax-included total
   const override = parseFloat(document.getElementById('invest-override')?.value);
   let invest;
   if (override > 0) {
     invest = override;
   } else {
-    invest = V2_EST.total || Math.round(window.V2_SIM.kw * 150000);
+    // TASK 83: netPrice reflects actual customer cost (discount already applied)
+    invest = V2_EST.netPrice || Math.round(window.V2_SIM.kw * 150000);
   }
+
+  // TASK 84: Scale O&M to capacity instead of hardcoded value
+  const omCost = Math.round(window.V2_SIM.kw * COST_MASTER.om_per_kw_year);
 
   let cum = -invest, npv = -invest, payback = null;
   const cashflows = [-invest];
   const rows = [];
   for (let y = 1; y <= years; y++) {
-    const benefit = window.V2_SIM.totalBenefit * Math.pow(1-deg, y-1) * Math.pow(1+esc, y-1) - 50000; // O&M5万/年
+    const benefit = window.V2_SIM.totalBenefit * Math.pow(1-deg, y-1) * Math.pow(1+esc, y-1) - omCost;
     cum += benefit;
     npv += benefit / Math.pow(1+discountRate, y);
     cashflows.push(benefit);
@@ -1502,7 +1509,31 @@ function V2_getIrrFor(compassAz, tiltDeg) {
   const mAz = Math.abs(compassAz - 180);
   const azI = azSteps.reduce((bi,v,i)=>Math.abs(v-mAz)<Math.abs(azSteps[bi]-mAz)?i:bi,0);
   const tI  = tiltSteps.reduce((bi,v,i)=>Math.abs(v-tiltDeg)<Math.abs(tiltSteps[bi]-tiltDeg)?i:bi,0);
-  return Array.from({length:12},(_,m)=>(V2_IRR.raw[azI*9*12+tI*12+m]||350)/100);
+
+  // TASK 85: Fail-loud for missing irradiance (no silent fallback to 350)
+  const result = Array.from({length:12},(_,m)=>{
+    const val = V2_IRR.raw[azI*9*12+tI*12+m];
+    if (!val) {
+      throw new Error(`❌ 日射データ不足: 方位${compassAz}° 傾斜${tiltDeg}° 月${m+1}月が無効（${val}）`);
+    }
+    return val / 100;
+  });
+
+  // TASK 85: Debug console output (one-time) of temp/snow to verify /10 unit assumption
+  if (!window.V2_irrDebugPrinted) {
+    window.V2_irrDebugPrinted = true;
+    console.log('=== V2_getIrrFor Debug ===');
+    if (V2_IRR.temp) {
+      console.log('Temperature (°C, raw/10):',
+        Array.from({length:12},(_, m)=>(V2_IRR.temp[m] / 10).toFixed(1)).join(' '));
+    }
+    if (V2_IRR.snow) {
+      console.log('Snow (cm):', V2_IRR.snow.join(' '));
+    }
+    console.log('===\n');
+  }
+
+  return result;
 }
 
 // ===== 電力使用量・自家消費率 =====
@@ -2345,6 +2376,12 @@ const COST_MASTER = {
 
   // ===== 警告ゲート =====
   elec_work_warning_threshold: 50,  // 50kW未満は警告表示
+
+  // ===== TASK 84: O&M cost (scaled to capacity) =====
+  om_per_kw_year: 5000,  // 年間保守費 ¥5,000/kW（容量ベース）
+
+  // ===== TASK 81: Simulation base coefficient =====
+  sim_base_coefficient: 0.92,  // K = inverter 0.945 × wiring/soiling 0.97 (no tempFactor, temp applied separately)
 };
 
 // ===== 機器単価マスタ =====
@@ -2630,8 +2667,9 @@ function V2_calcEstimate() {
   const grossProfit = netPrice - cost;
   const grossMargin = netPrice > 0 ? grossProfit / netPrice : 0;
 
-  const tax = subTotal * 0.1;
-  const total = subTotal + tax;
+  // TASK 82: Tax applied to netPrice (post-discount), not pre-discount
+  const tax = netPrice * 0.1;
+  const total = netPrice + tax;  // total = netPrice * 1.1 (税込10%)
 
   const fmt = v => Math.round(v).toLocaleString();
   const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -2645,8 +2683,9 @@ function V2_calcEstimate() {
   setVal('est-contingency', fmt(contingency));
   setVal('est-subtotal', fmt(subTotal));
   setVal('est-tax', fmt(tax));
-  setVal('est-total', fmt(total));
-  setVal('est-total-tax', fmt(total * 1.1));   // 総合計（税込10%）
+  // TASK 82: est-total = netPrice (税抜・値引後), est-total-tax = total (税込)
+  setVal('est-total', fmt(netPrice));          // 総合計（税抜）= 売価・値引後
+  setVal('est-total-tax', fmt(total));         // 総合計（税込10%）
   setVal('est-per-kw', dcKwTotal > 0 ? fmt(total / dcKwTotal) + '/kWp' : '—');
   setVal('est-net-price', fmt(netPrice));
   setVal('est-gross-profit', fmt(grossProfit));
