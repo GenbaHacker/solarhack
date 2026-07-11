@@ -1537,6 +1537,97 @@ function V2_calcArea(pts) {
   return Math.abs(area * R * R / 2);
 }
 
+// ===== TASK 5: Cost validation + auto-persist =====
+function V2_setCost(key, rawValue) {
+  // Normalize: full-width digits to ASCII, strip commas/spaces/¥
+  let normalized = String(rawValue)
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[,、，\s¥]/g, '');
+
+  const prev = COST_MASTER[key];
+  const parsed = parseInt(normalized || '0', 10);
+
+  // Reject NaN, negative, non-finite
+  if (isNaN(parsed) || parsed < 0 || !isFinite(parsed)) {
+    return { success: false, error: 'Invalid value', value: prev };
+  }
+
+  // If result is 0 (from empty), also reject
+  if (normalized === '' && parsed === 0) {
+    return { success: false, error: 'Empty value', value: prev };
+  }
+
+  // Clamp to 0..100_000_000
+  const clamped = Math.min(Math.max(parsed, 0), 100_000_000);
+  COST_MASTER[key] = clamped;
+  COST_MASTER_STATE.updatedAt = new Date().toISOString();
+  V2_saveMaster();  // auto-persist immediately
+
+  return { success: true, value: clamped };
+}
+
+function V2_saveMaster() {
+  try {
+    localStorage.setItem('COST_MASTER', JSON.stringify({
+      cost: COST_MASTER,
+      updatedAt: COST_MASTER_STATE.updatedAt,
+      updatedBy: COST_MASTER_STATE.updatedBy,
+    }));
+  } catch (e) {
+    console.warn('Failed to save COST_MASTER', e);
+  }
+}
+
+function V2_loadMaster() {
+  try {
+    const saved = localStorage.getItem('COST_MASTER');
+    if (saved) {
+      const {cost, updatedAt, updatedBy} = JSON.parse(saved);
+      Object.assign(COST_MASTER, cost);
+      COST_MASTER_STATE.updatedAt = updatedAt;
+      COST_MASTER_STATE.updatedBy = updatedBy;
+    }
+  } catch (e) {
+    console.warn('Failed to load COST_MASTER', e);
+  }
+}
+
+// ===== TASK 7: Risk helpers =====
+function countUnresolvedRisks(risks) {
+  if (!risks) return 0;
+  return Object.values(risks).filter(state => state === '未確認').length;
+}
+
+function shouldShowRiskBanner(risks) {
+  return countUnresolvedRisks(risks) > 0;
+}
+
+// ===== TASK 8: Cloud logging =====
+function V2_logEstimate() {
+  if (!V2_EST) return;
+  if (LOG_ENDPOINT.includes('PLACEHOLDER')) {
+    console.warn('LOG_ENDPOINT not configured');
+    return;
+  }
+  try {
+    const payload = JSON.stringify({
+      ts: new Date().toISOString(),
+      user: COST_MASTER_STATE.updatedBy,
+      kw: V2_EST.perKw,
+      panels: V2_EST.panels,
+      materialCost: V2_EST.materialCost,
+      workCost: V2_EST.workCost,
+      contingency: V2_EST.contingency || 0,
+      total: V2_EST.total,
+      unresolvedRisks: countUnresolvedRisks(V2_EST.risks),
+      irrSource: V2_IRR_STATE.source,
+    });
+    navigator.sendBeacon(LOG_ENDPOINT, new Blob([payload], {type:'text/plain;charset=utf-8'}));
+  } catch (e) {
+    console.warn('log failed', e);
+  }
+}
+
 function V2_undoPoint() {
   if (!v2MapPoints.length) return;
   v2MapPoints.pop();
@@ -1562,6 +1653,12 @@ let V2_IRR_STATE = { source: 'NONE', station: null, monthly: null };  // TASK 4:
 
 // ===== 概算見積結果 =====
 let V2_EST = null;  // TASK 1: persisted estimate result
+
+// ===== TASK 5: 単価マスタ状態 =====
+let COST_MASTER_STATE = {
+  updatedAt: null,
+  updatedBy: 'admin',
+};
 
 // ===== ナビゲーション =====
 function V2_scrollTo(id) {
@@ -2050,6 +2147,7 @@ const COST_MASTER = {
   single_line_high: 77000,
   scaffold:        330000,
   waste_disposal:  8250,
+  contingency_rate: 0.07,  // TASK 6: 予備費率（7%）
 };
 
 // ===== 機器単価マスタ =====
@@ -2060,6 +2158,22 @@ const EQUIP_PRICES = {
   cablePerKw:   3500,    // ケーブル・接続箱 円/kW
   monitorFix:   120000,  // 監視装置 一式
 };
+
+// ===== TASK 7: リスク確認チェックリスト =====
+const RISK_ITEMS = [
+  {id:'asbestos',   label:'アスベスト含有の可能性（既設屋根材）'},
+  {id:'demolition', label:'既設設備の撤去・処分'},
+  {id:'reinforce',  label:'屋根/構造の補強要否'},
+  {id:'pole',       label:'電柱・引込柱の移設'},
+  {id:'cubicle',    label:'キュービクル改修・増設'},
+  {id:'access',     label:'搬入経路・重機進入の制約'},
+  {id:'neighbor',   label:'近隣調整・反射対策'},
+  {id:'ground',     label:'地中埋設物・地盤（野立て）'},
+];
+
+// ===== TASK 8: クラウドログエンドポイント =====
+// TODO: replace with the GAS Web App /exec URL
+const LOG_ENDPOINT = 'https://script.google.com/macros/s/PLACEHOLDER/exec';
 
 function V2_buildEquipEstimate() {
   const panels = parseInt(document.getElementById('totalPanels')?.value || 0);
@@ -2191,7 +2305,8 @@ function V2_calcEstimate() {
 
   const materialCost = panelCost + pcsCost;
   const workCost     = installPanel + elecWork + pcsWork + protWork + appWork + otherWork;
-  const subTotal     = materialCost + workCost;
+  const contingency  = workCost * COST_MASTER.contingency_rate;  // TASK 6: contingency line
+  const subTotal     = materialCost + workCost + contingency;
   const tax          = subTotal * 0.1;
   const total        = subTotal + tax;
   const kw           = panels * parseFloat(document.getElementById('est-panel-wp')?.value || 485) / 1000;
@@ -2200,6 +2315,7 @@ function V2_calcEstimate() {
   const setVal = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   setVal('est-material',   fmt(materialCost));
   setVal('est-work',       fmt(workCost));
+  setVal('est-contingency', fmt(contingency));  // TASK 6: show contingency line
   setVal('est-subtotal',   fmt(subTotal));
   setVal('est-tax',        fmt(tax));
   setVal('est-total',      fmt(total));
@@ -2214,9 +2330,13 @@ function V2_calcEstimate() {
   // TASK 1: Save estimate result
   V2_EST = {
     panels, pcsUnits, pcsKw, isHigh,
-    materialCost, workCost, subTotal, tax, total, perKw,
+    materialCost, workCost, contingency, subTotal, tax, total, perKw: kw>0 ? total/kw : 0,
+    risks: {},  // TASK 7: initialize risk checklist
     calcedAt: new Date().toISOString(),
   };
+
+  // TASK 8: Log estimate to cloud (fire-and-forget)
+  V2_logEstimate();
 }
 
 // ===== マスタ管理 =====
