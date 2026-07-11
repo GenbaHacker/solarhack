@@ -2422,7 +2422,7 @@ function V2_buildEquipEstimate() {
   const pcsKw = parseFloat(document.getElementById('pcsKw')?.value || 0);
   const pcsModel = document.getElementById('pcsModel')?.value || '-';
   const panelModel = document.getElementById('panelModel')?.value || '-';
-  const units = parseInt(document.getElementById('pcs-units')?.value || 1);
+  // FIXED: Duplicate units declaration removed; use V2_SPEC.pcsUnits below
 
   const matCoef = ROOFMAT_MOUNT_COEF[document.getElementById('roof-material')?.value] || 1.0;
   const matLabels = {
