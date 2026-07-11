@@ -670,10 +670,6 @@ input[type="range"] { accent-color:#ff7c2a; }
     </div>
   </div>
 
-</div>
-  </div>
-</div>
-
   <!-- === 概算見積 === -->
   <div class="card" id="sec-estimate">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
@@ -2423,6 +2419,9 @@ function V2_buildEquipEstimate() {
   const pcsModel = document.getElementById('pcsModel')?.value || '-';
   const panelModel = document.getElementById('panelModel')?.value || '-';
   const units = V2_SPEC.pcsUnits || 1;  // TASK 91: Read PCS unit count from single source of truth
+  // TASK 105: Store wp and pcsKw for V2_updateEquipPrice to use
+  window.V2_EQUIP_WP = wp;
+  window.V2_EQUIP_PCSKW = pcsKw;
 
   const matCoef = ROOFMAT_MOUNT_COEF[document.getElementById('roof-material')?.value] || 1.0;
   const matLabels = {
@@ -2467,6 +2466,7 @@ function V2_buildEquipEstimate() {
   const equipTotal = rows.reduce((s,r)=>s+r.amount,0);
   document.getElementById('equip-total').textContent = fmt(equipTotal);
   window.V2_EQUIP_TOTAL = equipTotal;
+  window.V2_EQUIP_ROWS = rows;  // TASK 105: Store rows for V2_updateEquipPrice access
 
   // TASK 71: 工事費計算 — Use current (v16-derived) COST_MASTER keys
   const need = k => {
@@ -2525,9 +2525,29 @@ function V2_buildEquipEstimate() {
 }
 
 function V2_updateEquipPrice(idx, newPrice) {
-  const pv = parseFloat(newPrice);
-  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
-  V2_calcEstimate();
+  // TASK 105: Convert user input (total amount for row) to unit price and save to EQUIP_PRICES
+  const parsed = parseFloat(newPrice);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    console.log(`❌ V2_updateEquipPrice: invalid price (${newPrice})`);
+    return;  // Reject invalid, keep old value
+  }
+
+  const row = window.V2_EQUIP_ROWS?.[idx];
+  if (!row) return;
+
+  const priceId = row.priceId;
+  let unitPrice = parsed;
+
+  // Convert total amount to unit price based on priceId semantics
+  if (priceId === 'panelPerW') {
+    unitPrice = parsed / (window.V2_EQUIP_WP || 485);
+  } else if (priceId === 'pcsPerKw') {
+    unitPrice = parsed / (window.V2_EQUIP_PCSKW || 1);
+  }
+  // else: input is already a unit price
+
+  EQUIP_PRICES[priceId] = unitPrice;
+  V2_calcEstimate();  // Re-render with updated price
 }
 
 function V2_updateGrandTotal() {
