@@ -247,6 +247,13 @@ table td {
         onchange="localStorage.setItem('sh_proposer', this.value)">
     </div>
     <div class="form-group">
+      <label>案件区分</label>
+      <select id="voltage-class" onchange="V2_applyVoltageClass()">
+        <option value="low" selected>低圧（50kW未満）</option>
+        <option value="high">高圧（50kW以上）</option>
+      </select>
+    </div>
+    <div class="form-group">
       <label>備考</label>
       <textarea id="note" rows="3" placeholder="工事条件など"></textarea>
     </div>
@@ -272,6 +279,39 @@ table td {
       💡 地図上をクリックして屋根の頂点を指定します
     </div>
     <div id="map-result" style="margin-top:8px;font-size:12px;color:var(--warn);min-height:20px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <button onclick="V2_clearPanelLayout()"
+        style="padding:8px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">
+        🔄 リセット
+      </button>
+      <button onclick="V2_clearPanelLayout()"
+        style="padding:8px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">
+        🗑️ クリア
+      </button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div>
+        <label>屋根勾配（度）</label>
+        <input type="number" id="roof-tilt" value="20" min="0" max="60"
+          onchange="V2_renderPanelLayout()">
+      </div>
+      <div>
+        <label>方位角（度・南=180）</label>
+        <input type="number" id="roof-azimuth" value="180" min="0" max="359"
+          onchange="V2_renderPanelLayout()">
+      </div>
+      <div>
+        <label>離隔距離</label>
+        <div id="margin-display" style="padding:8px;background:#162540;border-radius:6px;font-size:12px;color:#ff7c2a">
+          自動計算
+        </div>
+      </div>
+    </div>
+    <button onclick="V2_renderPanelLayout()"
+      style="width:100%;margin-top:10px;padding:10px;background:#ff7c2a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">
+      ☀ パネル配置を描画
+    </button>
+    <div id="layout-result" style="margin-top:8px;font-size:13px;color:#00c896"></div>
   </div>
 
   <!-- === パネル選択 === -->
@@ -307,6 +347,20 @@ table td {
       <div class="form-group">
         <label>Vmp (V)</label>
         <input type="number" id="panelVmp" readonly>
+      </div>
+    </div>
+    <div class="form-row c3">
+      <div class="form-group">
+        <label>パネル幅 (mm)</label>
+        <input type="number" id="panelWidth" value="1762" step="10">
+      </div>
+      <div class="form-group">
+        <label>パネル高さ (mm)</label>
+        <input type="number" id="panelHeight" value="1134" step="10">
+      </div>
+      <div class="form-group">
+        <label>メモ</label>
+        <input type="text" value="配置計算用" readonly style="background:#162540;color:#888">
       </div>
     </div>
   </div>
@@ -777,9 +831,11 @@ let v2Map, v2MapPoints = [], v2MapMarkers = [], v2MapPoly = null;
 function V2_initMap() {
   const el = document.getElementById('v2-map');
   if (!el) return;
-  v2Map = L.map('v2-map').setView([34.5, 133.5], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: 'OpenStreetMap contributors'
+  v2Map = L.map('v2-map', { maxZoom: 21 }).setView([34.5, 133.5], 13);
+  L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', {
+    attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
+    maxZoom: 21,
+    maxNativeZoom: 18
   }).addTo(v2Map);
   v2Map.on('click', V2_addPoint);
 }
@@ -846,6 +902,159 @@ function V2_applyPlan() {
     document.getElementById('elec-price').value = ELEC_PLANS[plan];
   }
   C_runSim();
+}
+
+// ===== 案件区分（高圧・低圧） =====
+function V2_applyVoltageClass() {
+  const isHigh = document.getElementById('voltage-class').value === 'high';
+  // 見積の高圧チェックボックスと連動
+  const estHigh = document.getElementById('est-is-high');
+  if (estHigh) { estHigh.checked = isHigh; V2_calcEstimate(); }
+  // 電気料金プランを自動切替
+  const planSel = document.getElementById('elec-plan');
+  if (planSel) {
+    planSel.value = isHigh ? 'highv_a' : 'lowv';
+    V2_applyPlan();
+  }
+}
+
+// ===== パネル配置ビジュアル =====
+let v2PanelLayers = [];
+
+function V2_clearPanelLayout() {
+  v2PanelLayers.forEach(l => v2Map.removeLayer(l));
+  v2PanelLayers = [];
+  document.getElementById('layout-result').textContent = '';
+}
+
+// 緯度経度→メートル座標系の簡易変換（狭い範囲用）
+function V2_toMeters(latlng, origin) {
+  const R = 6378137;
+  const dLat = (latlng.lat - origin.lat) * Math.PI / 180;
+  const dLng = (latlng.lng - origin.lng) * Math.PI / 180;
+  return {
+    x: dLng * R * Math.cos(origin.lat * Math.PI / 180),
+    y: dLat * R
+  };
+}
+function V2_toLatLng(m, origin) {
+  const R = 6378137;
+  return L.latLng(
+    origin.lat + (m.y / R) * 180 / Math.PI,
+    origin.lng + (m.x / (R * Math.cos(origin.lat * Math.PI / 180))) * 180 / Math.PI
+  );
+}
+
+// 点がポリゴン内にあるか（レイキャスト法）
+function V2_pointInPoly(pt, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    if (((poly[i].y > pt.y) !== (poly[j].y > pt.y)) &&
+        (pt.x < (poly[j].x - poly[i].x) * (pt.y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// ポリゴンを内側にオフセット（簡易版：重心方向に縮小）
+function V2_shrinkPoly(poly, margin) {
+  const cx = poly.reduce((s,p)=>s+p.x,0) / poly.length;
+  const cy = poly.reduce((s,p)=>s+p.y,0) / poly.length;
+  return poly.map(p => {
+    const dx = p.x - cx, dy = p.y - cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist <= margin) return {x: cx, y: cy};
+    const ratio = (dist - margin) / dist;
+    return { x: cx + dx * ratio, y: cy + dy * ratio };
+  });
+}
+
+function V2_renderPanelLayout() {
+  if (v2MapPoints.length < 3) {
+    alert('先に地図上で屋根の頂点を3点以上指定してください');
+    return;
+  }
+  V2_clearPanelLayout();
+
+  const tilt = parseFloat(document.getElementById('roof-tilt')?.value || 20);
+  const azimuth = parseFloat(document.getElementById('roof-azimuth')?.value || 180);
+  const panelW = (parseFloat(document.getElementById('panelWidth')?.value) || 1762) / 1000;  // m
+  const panelH = (parseFloat(document.getElementById('panelHeight')?.value) || 1134) / 1000; // m
+  const gap = 0.02; // パネル間隙間20mm
+
+  // 原点（頂点の重心）
+  const origin = {
+    lat: v2MapPoints.reduce((s,p)=>s+p.lat,0) / v2MapPoints.length,
+    lng: v2MapPoints.reduce((s,p)=>s+p.lng,0) / v2MapPoints.length,
+  };
+
+  // メートル座標に変換
+  const polyM = v2MapPoints.map(p => V2_toMeters(p, origin));
+
+  // 離隔距離の計算
+  // 勾配10度超: 300mm / 10度以下: 各辺長の10%（最大2m）
+  let margin;
+  if (tilt > 10) {
+    margin = 0.3;
+  } else {
+    const edges = [];
+    for (let i = 0; i < polyM.length; i++) {
+      const j = (i + 1) % polyM.length;
+      edges.push(Math.hypot(polyM[j].x - polyM[i].x, polyM[j].y - polyM[i].y));
+    }
+    const avgEdge = edges.reduce((a,b)=>a+b,0) / edges.length;
+    margin = Math.min(avgEdge * 0.1, 2.0);
+  }
+  document.getElementById('margin-display').textContent =
+    margin >= 1 ? margin.toFixed(2) + ' m' : (margin*1000).toFixed(0) + ' mm';
+
+  // 離隔を除いた有効エリア
+  const effective = V2_shrinkPoly(polyM, margin);
+
+  // 方位に沿った回転座標系でパネルを敷き詰め
+  // 方位角180(南)=回転0度とする。回転角 = azimuth - 180
+  const rot = (azimuth - 180) * Math.PI / 180;
+  const cosR = Math.cos(rot), sinR = Math.sin(rot);
+  const toLocal  = p => ({ x: p.x*cosR + p.y*sinR, y: -p.x*sinR + p.y*cosR });
+  const toGlobal = p => ({ x: p.x*cosR - p.y*sinR, y: p.x*sinR + p.y*cosR });
+
+  const localPoly = effective.map(toLocal);
+  const xs = localPoly.map(p=>p.x), ys = localPoly.map(p=>p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+
+  let count = 0;
+  const stepX = panelW + gap, stepY = panelH + gap;
+  for (let y = minY; y + panelH <= maxY; y += stepY) {
+    for (let x = minX; x + panelW <= maxX; x += stepX) {
+      // パネル四隅すべてが有効エリア内にあるか
+      const corners = [
+        {x, y}, {x: x+panelW, y}, {x: x+panelW, y: y+panelH}, {x, y: y+panelH}
+      ];
+      if (!corners.every(c => V2_pointInPoly(c, localPoly))) continue;
+      count++;
+      // 地図に描画
+      const latlngs = corners.map(c => V2_toLatLng(toGlobal(c), origin));
+      const rect = L.polygon(latlngs, {
+        color: '#2a7fff', fillColor: '#2a7fff',
+        fillOpacity: 0.55, weight: 1
+      }).addTo(v2Map);
+      v2PanelLayers.push(rect);
+    }
+  }
+
+  // 結果表示＋シミュ連動
+  const wp = parseFloat(document.getElementById('panelWp')?.value || 485);
+  const kw = (count * wp / 1000).toFixed(2);
+  document.getElementById('layout-result').textContent =
+    `✅ 配置可能: ${count}枚 / ${kw}kW（離隔${margin >= 1 ? margin.toFixed(2)+'m' : (margin*1000).toFixed(0)+'mm'}）`;
+
+  // パネル枚数の入力欄に自動反映
+  const tp = document.getElementById('totalPanels');
+  if (tp) tp.value = count;
+  const ep = document.getElementById('est-panels');
+  if (ep) ep.value = count;
 }
 
 // ===== データ保存・読込 =====
