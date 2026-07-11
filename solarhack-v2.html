@@ -2361,6 +2361,33 @@ function V2_calcEstimate() {
   setVal('est-gross-margin', (grossMargin*100).toFixed(1)+'%');
   setVal('est-net-price', fmt(netPrice));
 
+  // TASK 11: Margin gate banner + print block
+  const bannerEl = document.getElementById('est-margin-banner');
+  const printBtn = document.getElementById('print-button');
+  if (bannerEl) {
+    if (grossMargin < 0) {
+      // Loss: red banner + block print
+      bannerEl.style.display = 'block';
+      bannerEl.style.background = 'rgba(176,58,46,0.2)';
+      bannerEl.style.borderColor = '#b03a2e';
+      bannerEl.style.color = '#ff6b6b';
+      bannerEl.textContent = `🛑 この見積は赤字です。粗利 ${fmt(grossProfit)}円`;
+      if (printBtn) printBtn.disabled = true;
+    } else if (grossMargin < 0.20) {
+      // Warning: yellow banner, print allowed
+      bannerEl.style.display = 'block';
+      bannerEl.style.background = 'rgba(255,124,42,0.2)';
+      bannerEl.style.borderColor = '#ff7c2a';
+      bannerEl.style.color = '#ffb84d';
+      bannerEl.textContent = `⚠ 粗利率 ${(grossMargin*100).toFixed(1)}% — 社内基準 20% を下回っています。部長承認が必要です。`;
+      if (printBtn) printBtn.disabled = false;
+    } else {
+      // OK: hide banner, enable print
+      bannerEl.style.display = 'none';
+      if (printBtn) printBtn.disabled = false;
+    }
+  }
+
   // TASK 1: Save estimate result
   V2_EST = {
     panels, pcsUnits, pcsKw, isHigh,
@@ -2704,6 +2731,10 @@ function V2_importMaster(event) {
 <!-- === TASK 14: Estimate Breakdown Display === -->
 <div id="estimate-display" style="display:none;background:#111e36;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:20px;margin:20px 0">
   <h3 style="color:#ff7c2a;margin-bottom:15px">📊 概算見積</h3>
+
+  <!-- TASK 11: Margin Gate Banner -->
+  <div id="est-margin-banner" style="display:none;padding:12px;border-radius:4px;margin-bottom:15px;font-weight:600;border-left:4px solid"></div>
+
   <table style="width:100%;border-collapse:collapse">
     <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
       <td style="padding:8px">材料費</td>
@@ -2770,7 +2801,7 @@ function V2_importMaster(event) {
 
 <!-- === TASK 9: Print Button === -->
 <div style="margin:20px 0;text-align:center">
-  <button id="print-button" onclick="window.print()" style="padding:12px 24px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px">📄 提案書印刷</button>
+  <button id="print-button" onclick="if(V2_EST && V2_EST.grossMargin < 0) { alert('赤字見積のため出力できません'); return; } window.print()" style="padding:12px 24px;background:#00c896;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px" title="赤字見積の場合は出力できません">📄 提案書印刷</button>
 </div>
 
 </div>

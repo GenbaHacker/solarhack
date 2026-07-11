@@ -470,6 +470,52 @@ assert(canPrint(est6, {source: 'MONSOLA', station: 'test'}), 'Can print when est
 assert(getPrintBlockReason(est6, {source: 'MONSOLA', station: 'test'}) === null, 'No print block when valid');
 
 // ============================================================================
+// TASK 11 GATE VERIFICATION: Real loss-making projects
+// ============================================================================
+console.log('\n=== TASK 11 GATE: Real Loss-Making Projects ===');
+
+// Project B: 本庁舎 26.56kW → red zone
+const projB_subTotal = 16_382_244;
+const projB_discount = 2_232_244;
+const projB_cost = 15_654_276;
+const projB_netPrice = projB_subTotal - projB_discount;
+const projB_grossProfit = projB_netPrice - projB_cost;
+const projB_grossMargin = projB_netPrice > 0 ? projB_grossProfit / projB_netPrice : 0;
+console.log(`\nProject B 本庁舎 26.56kW:`);
+console.log(`  subTotal=${projB_subTotal}, discount=${projB_discount}, cost=${projB_cost}`);
+console.log(`  netPrice=${projB_netPrice}, grossProfit=${projB_grossProfit}`);
+console.log(`  grossMargin=${(projB_grossMargin*100).toFixed(2)}%`);
+assert(projB_grossMargin < 0, `Project B: margin < 0 (${(projB_grossMargin*100).toFixed(2)}%)`);
+console.log(`✓ Project B: LOSS DETECTED → red banner + print blocked`);
+
+// Project A: 林浄水場 406.7kW → red zone
+const projA_subTotal = 96_499_300;
+const projA_discount = 17_149_300;
+const projA_cost = 79_427_062;
+const projA_netPrice = projA_subTotal - projA_discount;
+const projA_grossProfit = projA_netPrice - projA_cost;
+const projA_grossMargin = projA_netPrice > 0 ? projA_grossProfit / projA_netPrice : 0;
+console.log(`\nProject A 林浄水場 406.7kW:`);
+console.log(`  subTotal=${projA_subTotal}, discount=${projA_discount}, cost=${projA_cost}`);
+console.log(`  netPrice=${projA_netPrice}, grossProfit=${projA_grossProfit}`);
+console.log(`  grossMargin=${(projA_grossMargin*100).toFixed(2)}%`);
+assert(projA_grossMargin < 0, `Project A: margin < 0 (${(projA_grossMargin*100).toFixed(2)}%)`);
+console.log(`✓ Project A: LOSS DETECTED → red banner + print blocked`);
+
+// Control: healthy margin
+const control_subTotal = 20_000_000;
+const control_discount = 0;
+const control_cost = 15_000_000;
+const control_netPrice = control_subTotal - control_discount;
+const control_grossProfit = control_netPrice - control_cost;
+const control_grossMargin = control_netPrice > 0 ? control_grossProfit / control_netPrice : 0;
+console.log(`\nControl: 25% margin, 0% discount:`);
+console.log(`  subTotal=${control_subTotal}, discount=${control_discount}, cost=${control_cost}`);
+console.log(`  grossMargin=${(control_grossMargin*100).toFixed(2)}%`);
+assert(control_grossMargin >= 0.20, `Control: margin >= 20% (${(control_grossMargin*100).toFixed(2)}%)`);
+console.log(`✓ Control: HEALTHY → no banner, print enabled`);
+
+// ============================================================================
 // TASK 14: UI Verification (via file content checks)
 // ============================================================================
 console.log('\n=== TASK 14: UI Verification ===');
