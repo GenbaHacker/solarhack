@@ -1106,6 +1106,9 @@ function C_calcString() {
       ${checks.map(c=>`<span style="color:${c.ok?'#00c896':'#ff4d6a'}">${c.ok?'✓':'✗'} ${c.label}: ${c.val}</span>`).join('')}
     </div>`;
 
+  // TASK 50: Store PCS unit count in canonical location
+  V2_SPEC.pcsUnits = best.units;
+
   // Store values for UI
   sv('opt-series', best.s);
   sv('opt-parallel', best.nStr);
@@ -1675,6 +1678,11 @@ let V2_IRR_STATE = { source: 'NONE', station: null, monthly: null };  // TASK 4:
 
 // ===== 概算見積結果 =====
 let V2_EST = null;  // TASK 1: persisted estimate result
+
+// ===== TASK 50: Single source of truth for PCS unit count =====
+let V2_SPEC = {
+  pcsUnits: 1,  // number of PCS units (from C_calcStrings)
+};
 
 // ===== TASK 5: 単価マスタ状態 =====
 let COST_MASTER_STATE = {
@@ -2397,8 +2405,8 @@ function V2_calcEstimate() {
   const panelCost = panels * panelCostEach;
   const dcKwTotal = panels * panelWp / 1000;
 
-  // TASK 20: Get PCS costs from master - block if unknown
-  const pcsUnits = parseInt(document.getElementById('pcs-units')?.value || document.getElementById('est-pcs-units')?.value || 1);
+  // TASK 20/50: Get PCS costs from master (use canonical pcsUnits from V2_SPEC, not DOM input)
+  const pcsUnits = V2_SPEC.pcsUnits;  // ← Single source of truth
   const pcsMaker = document.getElementById('pcsMaker')?.value;
   const pcsModel = document.getElementById('pcsModel')?.value;
 
@@ -2486,18 +2494,23 @@ function V2_calcEstimate() {
 
   // Display all cost components
   const totalCost = materialCost + workCost + contingency;
-  setVal('est-cost-total', fmt(totalCost));    // NEW: 原価合計
+  // TASK 50: Always write values (even if zero), never "—" after calculation
+  setVal('est-cost-total', fmt(totalCost));    // 原価合計
   setVal('est-material', fmt(materialCost));
   setVal('est-work', fmt(workCost));
   setVal('est-contingency', fmt(contingency));
   setVal('est-subtotal', fmt(subTotal));
   setVal('est-tax', fmt(tax));
   setVal('est-total', fmt(total));
-  setVal('est-total-tax', fmt(total * 1.1));   // NEW: 総合計（税込10%）
+  setVal('est-total-tax', fmt(total * 1.1));   // 総合計（税込10%）
   setVal('est-per-kw', dcKwTotal > 0 ? fmt(total / dcKwTotal) + '/kWp' : '—');
   setVal('est-net-price', fmt(netPrice));
   setVal('est-gross-profit', fmt(grossProfit));
-  setVal('est-gross-margin', (grossMargin * 100).toFixed(2) + '%');
+  setVal('est-gross-margin', (grossMargin * 100).toFixed(2) + '%');  // ← Now always has value
+
+  // TASK 50: Display actual PCS unit count in estimate
+  const pcsUnitsDisplay = document.getElementById('est-pcs-units-display');
+  if (pcsUnitsDisplay) pcsUnitsDisplay.textContent = pcsUnits + '台';
 
   // TASK 22: Margin gate banner + enhanced print block
   const bannerEl = document.getElementById('est-margin-banner');
@@ -2923,6 +2936,12 @@ function V2_importMaster(event) {
     <tr style="font-weight:700;color:#ffb84d;font-size:14px;border-bottom:1px solid rgba(255,255,255,0.1)">
       <td style="padding:8px">総合計（税込10%）</td>
       <td style="text-align:right;padding:8px" id="est-total-tax">—</td>
+    </tr>
+
+    <!-- PCS unit count (TASK 50) -->
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0;font-size:12px">
+      <td style="padding:4px">PCS台数</td>
+      <td style="text-align:right;padding:4px" id="est-pcs-units-display">—</td>
     </tr>
 
     <!-- Breakdown (collapsed by default) -->
