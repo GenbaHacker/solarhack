@@ -69,19 +69,40 @@ const DENKI_MASTER = {
 // Engineering rules — deterministic cable sizing and quantity calculations
 // ============================================================================
 
-function calcAcCableSize(kwTotal, voltage, distMeters) {
-  // I = kW*1000/(√3*V), voltage drop e = 30.8*L*I/(1000*A) ≤ 2%*V
-  const I = (kwTotal * 1000) / (Math.sqrt(3) * voltage);
-  const e_max = 0.02 * voltage;
-  const A_min = (30.8 * distMeters * I) / (1000 * e_max);
+// CORRECTED: Japanese electrical practice
+// Step 1: Size on 許容電流 (ampacity) to find minimum
+// Step 2: Verify 電圧降下 (voltage drop) is within limit; if not, go up sizes until OK
+function calcAcCableSize(pcsTotalKw, distMeters, acVoltage = 440, dropLimitRatio = 0.01) {
+  // Current from PCS output (only PCS flows on AC side, not full PV capacity)
+  const I = (pcsTotalKw * 1000) / (Math.sqrt(3) * acVoltage);
 
-  // JIS standard sizes
-  const sizes = [5.5, 8, 14, 22, 38, 60, 100, 150, 200, 250, 325];
-  const selected = sizes.find(a => a >= A_min);
+  // Ampacity limit (600V CV, 気中, 3-core, from JIS)
+  // 14→88A, 22→115A, 38→162A, 60→217A, 100→298A, 150→395A, 200→469A, 250→556A, 325→657A
+  const ampacityTable = {
+    14: 88, 22: 115, 38: 162, 60: 217, 100: 298, 150: 395, 200: 469, 250: 556, 325: 657
+  };
+  const sizes = [14, 22, 38, 60, 100, 150, 200, 250, 325];
+
+  // STEP 1: Find minimum size from ampacity
+  const minAmpacity = Object.entries(ampacityTable)
+    .find(([_, amps]) => amps >= I)?.[0] || 325;
+
+  // STEP 2: Verify voltage drop, and go up if needed until acceptable
+  let selected = parseFloat(minAmpacity);
+  const dropLimit = dropLimitRatio * acVoltage;
+  const voltageDrop = (e) => (30.8 * distMeters * I) / (1000 * e);
+
+  let currentIndex = sizes.indexOf(selected);
+  while (voltageDrop(selected) > dropLimit && currentIndex < sizes.length - 1) {
+    currentIndex++;
+    selected = sizes[currentIndex];
+  }
 
   return {
     current_A: I.toFixed(1),
-    volt_drop_percent: ((30.8 * distMeters * I) / (1000 * selected) / voltage * 100).toFixed(2),
+    ampacity_A: ampacityTable[selected] || 0,
+    A_min_from_ampacity: parseFloat(minAmpacity),
+    volt_drop_percent: voltageDrop(selected).toFixed(2),
     areaSelected_sq: selected,
   };
 }
@@ -114,15 +135,17 @@ function calcRackWidth(cableAreaTotal_mm2) {
 
 export function DenkiHack_calc(params) {
   const {
-    kw = 0,
-    voltage = 210,
+    kw = 0,               // PV capacity (for labor rates only)
+    pcsKwTotal = 0,       // PCS output capacity (for AC cable sizing) ← CORRECTED
+    acVoltage = 440,      // AC voltage: 440V primary (PCS→transformer) ← CORRECTED
     stringCount = 1,
     panelCount = 0,
     distPvToPcs_m = 50,
     distPcsToGrid_m = 100,
     routing = 'outdoor',
-    supply = 'low',  // 'low' or 'high'
-    mountType = 'roof',  // 'roof' or 'ground'
+    supply = 'low',       // 'low' or 'high'
+    mountType = 'roof',   // 'roof' or 'ground'
+    dropLimitRatio = 0.0105,  // 1.05% voltage drop limit (ケイテック practice, editable)
   } = params;
 
   const bom = [];
@@ -160,9 +183,9 @@ export function DenkiHack_calc(params) {
   materialCost += mc4Cost;
 
   // =========================================================================
-  // 2. AC Wiring (PCS → Grid)
+  // 2. AC Wiring (PCS → Grid) — CORRECTED: use PCS output capacity on 440V primary
   // =========================================================================
-  const acCableCalc = calcAcCableSize(kw, voltage, distPcsToGrid_m);
+  const acCableCalc = calcAcCableSize(pcsKwTotal, distPcsToGrid_m, acVoltage, dropLimitRatio);
   const acCableSize = acCableCalc.areaSelected_sq;
   const acCableName = acCableSize <= 60 ? `CET${acCableSize}` : `WL1-${acCableSize}`;
   const acCableUnitPrice = acCableSize <= 60 ? DENKI_MASTER.cet_60 : DENKI_MASTER.wl1_200;
