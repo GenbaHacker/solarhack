@@ -1106,6 +1106,19 @@ function C_calcString() {
 }
 
 function C_runSim() {
+  // TASK 4: Block simulation if irradiation source is NONE
+  if (V2_IRR_STATE.source === 'NONE') {
+    const bannerEl = document.getElementById('sim-irr-banner');
+    if (bannerEl) {
+      bannerEl.style.display = 'block';
+      bannerEl.style.background = '#ff4d6a';
+      bannerEl.style.color = '#fff';
+      bannerEl.textContent = '⚠ 日射データが取得できなかったため、シミュレーションを実行できません';
+    }
+    alert('日射データを取得してからシミュレーションを実行してください');
+    return;
+  }
+
   const days = [31,28,31,30,31,30,31,31,30,31,30,31];
   const K = 0.85;
   const elecPrice = parseFloat(document.getElementById('elec-price')?.value || 27.85);
@@ -1181,18 +1194,19 @@ function C_runSim() {
 
 function C_runCF() {
   if (!window.V2_SIM) { alert('先にシミュレーションを実行してください'); return; }
+  // TASK 1: Check if estimate has been run
+  if (!V2_EST) { alert('先に概算見積を計算してください'); return; }
   const years = parseInt(gv('cfYears')) || 20;
   const deg = parseFloat(gv('degradeRate')) || 0.5 / 100;
   const esc = parseFloat(document.getElementById('elec-escalation')?.value || 2.0) / 100;
   const discountRate = 0.03;
-  // 投資額：オーバーライド指定 → 機器+工事合計（税込） → kW×15万
+  // TASK 1: Use V2_EST.total (canonical investment amount)
   const override = parseFloat(document.getElementById('invest-override')?.value);
   let invest;
   if (override > 0) {
     invest = override;
   } else {
-    const grandTotal = (window.V2_EQUIP_TOTAL || 0) + (window.V2_WORK_TOTAL || 0);
-    invest = grandTotal > 0 ? Math.round(grandTotal * 1.1) : Math.round(window.V2_SIM.kw * 150000);
+    invest = V2_EST.total || Math.round(window.V2_SIM.kw * 150000);
   }
 
   let cum = -invest, npv = -invest, payback = null;
@@ -1207,18 +1221,38 @@ function C_runCF() {
     rows.push({y, gen: window.V2_SIM.totalGen*Math.pow(1-deg,y-1), benefit, cum});
   }
 
-  // IRR（ニュートン法）
-  let irr = 0.05;
-  for (let i = 0; i < 100; i++) {
-    let f=0, df=0;
-    cashflows.forEach((cf,t)=>{ f+=cf/Math.pow(1+irr,t); df-=t*cf/Math.pow(1+irr,t+1); });
-    const d = f/df; irr -= d;
-    if (Math.abs(d) < 1e-8) break;
+  // TASK 2: IRR（二分法）
+  const f = (r) => { let npv = 0; for (let i = 0; i < cashflows.length; i++) npv += cashflows[i] / Math.pow(1+r, i); return npv; };
+  let irr = null;
+  let lo = -0.999, hi = 1.0;
+  if (f(lo) * f(hi) > 0) {
+    for (let i = 0; i < 10; i++) { hi *= 2; if (f(lo) * f(hi) < 0) break; }
+  }
+  if (f(lo) * f(hi) >= 0) {
+    lo = -0.999;
+    for (let i = 0; i < 10; i++) { lo = lo / 2; if (f(lo) * f(hi) < 0) break; }
+  }
+  if (f(lo) * f(hi) < 0) {
+    for (let iter = 0; iter < 100; iter++) {
+      const mid = (lo + hi) / 2;
+      if (Math.abs(f(mid)) < 1e-6) { irr = mid; break; }
+      if (f(lo) * f(mid) < 0) hi = mid; else lo = mid;
+    }
+    if (irr === null) irr = (lo + hi) / 2;
   }
 
   const fmt = v => Math.round(v).toLocaleString();
   const set = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
-  set('irr-result', (irr*100).toFixed(1));
+  // TASK 2: Display IRR or "算出不可"
+  if (irr !== null && isFinite(irr)) {
+    set('irr-result', (irr*100).toFixed(1));
+  } else {
+    const el = document.getElementById('irr-result');
+    if (el) {
+      el.textContent = '算出不可';
+      el.style.color = '#ff4d6a';
+    }
+  }
   set('npv-result', fmt(npv/10000));
   set('cf-payback', payback || '-');
 
@@ -1523,7 +1557,11 @@ function V2_clearPoints() {
 }
 
 // ===== 日射量取得（MONSOLA11m） =====
-let V2_IRR = { monthly: null, station: null, dist: null };
+let V2_IRR = { monthly: null, station: null, dist: null, raw: null, snow: null, temp: null };
+let V2_IRR_STATE = { source: 'NONE', station: null, monthly: null };  // TASK 4: irradiation provenance
+
+// ===== 概算見積結果 =====
+let V2_EST = null;  // TASK 1: persisted estimate result
 
 // ===== ナビゲーション =====
 function V2_scrollTo(id) {
@@ -1955,11 +1993,15 @@ async function V2_fetchIrr(lat, lon) {
       (st.i[az_i*9*12 + tilt_i*12 + m] || 350) / 100
     );
     V2_IRR = { monthly, station: name, dist: minD, raw: st.i, snow: st.s || null, temp: st.t || null };
+    // TASK 4: Set irradiation source
+    V2_IRR_STATE = { source: 'MONSOLA', station: name, monthly };
     const el = document.getElementById('map-result');
     if (el) el.textContent += ` ☀観測所:${name}(${minD.toFixed(0)}km) 年平均${(monthly.reduce((a,b)=>a+b,0)/12).toFixed(2)}kWh/m2/日`;
     return true;
   } catch(e) {
     console.warn('日射量取得失敗:', e);
+    // TASK 4: Mark source as NONE on failure
+    V2_IRR_STATE = { source: 'NONE', station: null, monthly: null };
     return false;
   }
 }
@@ -2135,7 +2177,8 @@ function V2_calcEstimate() {
   const isHigh  = document.getElementById('est-is-high')?.checked || false;
   const panelUnitPrice = parseFloat(document.getElementById('est-panel-price')?.value || 50000);
   const pcsUnitPrice   = parseFloat(document.getElementById('est-pcs-price')?.value  || 150000);
-  const pcsUnits = parseInt(document.getElementById('est-pcs-units')?.value || 1);
+  // TASK 3: Read units from C_calcStrings output
+  const pcsUnits = parseInt(document.getElementById('pcs-units')?.value || document.getElementById('est-pcs-units')?.value || 1);
 
   const panelCost = panels * panelUnitPrice;
   const pcsCost   = pcsUnits * pcsUnitPrice;
@@ -2167,6 +2210,13 @@ function V2_calcEstimate() {
   setVal('est-work-prot',  fmt(protWork));
   setVal('est-work-app',   fmt(appWork));
   setVal('est-work-other', fmt(otherWork));
+
+  // TASK 1: Save estimate result
+  V2_EST = {
+    panels, pcsUnits, pcsKw, isHigh,
+    materialCost, workCost, subTotal, tax, total, perKw,
+    calcedAt: new Date().toISOString(),
+  };
 }
 
 // ===== マスタ管理 =====
