@@ -6,6 +6,7 @@
 <title>SolarHack</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -208,6 +209,12 @@ table td {
     <div class="nav-item" onclick="V2_scrollTo('sec-sim')">📊 シミュレーション</div>
     <div class="nav-item" onclick="V2_scrollTo('sec-estimate')">💴 概算見積</div>
     <div class="nav-item" onclick="V2_scrollTo('sec-cf')">💹 CF・IRR</div>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:12px;padding-top:12px">
+      <div class="nav-item" onclick="V2_saveJSON()">💾 保存（JSON）</div>
+      <div class="nav-item" onclick="document.getElementById('load-file').click()">📂 読込</div>
+      <div class="nav-item" onclick="V2_exportExcel()">📊 Excel出力</div>
+      <input type="file" id="load-file" accept=".json" style="display:none" onchange="V2_loadJSON(event)">
+    </div>
   </nav>
   <div id="main-content" style="flex:1;min-width:0">
 
@@ -839,6 +846,138 @@ function V2_applyPlan() {
     document.getElementById('elec-price').value = ELEC_PLANS[plan];
   }
   C_runSim();
+}
+
+// ===== データ保存・読込 =====
+function V2_collectData() {
+  const g = id => document.getElementById(id)?.value || '';
+  return {
+    app: 'SolarHack',
+    version: '2.0',
+    savedAt: new Date().toISOString(),
+    project: {
+      customer: g('clientName'),
+      address: g('address') || g('map-address'),
+      note: g('note'),
+      proposer: g('proposer-name'),
+    },
+    system: {
+      panelMaker: g('panelMaker'), panelModel: g('panelModel'),
+      panelWp: g('panelWp'), panels: g('totalPanels') || g('est-panels'),
+      pcsMaker: g('pcsMaker'), pcsModel: g('pcsModel'), pcsKw: g('pcsKw'),
+    },
+    simulation: {
+      elecPlan: g('elec-plan'), elecPrice: g('elec-price'),
+      sellMode: g('sell-mode'), sellPrice: g('sell-price'),
+      escalation: g('elec-escalation'), investOverride: g('invest-override'),
+      result: window.V2_SIM || null,
+    },
+    irradiance: window.V2_IRR || null,
+  };
+}
+
+function V2_saveJSON() {
+  const data = V2_collectData();
+  const name = (data.project.customer || 'solarhack') + '_' +
+    new Date().toISOString().slice(0,10) + '.json';
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function V2_loadJSON(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      const s = (id, v) => { const el=document.getElementById(id); if(el && v) el.value = v; };
+      s('clientName', d.project?.customer);
+      s('address', d.project?.address); s('map-address', d.project?.address);
+      s('note', d.project?.note);
+      s('proposer-name', d.project?.proposer);
+      s('panelWp', d.system?.panelWp);
+      s('totalPanels', d.system?.panels); s('est-panels', d.system?.panels);
+      s('elec-plan', d.simulation?.elecPlan);
+      s('elec-price', d.simulation?.elecPrice);
+      s('sell-mode', d.simulation?.sellMode);
+      s('sell-price', d.simulation?.sellPrice);
+      s('elec-escalation', d.simulation?.escalation);
+      if (d.irradiance) window.V2_IRR = d.irradiance;
+      alert('読み込みました。シミュレーションを再実行してください。');
+    } catch(err) { alert('読込エラー: ' + err.message); }
+  };
+  reader.readAsText(file);
+  ev.target.value = '';
+}
+
+// ===== Excel出力 =====
+function V2_exportExcel() {
+  if (!window.V2_SIM) { alert('先にシミュレーションを実行してください'); return; }
+  if (typeof XLSX === 'undefined') { alert('Excelライブラリの読込に失敗しました'); return; }
+
+  const d = V2_collectData();
+  const sim = window.V2_SIM;
+  const fmt = v => Math.round(v);
+  const today = new Date().toLocaleDateString('ja-JP');
+
+  // ---- シート1：概要 ----
+  const summary = [
+    ['太陽光発電設備の導入に関する効果とシミュレーション'],
+    [],
+    ['作成日', today, '', '提案者', d.project.proposer || ''],
+    ['お客様名', d.project.customer || '', '', '設置場所', d.project.address || ''],
+    [],
+    ['■ システム概要'],
+    ['設備容量', sim.kw.toFixed(2) + ' kW'],
+    ['パネル', (d.system.panelMaker||'') + ' ' + (d.system.panelModel||'') + ' × ' + (d.system.panels||'') + '枚'],
+    ['PCS', (d.system.pcsMaker||'') + ' ' + (d.system.pcsModel||'')],
+    [],
+    ['■ 年間効果'],
+    ['年間発電量', fmt(sim.totalGen) + ' kWh'],
+    ['年間経済効果', fmt(sim.totalBenefit) + ' 円'],
+    ['電気単価', d.simulation.elecPrice + ' 円/kWh'],
+    ['売電モード', d.simulation.sellMode === 'full-self' ? '完全自家消費' : '余剰売電'],
+    [],
+    ['※本シミュレーションは概算値であり、実際の発電量・経済効果を保証するものではありません。'],
+    ['株式会社SAWADA'],
+  ];
+
+  // ---- シート2：月別 ----
+  const monthly = [['月', '発電量(kWh)', '経済効果(円)']];
+  sim.rows.forEach(r => monthly.push([r.m + '月', fmt(r.gen), fmt(r.benefit)]));
+  monthly.push(['合計', fmt(sim.totalGen), fmt(sim.totalBenefit)]);
+
+  // ---- シート3：キャッシュフロー（CF計算済みの場合） ----
+  const cfRows = [['年度', '発電量(kWh)', '経済効果(円)', '累積CF(円)']];
+  const cfTbody = document.getElementById('cf-tbody');
+  if (cfTbody) {
+    cfTbody.querySelectorAll('tr').forEach(tr => {
+      const tds = [...tr.querySelectorAll('td')].map(td => td.textContent.trim());
+      if (tds.length >= 4) cfRows.push(tds);
+    });
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.aoa_to_sheet(summary);
+  ws1['!cols'] = [{wch:16},{wch:24},{wch:4},{wch:12},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws1, '概要');
+  const ws2 = XLSX.utils.aoa_to_sheet(monthly);
+  ws2['!cols'] = [{wch:8},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws2, '月別シミュレーション');
+  if (cfRows.length > 1) {
+    const ws3 = XLSX.utils.aoa_to_sheet(cfRows);
+    ws3['!cols'] = [{wch:8},{wch:14},{wch:14},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws3, 'キャッシュフロー');
+  }
+
+  const fname = '太陽光発電シミュレーション_' + (d.project.customer || '御中') + '_' +
+    new Date().toISOString().slice(0,10) + '.xlsx';
+  XLSX.writeFile(wb, fname);
 }
 
 async function V2_fetchIrr(lat, lon) {
