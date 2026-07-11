@@ -361,6 +361,18 @@ table td {
       <input type="number" id="annualBenefit" readonly placeholder="-">
     </div>
     <button class="btn primary" onclick="C_runSim()">シミュレーション実行</button>
+    <div id="sim-result" class="hidden" style="margin-top:20px">
+      <table>
+        <thead>
+          <tr>
+            <th>月</th>
+            <th>発電量 (kWh)</th>
+            <th>経済効果 (円)</th>
+          </tr>
+        </thead>
+        <tbody id="sim-monthly-tbody"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- === CF・IRR計算 === -->
@@ -397,6 +409,7 @@ table td {
         <h3>計算結果</h3>
         <p>IRR: <strong id="irr-result">-</strong>%</p>
         <p>NPV: <strong id="npv-result">-</strong> 万円</p>
+        <p>投資回収年: <strong id="cf-payback">-</strong> 年</p>
       </div>
     </div>
   </div>
@@ -601,29 +614,94 @@ function C_calcString() {
 }
 
 function C_runSim() {
-  const totalPanels = parseFloat(gv('totalPanels')) || 20;
-  const panelWp = parseFloat(gv('panelWp')) || 485;
-  const pcsKw = parseFloat(gv('pcsKw')) || 20;
-  const annualGen = totalPanels * panelWp * 1.2; // simplified
-  const annualBenefit = annualGen * 0.031 / 10000; // simplified
+  const panels = parseInt(gv('est-panels') || gv('totalPanels')) || 0;
+  const wp = parseFloat(gv('est-panel-wp') || gv('panelWp')) || 485;
+  const kw = panels * wp / 1000;
+  if (kw <= 0) { alert('パネル枚数を入力してください'); return; }
 
-  sv('annualGen', Math.round(annualGen));
-  sv('annualBenefit', annualBenefit.toFixed(1));
+  // 日射量：取得済みならそれを使用、なければ全国平均3.7
+  const irr = V2_IRR.monthly || [2.9,3.4,3.9,4.3,4.5,4.1,4.3,4.5,3.9,3.4,2.9,2.7];
+  const days = [31,28,31,30,31,30,31,31,30,31,30,31];
+  const K = 0.85;            // 総合損失係数
+  const elecPrice = 31;      // 電気単価 円/kWh
+  const sellPrice = 8.3;     // 売電単価 円/kWh
+  const selfRate = 0.5;      // 自家消費率50%
+
+  let totalGen = 0, totalBenefit = 0;
+  const rows = [];
+  for (let m = 0; m < 12; m++) {
+    const gen = kw * irr[m] * days[m] * K;   // E = P×H×日数×K
+    const selfKwh = gen * selfRate;
+    const sellKwh = gen - selfKwh;
+    const benefit = selfKwh * elecPrice + sellKwh * sellPrice;
+    totalGen += gen; totalBenefit += benefit;
+    rows.push({m: m+1, gen, benefit});
+  }
+
+  window.V2_SIM = { kw, totalGen, totalBenefit, rows };
+
+  const fmt = v => Math.round(v).toLocaleString();
+  sv('annualGen', Math.round(totalGen));
+  sv('annualBenefit', (totalBenefit/10000).toFixed(1));
+
+  // 月別テーブルがあれば描画
+  const tbody = document.getElementById('sim-monthly-tbody');
+  if (tbody) {
+    tbody.innerHTML = rows.map(r =>
+      `<tr><td>${r.m}月</td><td style="text-align:right">${fmt(r.gen)}</td><td style="text-align:right">${fmt(r.benefit)}</td></tr>`
+    ).join('');
+    document.getElementById('sim-result')?.classList.remove('hidden');
+  }
+
+  // 見積のパネル枚数にも連動
+  const estP = document.getElementById('est-panels');
+  if (estP && estP.value !== panels.toString()) { estP.value = panels; V2_calcEstimate(); }
 }
 
 function C_runCF() {
-  const years = parseFloat(gv('cfYears')) || 20;
-  const annualGen = parseFloat(gv('annualGen')) || 10000;
+  if (!window.V2_SIM) { alert('先にシミュレーションを実行してください'); return; }
+  const years = parseInt(gv('cfYears')) || 20;
+  const deg = parseFloat(gv('degradeRate')) || 0.5 / 100;
+  const discountRate = 0.03;
+  // 投資額：見積の税込合計から取得、なければkW×15万
+  const totalText = document.getElementById('est-total')?.textContent || '';
+  const invest = parseInt(totalText.replace(/[^0-9]/g,'')) || window.V2_SIM.kw * 150000;
 
-  let html = '';
-  let cumulativeCf = 0;
-  for (let i = 1; i <= years; i++) {
-    const gen = annualGen * Math.pow(0.995, i - 1);
-    const cf = gen * 0.031 / 10000;
-    cumulativeCf += cf;
-    html += `<tr><td>${i}年目</td><td>${Math.round(gen)}</td><td>${cf.toFixed(2)}</td><td>${cumulativeCf.toFixed(2)}</td></tr>`;
+  let cum = -invest, npv = -invest, payback = null;
+  const cashflows = [-invest];
+  const rows = [];
+  for (let y = 1; y <= years; y++) {
+    const benefit = window.V2_SIM.totalBenefit * Math.pow(1-deg, y-1) - 50000; // O&M5万/年
+    cum += benefit;
+    npv += benefit / Math.pow(1+discountRate, y);
+    cashflows.push(benefit);
+    if (!payback && cum >= 0) payback = y;
+    rows.push({y, gen: window.V2_SIM.totalGen*Math.pow(1-deg,y-1), benefit, cum});
   }
-  document.getElementById('cf-tbody').innerHTML = html;
+
+  // IRR（ニュートン法）
+  let irr = 0.05;
+  for (let i = 0; i < 100; i++) {
+    let f=0, df=0;
+    cashflows.forEach((cf,t)=>{ f+=cf/Math.pow(1+irr,t); df-=t*cf/Math.pow(1+irr,t+1); });
+    const d = f/df; irr -= d;
+    if (Math.abs(d) < 1e-8) break;
+  }
+
+  const fmt = v => Math.round(v).toLocaleString();
+  const set = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('irr-result', (irr*100).toFixed(1));
+  set('npv-result', fmt(npv/10000));
+  set('cf-payback', payback || '-');
+
+  const tbody = document.getElementById('cf-tbody');
+  if (tbody) tbody.innerHTML = rows.map(r =>
+    `<tr style="${r.cum>=0?'background:rgba(0,200,150,0.06)':''}">
+      <td>${r.y}年</td><td style="text-align:right">${fmt(r.gen)}</td>
+      <td style="text-align:right">${fmt(r.benefit)}</td>
+      <td style="text-align:right;color:${r.cum>=0?'#00c896':'#ff4d6a'}">${fmt(r.cum)}</td>
+    </tr>`
+  ).join('');
   document.getElementById('cf-result').classList.remove('hidden');
 }
 
@@ -653,6 +731,7 @@ async function V2_searchAddress() {
     const lon = parseFloat(geo[0].lon);
     v2Map.setView([lat, lon], 17);
     document.getElementById('map-result').textContent = `✓ ${geo[0].address?.city || geo[0].display_name} (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+    await V2_fetchIrr(lat, lon);
   } catch(e) { alert('エラー: ' + e.message); }
 }
 
@@ -676,6 +755,39 @@ function V2_addPoint(e) {
     v2MapPoints = [];
     v2MapMarkers = [];
     if (v2MapPoly) v2Map.removeLayer(v2MapPoly);
+  }
+}
+
+// ===== 日射量取得（MONSOLA11m） =====
+let V2_IRR = { monthly: null, station: null, dist: null };
+
+async function V2_fetchIrr(lat, lon) {
+  const BASE = './data';
+  try {
+    const lite = await fetch(`${BASE}/stations_lite.json`).then(r => r.json());
+    const hav = (la1,lo1,la2,lo2) => {
+      const R=6371, dLa=(la2-la1)*Math.PI/180, dLo=(lo2-lo1)*Math.PI/180;
+      const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+      return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    };
+    let code=null, name='', minD=Infinity;
+    for (const st of lite.stations) {
+      const d = hav(lat, lon, st.la, st.lo);
+      if (d < minD) { minD=d; code=st.c; name=st.n; }
+    }
+    const st = await fetch(`${BASE}/stations/${code}.json`).then(r => r.json());
+    // 南向き(az_i=0)・傾斜30度(tilt_i=2)の月別日射量 kWh/m2/day
+    const az_i = 0, tilt_i = 2;
+    const monthly = Array.from({length:12}, (_,m) =>
+      (st.i[az_i*9*12 + tilt_i*12 + m] || 350) / 100
+    );
+    V2_IRR = { monthly, station: name, dist: minD };
+    const el = document.getElementById('map-result');
+    if (el) el.textContent += ` ☀観測所:${name}(${minD.toFixed(0)}km) 年平均${(monthly.reduce((a,b)=>a+b,0)/12).toFixed(2)}kWh/m2/日`;
+    return true;
+  } catch(e) {
+    console.warn('日射量取得失敗:', e);
+    return false;
   }
 }
 
