@@ -191,9 +191,25 @@ table td {
 }
 .card-body-content { transition: max-height 0.3s ease; max-height: 9999px; overflow: hidden; }
 .card-body-content.collapsed { max-height: 0; }
+.nav-item { padding:10px 16px; font-size:13px; color:#7a91b0; cursor:pointer; transition:all 0.15s; }
+.nav-item:hover { color:#ff7c2a; background:rgba(255,124,42,0.08); }
+@media (max-width:768px) { #sidenav { display:none; } }
 </style>
 </head>
 <body>
+<div style="display:flex">
+  <nav id="sidenav" style="width:190px;min-height:100vh;background:#0B1829;border-right:1px solid rgba(255,255,255,0.08);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0">
+    <div style="padding:0 16px 16px;font-size:16px;font-weight:700;color:#ff7c2a">☀ SolarHack</div>
+    <div class="nav-item" onclick="V2_scrollTo('sec-project')">📋 案件情報</div>
+    <div class="nav-item" onclick="V2_scrollTo('sec-map')">📍 設置場所</div>
+    <div class="nav-item" onclick="V2_scrollTo('sec-panel')">☀ パネル選択</div>
+    <div class="nav-item" onclick="V2_scrollTo('sec-pcs')">⚡ PCS選択</div>
+    <div class="nav-item" onclick="V2_scrollTo('sec-design')">⚙ システム設計</div>
+    <div class="nav-item" onclick="V2_scrollTo('sec-sim')">📊 シミュレーション</div>
+    <div class="nav-item" onclick="V2_scrollTo('sec-estimate')">💴 概算見積</div>
+    <div class="nav-item" onclick="V2_scrollTo('sec-cf')">💹 CF・IRR</div>
+  </nav>
+  <div id="main-content" style="flex:1;min-width:0">
 
 <div class="container">
   <div class="header">
@@ -202,7 +218,7 @@ table td {
   </div>
 
   <!-- === 案件情報 === -->
-  <div class="card">
+  <div class="card" id="sec-project">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>📋 案件情報</h2>
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
@@ -219,13 +235,18 @@ table td {
       </div>
     </div>
     <div class="form-group">
+      <label>提案者名</label>
+      <input type="text" id="proposer-name" placeholder="例：清田 雄也"
+        onchange="localStorage.setItem('sh_proposer', this.value)">
+    </div>
+    <div class="form-group">
       <label>備考</label>
       <textarea id="note" rows="3" placeholder="工事条件など"></textarea>
     </div>
   </div>
 
   <!-- === 設置場所（地図） === -->
-  <div class="card">
+  <div class="card" id="sec-map">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>📍 設置場所</h2>
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
@@ -247,7 +268,7 @@ table td {
   </div>
 
   <!-- === パネル選択 === -->
-  <div class="card">
+  <div class="card" id="sec-panel">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>☀️ パネル選択</h2>
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
@@ -284,7 +305,7 @@ table td {
   </div>
 
   <!-- === PCS選択 === -->
-  <div class="card">
+  <div class="card" id="sec-pcs">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>⚡ PCS選択</h2>
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
@@ -321,7 +342,7 @@ table td {
   </div>
 
   <!-- === システム設計 === -->
-  <div class="card">
+  <div class="card" id="sec-design">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>⚙️ システム設計</h2>
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
@@ -346,12 +367,47 @@ table td {
   </div>
 
   <!-- === シミュレーション === -->
-  <div class="card">
+  <div class="card" id="sec-sim">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>📊 発電シミュレーション</h2>
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
     </div>
     <div class="card-body-content">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <label>電気料金プラン</label>
+        <select id="elec-plan" onchange="V2_applyPlan()">
+          <option value="jury_a">中国電力 従量電灯A（30.60円）</option>
+          <option value="lowv" selected>中国電力 低圧電力（27.85円）</option>
+          <option value="highv_a">中国電力 高圧電力A（22.50円）</option>
+          <option value="highv_b">中国電力 高圧電力B（21.30円）</option>
+          <option value="custom">その他（手入力）</option>
+        </select>
+      </div>
+      <div>
+        <label>電気単価（円/kWh）</label>
+        <input type="number" id="elec-price" value="27.85" step="0.01" onchange="C_runSim()">
+      </div>
+      <div>
+        <label>売電モード</label>
+        <select id="sell-mode" onchange="C_runSim()">
+          <option value="surplus" selected>余剰売電（自家消費50%）</option>
+          <option value="full-self">完全自家消費（売電なし）</option>
+        </select>
+      </div>
+      <div>
+        <label>売電単価（円/kWh）</label>
+        <input type="number" id="sell-price" value="8.3" step="0.1" onchange="C_runSim()">
+      </div>
+      <div>
+        <label>電気代上昇率（%/年）</label>
+        <input type="number" id="elec-escalation" value="2.0" step="0.1" onchange="C_runCF()">
+      </div>
+      <div>
+        <label>設備金額調整（円・空欄=見積連動）</label>
+        <input type="number" id="invest-override" placeholder="自動" onchange="C_runCF()">
+      </div>
+    </div>
     <div class="form-group">
       <label>年間発電量 (kWh)</label>
       <input type="number" id="annualGen" readonly placeholder="-">
@@ -376,7 +432,7 @@ table td {
   </div>
 
   <!-- === CF・IRR計算 === -->
-  <div class="card">
+  <div class="card" id="sec-cf">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>💰 CF・IRR計算</h2>
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
@@ -623,9 +679,10 @@ function C_runSim() {
   const irr = V2_IRR.monthly || [2.9,3.4,3.9,4.3,4.5,4.1,4.3,4.5,3.9,3.4,2.9,2.7];
   const days = [31,28,31,30,31,30,31,31,30,31,30,31];
   const K = 0.85;            // 総合損失係数
-  const elecPrice = 31;      // 電気単価 円/kWh
-  const sellPrice = 8.3;     // 売電単価 円/kWh
-  const selfRate = 0.5;      // 自家消費率50%
+  const elecPrice = parseFloat(document.getElementById('elec-price')?.value || 27.85);
+  const sellPrice = parseFloat(document.getElementById('sell-price')?.value || 8.3);
+  const sellMode = document.getElementById('sell-mode')?.value || 'surplus';
+  const selfRate = sellMode === 'full-self' ? 1.0 : 0.5;
 
   let totalGen = 0, totalBenefit = 0;
   const rows = [];
@@ -662,16 +719,18 @@ function C_runCF() {
   if (!window.V2_SIM) { alert('先にシミュレーションを実行してください'); return; }
   const years = parseInt(gv('cfYears')) || 20;
   const deg = parseFloat(gv('degradeRate')) || 0.5 / 100;
+  const esc = parseFloat(document.getElementById('elec-escalation')?.value || 2.0) / 100;
   const discountRate = 0.03;
   // 投資額：見積の税込合計から取得、なければkW×15万
+  const override = parseFloat(document.getElementById('invest-override')?.value);
   const totalText = document.getElementById('est-total')?.textContent || '';
-  const invest = parseInt(totalText.replace(/[^0-9]/g,'')) || window.V2_SIM.kw * 150000;
+  const invest = override > 0 ? override : (parseInt(totalText.replace(/[^0-9]/g,'')) || window.V2_SIM.kw * 150000);
 
   let cum = -invest, npv = -invest, payback = null;
   const cashflows = [-invest];
   const rows = [];
   for (let y = 1; y <= years; y++) {
-    const benefit = window.V2_SIM.totalBenefit * Math.pow(1-deg, y-1) - 50000; // O&M5万/年
+    const benefit = window.V2_SIM.totalBenefit * Math.pow(1-deg, y-1) * Math.pow(1+esc, y-1) - 50000; // O&M5万/年
     cum += benefit;
     npv += benefit / Math.pow(1+discountRate, y);
     cashflows.push(benefit);
@@ -761,6 +820,27 @@ function V2_addPoint(e) {
 // ===== 日射量取得（MONSOLA11m） =====
 let V2_IRR = { monthly: null, station: null, dist: null };
 
+// ===== ナビゲーション =====
+function V2_scrollTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ===== 電気料金プラン =====
+const ELEC_PLANS = {
+  jury_a:  30.60,
+  lowv:    27.85,
+  highv_a: 22.50,
+  highv_b: 21.30,
+};
+function V2_applyPlan() {
+  const plan = document.getElementById('elec-plan').value;
+  if (plan !== 'custom' && ELEC_PLANS[plan]) {
+    document.getElementById('elec-price').value = ELEC_PLANS[plan];
+  }
+  C_runSim();
+}
+
 async function V2_fetchIrr(lat, lon) {
   const BASE = './data';
   try {
@@ -794,6 +874,8 @@ async function V2_fetchIrr(lat, lon) {
 // 初期化
 window.addEventListener('load', function() {
   C_initDropdowns();
+  const savedProposer = localStorage.getItem('sh_proposer');
+  if (savedProposer) document.getElementById('proposer-name').value = savedProposer;
   if (document.getElementById('v2-map')) {
     setTimeout(V2_initMap, 100);
   }
@@ -874,5 +956,7 @@ function V2_calcEstimate() {
 }
 </script>
 
+  </div>
+</div>
 </body>
 </html>
