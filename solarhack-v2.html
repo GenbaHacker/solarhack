@@ -473,6 +473,57 @@ input[type="range"] { accent-color:#ff7c2a; }
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
     </div>
     <div class="card-body-content">
+    <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:600;color:#ff7c2a;margin-bottom:10px">🔌 電力使用状況（自家消費率の自動計算）</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label>建物タイプ</label>
+          <select id="bldg-type" onchange="V2_updateUsage()">
+            <option value="factory" selected>工場（昼間65%）</option>
+            <option value="office">事務所（昼間60%）</option>
+            <option value="shop">店舗（昼間70%）</option>
+            <option value="house">住宅（昼間35%）</option>
+          </select>
+        </div>
+        <div id="workdays-wrap">
+          <label>稼働日</label>
+          <select id="work-days" onchange="V2_updateUsage()">
+            <option value="7">週7日稼働</option>
+            <option value="6">週6日稼働</option>
+            <option value="5" selected>週5日稼働（土日休）</option>
+          </select>
+        </div>
+        <div>
+          <label>入力方法</label>
+          <select id="usage-mode" onchange="V2_toggleUsageMode()">
+            <option value="bill" selected>月額電気代から概算</option>
+            <option value="monthly">月別使用量を入力</option>
+          </select>
+        </div>
+      </div>
+      <div id="usage-bill-row" style="margin-bottom:10px">
+        <label>月額電気代（円・平均）</label>
+        <input type="number" id="monthly-bill" value="250000" step="1000" onchange="V2_updateUsage()" style="width:100%;padding:8px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff">
+      </div>
+      <div id="usage-monthly-row" style="display:none">
+        <label style="display:block;margin-bottom:8px">月別使用量（kWh）</label>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px">
+          <div><input type="number" id="usage-m0" placeholder="1月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m1" placeholder="2月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m2" placeholder="3月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m3" placeholder="4月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m4" placeholder="5月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m5" placeholder="6月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m6" placeholder="7月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m7" placeholder="8月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m8" placeholder="9月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m9" placeholder="10月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m10" placeholder="11月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+          <div><input type="number" id="usage-m11" placeholder="12月" onchange="V2_updateUsage()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff;font-size:11px"></div>
+        </div>
+      </div>
+      <div id="usage-summary" style="margin-top:10px;font-size:12px;color:#00c896"></div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
       <div>
         <label>電気料金プラン</label>
@@ -523,6 +574,7 @@ input[type="range"] { accent-color:#ff7c2a; }
           <tr>
             <th>月</th>
             <th>発電量 (kWh)</th>
+            <th>自家消費率</th>
             <th>経済効果 (円)</th>
           </tr>
         </thead>
@@ -866,7 +918,6 @@ function C_runSim() {
   const elecPrice = parseFloat(document.getElementById('elec-price')?.value || 27.85);
   const sellPrice = parseFloat(document.getElementById('sell-price')?.value || 8.3);
   const sellMode = document.getElementById('sell-mode')?.value || 'surplus';
-  const selfRate = sellMode === 'full-self' ? 1.0 : 0.5;
 
   const wp = parseFloat(gv('est-panel-wp') || gv('panelWp')) || 485;
   const faces = v2RoofFaces.length ? v2RoofFaces
@@ -875,7 +926,13 @@ function C_runSim() {
   const totalKw = faces.reduce((s,f)=>s+(f.count || 0), 0) * wp / 1000;
   if (totalKw <= 0) { alert('パネル枚数を入力してください'); return; }
 
-  let totalGen = 0, totalBenefit = 0;
+  // 使用量ベースの自家消費率計算用
+  const usage = V2_getMonthlyUsage();
+  const prof = BLDG_PROFILES[document.getElementById('bldg-type')?.value || 'factory'];
+  const wd = prof.workdaySelectable
+    ? (parseInt(document.getElementById('work-days')?.value || 7) / 7) : 1;
+
+  let totalGen = 0, totalBenefit = 0, totalSelfKwh = 0, totalSellKwh = 0;
   const rows = [];
   for (let m = 0; m < 12; m++) {
     let genM = 0;
@@ -889,14 +946,27 @@ function C_runSim() {
       const tempFactor = 1 + ((ambT + 25) - 25) * (-0.004);
       genM += fkw * irrF * days[m] * K * (1 - snowLoss) * tempFactor;
     }
-    const selfKwh = genM * selfRate;
-    const sellKwh = genM - selfKwh;
+
+    // 月別自家消費率を計算
+    let selfKwh, sellKwh, selfRate = 0.5;
+    if (sellMode === 'full-self') {
+      selfKwh = genM; sellKwh = 0; selfRate = 1.0;
+    } else if (usage.reduce((a,b)=>a+b,0) > 0) {
+      const dayUsage = usage[m] * prof.day * wd;
+      selfKwh = Math.min(genM * 0.85, dayUsage);
+      sellKwh = genM - selfKwh;
+      selfRate = genM > 0 ? selfKwh / genM : 0;
+    } else {
+      selfKwh = genM * 0.5; sellKwh = genM - selfKwh;
+    }
+
     const benefit = selfKwh * elecPrice + sellKwh * sellPrice;
     totalGen += genM; totalBenefit += benefit;
-    rows.push({m: m+1, gen: genM, benefit});
+    totalSelfKwh += selfKwh; totalSellKwh += sellKwh;
+    rows.push({m: m+1, gen: genM, selfRate, benefit, selfKwh});
   }
 
-  window.V2_SIM = { kw: totalKw, totalGen, totalBenefit, rows };
+  window.V2_SIM = { kw: totalKw, totalGen, totalBenefit, totalSelfKwh, totalSellKwh, rows };
 
   const fmt = v => Math.round(v).toLocaleString();
   sv('annualGen', Math.round(totalGen));
@@ -906,7 +976,7 @@ function C_runSim() {
   const tbody = document.getElementById('sim-monthly-tbody');
   if (tbody) {
     tbody.innerHTML = rows.map(r =>
-      `<tr><td>${r.m}月</td><td style="text-align:right">${fmt(r.gen)}</td><td style="text-align:right">${fmt(r.benefit)}</td></tr>`
+      `<tr><td>${r.m}月</td><td style="text-align:right">${fmt(r.gen)}</td><td style="text-align:right">${r.gen > 0 ? Math.round(r.selfRate*100)+'%' : '-'}</td><td style="text-align:right">${fmt(r.benefit)}</td></tr>`
     ).join('');
     document.getElementById('sim-result')?.classList.remove('hidden');
   }
@@ -1070,6 +1140,46 @@ function V2_getIrrFor(compassAz, tiltDeg) {
   const azI = azSteps.reduce((bi,v,i)=>Math.abs(v-mAz)<Math.abs(azSteps[bi]-mAz)?i:bi,0);
   const tI  = tiltSteps.reduce((bi,v,i)=>Math.abs(v-tiltDeg)<Math.abs(tiltSteps[bi]-tiltDeg)?i:bi,0);
   return Array.from({length:12},(_,m)=>(V2_IRR.raw[azI*9*12+tI*12+m]||350)/100);
+}
+
+// ===== 電力使用量・自家消費率 =====
+const BLDG_PROFILES = {
+  factory: { day: 0.65, workdaySelectable: true },
+  office:  { day: 0.60, workdaySelectable: true },
+  shop:    { day: 0.70, workdaySelectable: false },
+  house:   { day: 0.35, workdaySelectable: false },
+};
+const SEASON_COEF = [1.08,1.02,0.98,0.92,0.90,0.95,1.10,1.15,1.02,0.92,0.94,1.02];
+
+function V2_toggleUsageMode() {
+  const mode = document.getElementById('usage-mode').value;
+  document.getElementById('usage-bill-row').style.display = mode==='bill'?'':'none';
+  document.getElementById('usage-monthly-row').style.display = mode==='monthly'?'':'none';
+  V2_updateUsage();
+}
+
+function V2_getMonthlyUsage() {
+  const mode = document.getElementById('usage-mode')?.value || 'bill';
+  if (mode === 'monthly') {
+    return Array.from({length:12}, (_,m) =>
+      parseFloat(document.getElementById('usage-m'+m)?.value) || 0);
+  }
+  const bill = parseFloat(document.getElementById('monthly-bill')?.value || 0);
+  const price = parseFloat(document.getElementById('elec-price')?.value || 27.85);
+  if (!bill || !price) return Array(12).fill(0);
+  const avgKwh = bill / price;
+  return SEASON_COEF.map(c => avgKwh * c);
+}
+
+function V2_updateUsage() {
+  const p = BLDG_PROFILES[document.getElementById('bldg-type')?.value || 'factory'];
+  document.getElementById('workdays-wrap').style.display =
+    p.workdaySelectable ? '' : 'none';
+  const usage = V2_getMonthlyUsage();
+  const total = usage.reduce((a,b)=>a+b,0);
+  document.getElementById('usage-summary').textContent =
+    total ? `年間使用量（推定）: ${Math.round(total).toLocaleString()} kWh` : '';
+  if (window.V2_SIM) C_runSim();
 }
 
 // ===== 屋根面確定・管理 =====
