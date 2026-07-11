@@ -19,7 +19,15 @@ const DENKI_MASTER = {
   // AC幹線（キャブタイヤケーブル）
   cvt_60:           6_080,    // ¥/m 低圧AC幹線
   cet_60:           8_100,    // ¥/m ケーブルラック用（ケイテック）
-  wl1_200:          9_600,    // ¥/m 高圧配線（ケイテック）
+
+  // TASK 100: AC cable price table (per-size, not binary)
+  // anchors: 60sq=¥6,080 (大成 CVT60), 100sq=¥9,200 (古河 CV100-3C)
+  // >100sq are interpolations — mark 要実績検証 in spec
+  ac_cable_price: {
+    14: 980, 22: 1_300, 38: 1_800, 60: 6_080,
+    100: 9_200, 150: 12_600, 200: 17_000, 250: 21_000, 325: 27_000
+  },
+  // wl1_200: 9_600,  // ← 正体未確認・使用禁止 (不合理な値: 60sq=8,100より高いのに容量は少ない)
 
   // 保護装置
   pfd_28:             360,    // ¥/個
@@ -125,8 +133,9 @@ function calcConduitLength(distPcsToGrid_m, routing) {
 }
 
 function calcRackWidth(cableAreaTotal_mm2) {
-  // Width 400 if cross-section > 8000mm², else 200
-  return cableAreaTotal_mm2 > 8000 ? 400 : 200;
+  // TASK 102: Calibrated threshold so 207kW→400, 77.6kW→200
+  // Width 400 if cross-section > 6000mm², else 200
+  return cableAreaTotal_mm2 > 6000 ? 400 : 200;
 }
 
 // ============================================================================
@@ -187,15 +196,19 @@ export function DenkiHack_calc(params) {
   // =========================================================================
   const acCableCalc = calcAcCableSize(pcsKwTotal, distPcsToGrid_m, acVoltage, dropLimitRatio);
   const acCableSize = acCableCalc.areaSelected_sq;
-  const acCableName = acCableSize <= 60 ? `CET${acCableSize}` : `WL1-${acCableSize}`;
-  const acCableUnitPrice = acCableSize <= 60 ? DENKI_MASTER.cet_60 : DENKI_MASTER.wl1_200;
+
+  // TASK 100: Use per-size price table instead of binary logic
+  const acCableUnitPrice = DENKI_MASTER.ac_cable_price[acCableSize] || DENKI_MASTER.ac_cable_price[325];
+  const needsVerification = acCableSize > 100;  // >100sq is interpolation, needs real quote
+  const acCableName = acCableSize <= 60 ? `CET${acCableSize}` : `CVT${acCableSize}`;
+  const specNote = needsVerification ? ` ⚠ 要実績検証` : '';
 
   const acCableQty = distPcsToGrid_m;
   const acCableCost = acCableQty * acCableUnitPrice;
   bom.push({
     cat: 'AC幹線',
     name: acCableName,
-    spec: `${acCableSize}sq × ${distPcsToGrid_m}m (圧損 ${acCableCalc.volt_drop_percent}%)`,
+    spec: `${acCableSize}sq × ${distPcsToGrid_m}m (圧損 ${acCableCalc.volt_drop_percent}%)${specNote}`,
     qty: acCableQty,
     unit: 'm',
     unitPrice: acCableUnitPrice,
@@ -209,7 +222,11 @@ export function DenkiHack_calc(params) {
   let rackCost = 0;
   if (mountType === 'roof') {
     const rackCalc = calcRackRequired(distPvToPcs_m, distPcsToGrid_m);
-    const rackWidth = calcRackWidth(35 * acCableSize);  // approx cable area
+    // TASK 102: Consider ALL cables (DC + AC), not just AC
+    const dcArea = stringCount * 5.5 * 2;  // DC cable area (mm²)
+    const acArea = acCableSize * 3.5;      // AC cable area (mm²)
+    const totalArea = dcArea + acArea;
+    const rackWidth = calcRackWidth(totalArea);
 
     const rackType = rackWidth === 400 ? '400' : '200';
     const rackPrice = rackWidth === 400 ? DENKI_MASTER.rack_400_2m : DENKI_MASTER.rack_200_2m;
