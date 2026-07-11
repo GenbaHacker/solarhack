@@ -996,12 +996,10 @@ function C_applyPanel() {
   sv('panelWidth', panel.w);
   sv('panelHeight', panel.h);
 
-  // 確定済み面を再レイアウト（パネルサイズ変更対応）
-  if (v2RoofFaces.length) {
-    v2RoofFaces.forEach(f => V2_layoutFace(f));
-    V2_renderFaceList();
-    V2_syncTotals();
-  }
+  // TASK 97: Do NOT re-layout confirmed faces — they have snapshots of their panel specs
+  // Changing the panel selector only affects the NEXT face to be confirmed.
+  // To change a confirmed face's panel, user must click "このパネルに変更" (see V2_renderFaceList)
+
   // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
   V2_calcEstimate();
 }
@@ -1581,10 +1579,18 @@ function V2_confirmFace() {
   if (v2MapPoints.length < 3) { alert('3点以上指定してください'); return; }
   const tilt = parseFloat(document.getElementById('roof-tilt').value);
   const az   = parseFloat(document.getElementById('roof-azimuth').value);
+
+  // TASK 97: Snapshot panel specs at confirmation time (NEVER read from DOM later)
+  const panelW = parseFloat(document.getElementById('panelWidth')?.value) || 1762;  // mm
+  const panelH = parseFloat(document.getElementById('panelHeight')?.value) || 1134; // mm
+  const panelWp = parseFloat(document.getElementById('panelWp')?.value) || 485;
+  const panelModel = document.getElementById('panelModel')?.value || '';
+
   const face = {
     id: ++v2FaceSeq,
     points: [...v2MapPoints],
     tilt, azimuth: az,
+    panelW, panelH, panelWp, panelModel,  // TASK 97: Snapshot, read-only for this face
     count: 0, kw: 0, layers: []
   };
   v2RoofFaces.push(face);
@@ -1934,8 +1940,9 @@ function V2_layoutFace(face) {
   face.layers.forEach(l => v2Map.removeLayer(l));
   face.layers = [];
 
-  const panelW = (parseFloat(document.getElementById('panelWidth')?.value) || 1762) / 1000;  // m
-  const panelH = (parseFloat(document.getElementById('panelHeight')?.value) || 1134) / 1000; // m
+  // TASK 97: Read from face snapshot, NEVER from DOM (prevents silent corruption)
+  const panelW = ((face.panelW || 1762) / 1000);  // mm → m
+  const panelH = ((face.panelH || 1134) / 1000); // mm → m
   const gap = 0.02;
 
   if (face.points.length < 3) return;
@@ -1988,9 +1995,9 @@ function V2_layoutFace(face) {
     }
   }
 
-  const wp = parseFloat(document.getElementById('panelWp')?.value || 485);
+  // TASK 97: Use per-face panelWp from snapshot, not global selector
   face.count = count;
-  face.kw = count * wp / 1000;
+  face.kw = count * (face.panelWp || 485) / 1000;
 }
 
 // 現在の入力値でプレビュー描画（未確定面）
