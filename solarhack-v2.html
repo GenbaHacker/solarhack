@@ -1605,27 +1605,37 @@ function shouldShowRiskBanner(risks) {
 // ===== TASK 8: Cloud logging =====
 function V2_logEstimate() {
   if (!V2_EST) return;
-  if (LOG_ENDPOINT.includes('PLACEHOLDER')) {
-    console.warn('LOG_ENDPOINT not configured');
-    return;
-  }
+
+  const body = JSON.stringify({
+    ts: new Date().toISOString(),
+    user: COST_MASTER_STATE.updatedBy,
+    customer: document.getElementById('customer')?.value || '',
+    address: document.getElementById('address')?.value || '',
+    kw: V2_EST.perKw,
+    panels: V2_EST.panels,
+    pcsModel: document.getElementById('pcsModel')?.value || '',
+    pcsUnits: V2_EST.pcsUnits,
+    roofMaterial: document.getElementById('roofMaterial')?.value || '',
+    materialCost: V2_EST.materialCost,
+    workCost: V2_EST.workCost,
+    contingency: V2_EST.contingency || 0,
+    subTotal: V2_EST.subTotal,
+    total: V2_EST.total,
+    perKw: V2_EST.perKw,
+    unresolvedRisks: countUnresolvedRisks(V2_EST.risks),
+    irrSource: V2_IRR_STATE.source,
+  });
+
   try {
-    const payload = JSON.stringify({
-      ts: new Date().toISOString(),
-      user: COST_MASTER_STATE.updatedBy,
-      kw: V2_EST.perKw,
-      panels: V2_EST.panels,
-      materialCost: V2_EST.materialCost,
-      workCost: V2_EST.workCost,
-      contingency: V2_EST.contingency || 0,
-      total: V2_EST.total,
-      unresolvedRisks: countUnresolvedRisks(V2_EST.risks),
-      irrSource: V2_IRR_STATE.source,
-    });
-    navigator.sendBeacon(LOG_ENDPOINT, new Blob([payload], {type:'text/plain;charset=utf-8'}));
-  } catch (e) {
-    console.warn('log failed', e);
-  }
+    const blob = new Blob([body], {type:'text/plain;charset=utf-8'});
+    if (navigator.sendBeacon && navigator.sendBeacon(LOG_ENDPOINT, blob)) return;
+  } catch (e) { /* fall through */ }
+
+  fetch(LOG_ENDPOINT, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body, keepalive:true, mode:'no-cors',
+  }).catch(err => console.warn('[SolarHack] estimate log failed:', err));
 }
 
 function V2_undoPoint() {
@@ -2172,8 +2182,7 @@ const RISK_ITEMS = [
 ];
 
 // ===== TASK 8: クラウドログエンドポイント =====
-// TODO: replace with the GAS Web App /exec URL
-const LOG_ENDPOINT = 'https://script.google.com/macros/s/PLACEHOLDER/exec';
+const LOG_ENDPOINT = 'https://script.google.com/macros/s/AKfycbx-8aG0Z6rcpvn6DSnj_C9RW11BkpypnVo9E_pmsXZlG1O49s-pDP8FLmz1zlqCLTit/exec';
 
 function V2_buildEquipEstimate() {
   const panels = parseInt(document.getElementById('totalPanels')?.value || 0);
