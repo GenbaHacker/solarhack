@@ -192,6 +192,9 @@ table td {
 }
 .card-body-content { transition: max-height 0.3s ease; max-height: 9999px; overflow: hidden; }
 .card-body-content.collapsed { max-height: 0; }
+.preset-btn { flex:1; padding:4px 6px; font-size:11px; background:#162540; color:#7a91b0; border:1px solid rgba(255,255,255,0.12); border-radius:4px; cursor:pointer; }
+.preset-btn:hover { color:#ff7c2a; border-color:#ff7c2a; }
+input[type="range"] { accent-color:#ff7c2a; }
 .nav-item { padding:10px 16px; font-size:13px; color:#7a91b0; cursor:pointer; transition:all 0.15s; }
 .nav-item:hover { color:#ff7c2a; background:rgba(255,124,42,0.08); }
 @media (max-width:768px) { #sidenav { display:none; } }
@@ -238,7 +241,7 @@ table td {
       </div>
       <div class="form-group">
         <label>住所</label>
-        <input type="text" id="address" placeholder="例：東京都渋谷区">
+        <input type="text" id="address" placeholder="例：東京都渋谷区" onchange="V2_syncAddress(this.value)">
       </div>
     </div>
     <div class="form-group">
@@ -297,23 +300,37 @@ table td {
         🗑️ 全消去
       </button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">
       <div>
-        <label>屋根勾配（度）</label>
-        <input type="number" id="roof-tilt" value="20" min="0" max="60"
+        <label>屋根勾配 <span id="tilt-val" style="color:#ff7c2a;font-weight:700">20度</span></label>
+        <input type="range" id="roof-tilt" min="0" max="45" value="20" step="1"
+          style="width:100%"
+          oninput="document.getElementById('tilt-val').textContent=this.value+'度';"
           onchange="V2_renderPanelLayout()">
-      </div>
-      <div>
-        <label>方位角（度・南=180）</label>
-        <input type="number" id="roof-azimuth" value="180" min="0" max="359"
-          onchange="V2_renderPanelLayout()">
-      </div>
-      <div>
-        <label>離隔距離</label>
-        <div id="margin-display" style="padding:8px;background:#162540;border-radius:6px;font-size:12px;color:#ff7c2a">
-          自動計算
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <button onclick="V2_setTilt(0)" class="preset-btn">陸屋根 0°</button>
+          <button onclick="V2_setTilt(17)" class="preset-btn">3寸 17°</button>
+          <button onclick="V2_setTilt(22)" class="preset-btn">4寸 22°</button>
+          <button onclick="V2_setTilt(27)" class="preset-btn">5寸 27°</button>
         </div>
       </div>
+      <div>
+        <label>方位角 <span id="az-val" style="color:#ff7c2a;font-weight:700">180度（南）</span></label>
+        <input type="range" id="roof-azimuth" min="0" max="359" value="180" step="1"
+          style="width:100%"
+          oninput="document.getElementById('az-val').textContent=this.value+'度（'+V2_azLabel(this.value)+'）';"
+          onchange="V2_renderPanelLayout()">
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <button onclick="V2_setAz(180)" class="preset-btn">南</button>
+          <button onclick="V2_setAz(135)" class="preset-btn">南東</button>
+          <button onclick="V2_setAz(225)" class="preset-btn">南西</button>
+          <button onclick="V2_setAz(90)" class="preset-btn">東</button>
+          <button onclick="V2_setAz(270)" class="preset-btn">西</button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;padding:8px;background:#162540;border-radius:6px;font-size:12px;color:#ff7c2a">
+      <strong>離隔距離</strong>: <span id="margin-display">自動計算</span>
     </div>
     <button onclick="V2_renderPanelLayout()"
       style="width:100%;margin-top:10px;padding:10px;background:#ff7c2a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">
@@ -409,6 +426,11 @@ table td {
         <label>最大入力電流 (A)</label>
         <input type="number" id="pcsImaxPerMppt" readonly>
       </div>
+    </div>
+    <button class="btn primary" onclick="V2_recommendPcs()" style="margin-top:10px;width:100%">💡 PCS自動推奨</button>
+    <div id="pcs-recommend-list" style="margin-top:10px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px;display:none">
+      <strong style="color:#ff7c2a">推奨PCS候補</strong>
+      <div id="pcs-recommend-items" style="margin-top:8px"></div>
     </div>
     </div>
   </div>
@@ -680,6 +702,8 @@ function C_applyPanel() {
   sv('panelVmp', panel.vmp);
   sv('panelImp', panel.imp);
   sv('panelTvoc', panel.tvoc);
+  sv('panelWidth', panel.w);
+  sv('panelHeight', panel.h);
 }
 
 function C_buildPcsModels() {
@@ -709,6 +733,85 @@ function C_applyPcs() {
   sv('pcsMpptRange', `${pcs.mpptMin}-${pcs.mpptMax}`);
   sv('pcsImaxPerMppt', pcs.imaxPerMppt);
   sv('pcsMpptCount', pcs.mppt);
+}
+
+// ===== PCS自動推奨 =====
+function V2_recommendPcs() {
+  const totalPanels = parseInt(gv('totalPanels')) || 0;
+  const panelWp = parseFloat(gv('panelWp')) || 0;
+  const isHigh = document.getElementById('voltage-class').value === 'high';
+
+  if (!totalPanels || !panelWp) {
+    alert('パネル枚数と定格Wを先に設定してください');
+    return;
+  }
+
+  const dcCapacity = (totalPanels * panelWp) / 1000; // kWp
+  const candidates = [];
+
+  // 全メーカーのPCSを走査
+  for (const maker in C_PCS_DB) {
+    for (const pcs of C_PCS_DB[maker]) {
+      // DC/AC比1.2を目安にPCS台数を計算
+      const targetAc = dcCapacity / 1.2;
+      const quantity = Math.max(1, Math.round(targetAc / pcs.kw));
+      const acTotal = quantity * pcs.kw;
+      const dcAcRatio = dcCapacity / acTotal;
+
+      // 低圧案件（50kW未満）の場合、AC合計49.5kW以下のみ
+      if (!isHigh && acTotal > 49.5) continue;
+
+      candidates.push({
+        maker, model: pcs.model, pcsKw: pcs.kw,
+        quantity, acTotal, dcAcRatio,
+        diffFrom1_2: Math.abs(dcAcRatio - 1.2)
+      });
+    }
+  }
+
+  // DC/AC比1.2に近い順でソート
+  candidates.sort((a, b) => a.diffFrom1_2 - b.diffFrom1_2);
+
+  // UIに出力
+  const container = document.getElementById('pcs-recommend-list');
+  const items = document.getElementById('pcs-recommend-items');
+  items.innerHTML = '';
+
+  if (candidates.length === 0) {
+    items.innerHTML = '<p style="color:#f44;font-size:12px;margin:0">適合するPCSが見つかりません</p>';
+  } else {
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.2)"><th style="text-align:left;padding:4px 2px">メーカー</th><th>型番</th><th>kW</th><th>台</th><th>AC計</th><th>DC/AC</th><th></th></tr>';
+
+    candidates.slice(0, 5).forEach(c => {
+      const isOptimal = Math.abs(c.dcAcRatio - 1.2) < 0.05;
+      html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:${isOptimal ? 'rgba(255,124,42,0.1)' : ''}">
+        <td style="padding:4px 2px">${c.maker}</td>
+        <td>${c.model}</td>
+        <td>${c.pcsKw}</td>
+        <td style="text-align:center">${c.quantity}</td>
+        <td>${c.acTotal.toFixed(1)}</td>
+        <td style="color:${isOptimal ? '#ff7c2a' : '#7a91b0'};font-weight:${isOptimal ? '700' : '400'}">${c.dcAcRatio.toFixed(2)}</td>
+        <td><button class="preset-btn" onclick="V2_applyRecommend('${c.maker}','${c.model}',${c.quantity})" style="font-size:10px;padding:2px 4px">採用</button></td>
+      </tr>`;
+    });
+
+    html += '</table>';
+    items.innerHTML = html;
+  }
+
+  container.style.display = 'block';
+}
+
+function V2_applyRecommend(maker, model, quantity) {
+  sv('pcsMaker', maker);
+  setTimeout(() => {
+    C_buildPcsModels();
+    setTimeout(() => {
+      sv('pcsModel', model);
+      C_applyPcs();
+    }, 50);
+  }, 50);
 }
 
 function C_calcString() {
@@ -905,6 +1008,33 @@ async function V2_searchAddress() {
 function V2_setMapStatus(msg) {
   const el = document.getElementById('map-result');
   if (el) el.textContent = msg;
+}
+
+// ===== 住所自動同期 =====
+function V2_syncAddress(addr) {
+  const mapAddr = document.getElementById('map-address');
+  if (mapAddr && addr) {
+    mapAddr.value = addr;
+  }
+}
+
+// ===== 勾配・方位スライダープリセット =====
+function V2_setTilt(v) {
+  const el = document.getElementById('roof-tilt');
+  el.value = v;
+  document.getElementById('tilt-val').textContent = v + '度';
+  V2_renderPanelLayout();
+}
+function V2_setAz(v) {
+  const el = document.getElementById('roof-azimuth');
+  el.value = v;
+  document.getElementById('az-val').textContent = v + '度（' + V2_azLabel(v) + '）';
+  V2_renderPanelLayout();
+}
+function V2_azLabel(v) {
+  const dirs = ['北','北北東','北東','東北東','東','東南東','南東','南南東',
+                '南','南南西','南西','西南西','西','西北西','北西','北北西'];
+  return dirs[Math.round(v / 22.5) % 16];
 }
 
 function V2_addPoint(e) {
