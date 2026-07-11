@@ -2422,7 +2422,7 @@ function V2_buildEquipEstimate() {
   const pcsKw = parseFloat(document.getElementById('pcsKw')?.value || 0);
   const pcsModel = document.getElementById('pcsModel')?.value || '-';
   const panelModel = document.getElementById('panelModel')?.value || '-';
-  // FIXED: Duplicate units declaration removed; use V2_SPEC.pcsUnits below
+  const units = V2_SPEC.pcsUnits || 1;  // TASK 91: Read PCS unit count from single source of truth
 
   const matCoef = ROOFMAT_MOUNT_COEF[document.getElementById('roof-material')?.value] || 1.0;
   const matLabels = {
@@ -2484,7 +2484,6 @@ function V2_buildEquipEstimate() {
   const elecWork = dcKw * need('elec_work_per_kw');
   const tempWork = dcKw * need('temp_work_per_kw');
   const finalInspection = need('final_inspection');
-  const units = V2_SPEC.pcsUnits || 1;
   const warrantyPerPcs = units * need('warranty_per_pcs');
 
   let highVoltageWork = 0;
