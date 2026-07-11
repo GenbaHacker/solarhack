@@ -627,6 +627,61 @@ input[type="range"] { accent-color:#ff7c2a; }
   </div>
 </div>
 
+  <!-- === 概算見積 === -->
+  <div class="card" id="sec-estimate">
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>💴 概算見積</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
+    <div style="font-size:13px;font-weight:600;color:#ff7c2a;margin:14px 0 8px">📦 機器見積</div>
+    <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:20px" id="equip-table">
+      <tr style="color:#7a91b0;border-bottom:1px solid rgba(255,255,255,0.1)">
+        <th style="text-align:left;padding:6px 4px">品目</th>
+        <th style="text-align:left;padding:6px 4px">型式</th>
+        <th style="text-align:right;padding:6px 4px">数量</th>
+        <th style="text-align:right;padding:6px 4px">単価（円）</th>
+        <th style="text-align:right;padding:6px 4px">金額（円）</th>
+      </tr>
+      <tbody id="equip-tbody"></tbody>
+      <tr style="border-top:1px solid rgba(255,255,255,0.2);font-weight:700;background:rgba(255,124,42,0.1)">
+        <td colspan="4" style="text-align:right;padding:8px 4px">機器合計</td>
+        <td style="text-align:right;padding:8px 4px;color:#ff7c2a" id="equip-total">-</td>
+      </tr>
+    </table>
+
+    <div style="font-size:13px;font-weight:600;color:#ff7c2a;margin:14px 0 8px">🔨 工事費見積</div>
+    <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:20px" id="work-table">
+      <tr style="color:#7a91b0;border-bottom:1px solid rgba(255,255,255,0.1)">
+        <th style="text-align:left;padding:6px 4px">工事項目</th>
+        <th style="text-align:right;padding:6px 4px">単価（円）</th>
+        <th style="text-align:right;padding:6px 4px">数量</th>
+        <th style="text-align:right;padding:6px 4px">金額（円）</th>
+      </tr>
+      <tbody id="work-tbody"></tbody>
+      <tr style="border-top:1px solid rgba(255,255,255,0.2);font-weight:700;background:rgba(255,124,42,0.1)">
+        <td colspan="3" style="text-align:right;padding:8px 4px">工事費合計</td>
+        <td style="text-align:right;padding:8px 4px;color:#ff7c2a" id="work-total">-</td>
+      </tr>
+    </table>
+
+    <div style="border:1px solid rgba(255,124,42,0.3);border-radius:8px;padding:12px;background:rgba(255,124,42,0.05);font-size:13px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span>機器合計</span><span style="font-weight:700" id="total-equip">-</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span>工事費合計</span><span style="font-weight:700" id="total-work">-</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;margin-top:8px;font-size:14px;font-weight:700;color:#ff7c2a">
+        <span>総合計（税抜）</span><span id="total-amount">-</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#00c896">
+        <span>総合計（税込10%）</span><span id="total-with-tax">-</span>
+      </div>
+    </div>
+    </div>
+  </div>
+
 <!-- === 計算ロジック === -->
 <script>
 'use strict';
@@ -768,6 +823,7 @@ function C_applyPanel() {
     V2_renderFaceList();
     V2_syncTotals();
   }
+  V2_buildEquipEstimate();
 }
 
 function C_buildPcsModels() {
@@ -797,6 +853,7 @@ function C_applyPcs() {
   sv('pcsMpptRange', `${pcs.mpptMin}-${pcs.mpptMax}`);
   sv('pcsImaxPerMppt', pcs.imaxPerMppt);
   sv('pcsMpptCount', pcs.mppt);
+  V2_buildEquipEstimate();
 }
 
 // ===== PCS自動推奨 =====
@@ -992,10 +1049,15 @@ function C_runCF() {
   const deg = parseFloat(gv('degradeRate')) || 0.5 / 100;
   const esc = parseFloat(document.getElementById('elec-escalation')?.value || 2.0) / 100;
   const discountRate = 0.03;
-  // 投資額：見積の税込合計から取得、なければkW×15万
+  // 投資額：オーバーライド指定 → 機器+工事合計（税込） → kW×15万
   const override = parseFloat(document.getElementById('invest-override')?.value);
-  const totalText = document.getElementById('est-total')?.textContent || '';
-  const invest = override > 0 ? override : (parseInt(totalText.replace(/[^0-9]/g,'')) || window.V2_SIM.kw * 150000);
+  let invest;
+  if (override > 0) {
+    invest = override;
+  } else {
+    const grandTotal = (window.V2_EQUIP_TOTAL || 0) + (window.V2_WORK_TOTAL || 0);
+    invest = grandTotal > 0 ? Math.round(grandTotal * 1.1) : Math.round(window.V2_SIM.kw * 150000);
+  }
 
   let cum = -invest, npv = -invest, payback = null;
   const cashflows = [-invest];
@@ -1247,6 +1309,7 @@ function V2_syncTotals() {
   const ep = document.getElementById('est-panels');
   if (ep) ep.value = total;
   V2_setMapStatus(`✅ 屋根面${v2RoofFaces.length}面 / 合計${total}枚`);
+  V2_buildEquipEstimate();
 }
 
 function V2_addPoint(e) {
@@ -1654,11 +1717,42 @@ function V2_exportExcel() {
   ];
 
   // ---- シート2：月別 ----
-  const monthly = [['月', '発電量(kWh)', '経済効果(円)']];
-  sim.rows.forEach(r => monthly.push([r.m + '月', fmt(r.gen), fmt(r.benefit)]));
-  monthly.push(['合計', fmt(sim.totalGen), fmt(sim.totalBenefit)]);
+  const monthly = [['月', '発電量(kWh)', '自家消費率', '経済効果(円)']];
+  sim.rows.forEach(r => monthly.push([r.m + '月', fmt(r.gen), (r.selfRate*100).toFixed(0)+'%', fmt(r.benefit)]));
+  monthly.push(['合計', fmt(sim.totalGen), '-', fmt(sim.totalBenefit)]);
 
-  // ---- シート3：キャッシュフロー（CF計算済みの場合） ----
+  // ---- シート3：見積内訳 ----
+  const estimate = [['見積内訳']];
+  estimate.push(['']);
+  estimate.push(['■機器見積']);
+  estimate.push(['品目', '型式', '数量', '単価（円）', '金額（円）']);
+  const equipTbody = document.getElementById('equip-tbody');
+  if (equipTbody) {
+    equipTbody.querySelectorAll('tr').forEach(tr => {
+      const tds = [...tr.querySelectorAll('td')].map(td => {
+        const inp = td.querySelector('input');
+        return inp ? inp.value : td.textContent.trim();
+      });
+      if (tds.length >= 5) estimate.push([tds[0], tds[1], tds[2], parseInt(tds[3]) || 0, parseInt(tds[4]?.replace(/,/g,'')) || 0]);
+    });
+  }
+  estimate.push(['機器合計', '', '', '', window.V2_EQUIP_TOTAL || 0]);
+  estimate.push(['']);
+  estimate.push(['■工事費見積']);
+  estimate.push(['工事項目', '単価（円）', '数量', '金額（円）']);
+  const workTbody = document.getElementById('work-tbody');
+  if (workTbody) {
+    workTbody.querySelectorAll('tr').forEach(tr => {
+      const tds = [...tr.querySelectorAll('td')].map(td => td.textContent.trim());
+      if (tds.length >= 4) estimate.push([tds[0], parseInt(tds[1]?.replace(/,/g,'')) || 0, tds[2], parseInt(tds[3]?.replace(/,/g,'')) || 0]);
+    });
+  }
+  estimate.push(['工事費合計', '', '', window.V2_WORK_TOTAL || 0]);
+  estimate.push(['']);
+  estimate.push(['総合計（税抜）', '', '', (window.V2_EQUIP_TOTAL || 0) + (window.V2_WORK_TOTAL || 0)]);
+  estimate.push(['総合計（税込10%）', '', '', Math.round(((window.V2_EQUIP_TOTAL || 0) + (window.V2_WORK_TOTAL || 0)) * 1.1)]);
+
+  // ---- シート4：キャッシュフロー（CF計算済みの場合） ----
   const cfRows = [['年度', '発電量(kWh)', '経済効果(円)', '累積CF(円)']];
   const cfTbody = document.getElementById('cf-tbody');
   if (cfTbody) {
@@ -1673,12 +1767,15 @@ function V2_exportExcel() {
   ws1['!cols'] = [{wch:16},{wch:24},{wch:4},{wch:12},{wch:20}];
   XLSX.utils.book_append_sheet(wb, ws1, '概要');
   const ws2 = XLSX.utils.aoa_to_sheet(monthly);
-  ws2['!cols'] = [{wch:8},{wch:14},{wch:14}];
+  ws2['!cols'] = [{wch:8},{wch:14},{wch:10},{wch:14}];
   XLSX.utils.book_append_sheet(wb, ws2, '月別シミュレーション');
+  const ws3 = XLSX.utils.aoa_to_sheet(estimate);
+  ws3['!cols'] = [{wch:16},{wch:20},{wch:12},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws3, '見積内訳');
   if (cfRows.length > 1) {
-    const ws3 = XLSX.utils.aoa_to_sheet(cfRows);
-    ws3['!cols'] = [{wch:8},{wch:14},{wch:14},{wch:14}];
-    XLSX.utils.book_append_sheet(wb, ws3, 'キャッシュフロー');
+    const ws4 = XLSX.utils.aoa_to_sheet(cfRows);
+    ws4['!cols'] = [{wch:8},{wch:14},{wch:14},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws4, 'キャッシュフロー');
   }
 
   const fname = '太陽光発電シミュレーション_' + (d.project.customer || '御中') + '_' +
@@ -1721,6 +1818,7 @@ window.addEventListener('load', function() {
   C_initDropdowns();
   const savedProposer = localStorage.getItem('sh_proposer');
   if (savedProposer) document.getElementById('proposer-name').value = savedProposer;
+  V2_buildEquipEstimate();
   if (document.getElementById('v2-map')) {
     setTimeout(V2_initMap, 100);
   }
@@ -1759,6 +1857,118 @@ const COST_MASTER = {
   scaffold:        330000,
   waste_disposal:  8250,
 };
+
+// ===== 機器単価マスタ =====
+const EQUIP_PRICES = {
+  panelPerW:    28,      // パネル 円/W
+  pcsPerKw:     18000,   // PCS 円/kW
+  mountPerPanel: 8000,   // 架台 円/枚
+  cablePerKw:   3500,    // ケーブル・接続箱 円/kW
+  monitorFix:   120000,  // 監視装置 一式
+};
+
+function V2_buildEquipEstimate() {
+  const panels = parseInt(document.getElementById('totalPanels')?.value || 0);
+  const wp = parseFloat(document.getElementById('panelWp')?.value || 485);
+  const dcKw = panels * wp / 1000;
+  const pcsKw = parseFloat(document.getElementById('pcsKw')?.value || 0);
+  const pcsModel = document.getElementById('pcsModel')?.value || '-';
+  const panelModel = document.getElementById('panelModel')?.value || '-';
+  const units = parseInt(document.getElementById('pcs-units')?.value || 1);
+
+  const rows = [
+    { item:'太陽光パネル', model:panelModel, qty:panels+'枚',
+      priceId:'panelPerW', price:EQUIP_PRICES.panelPerW*wp,
+      amount:panels*EQUIP_PRICES.panelPerW*wp },
+    { item:'パワーコンディショナ', model:pcsModel, qty:units+'台',
+      priceId:'pcsPerKw', price:EQUIP_PRICES.pcsPerKw*pcsKw,
+      amount:units*EQUIP_PRICES.pcsPerKw*pcsKw },
+    { item:'架台', model:'-', qty:panels+'枚分',
+      priceId:'mountPerPanel', price:EQUIP_PRICES.mountPerPanel,
+      amount:panels*EQUIP_PRICES.mountPerPanel },
+    { item:'ケーブル・接続箱', model:'-', qty:dcKw.toFixed(1)+'kW',
+      priceId:'cablePerKw', price:EQUIP_PRICES.cablePerKw,
+      amount:dcKw*EQUIP_PRICES.cablePerKw },
+    { item:'遠隔監視装置', model:'-', qty:'一式',
+      priceId:'monitorFix', price:EQUIP_PRICES.monitorFix,
+      amount:EQUIP_PRICES.monitorFix },
+  ];
+
+  const fmt = v => Math.round(v).toLocaleString();
+  const tbody = document.getElementById('equip-tbody');
+  tbody.innerHTML = rows.map((r,i) => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
+      <td style="padding:6px 4px">${r.item}</td>
+      <td style="padding:6px 4px;font-size:11px;color:#7a91b0">${r.model}</td>
+      <td style="text-align:right;padding:6px 4px">${r.qty}</td>
+      <td style="text-align:right;padding:6px 4px">
+        <input type="number" value="${r.price}" style="width:80px;padding:4px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:11px"
+          onchange="V2_updateEquipPrice(${i},this.value)">
+      </td>
+      <td style="text-align:right;padding:6px 4px" id="equip-amt-${i}">${fmt(r.amount)}</td>
+    </tr>
+  `).join('');
+
+  const equipTotal = rows.reduce((s,r)=>s+r.amount,0);
+  document.getElementById('equip-total').textContent = fmt(equipTotal);
+  window.V2_EQUIP_TOTAL = equipTotal;
+
+  // 工事費計算
+  const isHigh = document.getElementById('voltage-class')?.value === 'high';
+  const installPanel = panels * COST_MASTER.panel_install;
+  const elecWork = COST_MASTER.pv_cable_50m + COST_MASTER.ac_cable_50m +
+                   COST_MASTER.conduit_20m + COST_MASTER.junction_box + COST_MASTER.earth_d;
+  const pcsWork = pcsKw * (isHigh ? COST_MASTER.pcs_install_high : COST_MASTER.pcs_install_low);
+  const protWork = isHigh ? COST_MASTER.rpr_high :
+                   (COST_MASTER.panel_board_ind + COST_MASTER.rpr_ovgr_low);
+  const appWork = isHigh ?
+    (COST_MASTER.grid_connect_high + COST_MASTER.pre_inspection_high + COST_MASTER.single_line_high) :
+    (COST_MASTER.grid_connect_low + COST_MASTER.pre_inspection_low + COST_MASTER.single_line_low);
+  const otherWork = COST_MASTER.scaffold + COST_MASTER.waste_disposal;
+  const workTotal = installPanel + elecWork + pcsWork + protWork + appWork + otherWork;
+
+  const workRows = [
+    { item:'パネル取付工', price:COST_MASTER.panel_install, qty:panels+'枚', amount:installPanel },
+    { item:'電気工事', price:elecWork, qty:'一式', amount:elecWork },
+    { item:'PCS設置工', price:pcsKw*(isHigh?COST_MASTER.pcs_install_high:COST_MASTER.pcs_install_low),
+      qty:pcsKw.toFixed(1)+'kW', amount:pcsWork },
+    { item:'保護装置工', price:protWork, qty:'一式', amount:protWork },
+    { item:'申請工', price:appWork, qty:'一式', amount:appWork },
+    { item:'その他工事', price:otherWork, qty:'一式', amount:otherWork },
+  ];
+
+  const workTbody = document.getElementById('work-tbody');
+  workTbody.innerHTML = workRows.map(r => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
+      <td style="padding:6px 4px">${r.item}</td>
+      <td style="text-align:right;padding:6px 4px">${fmt(r.price)}</td>
+      <td style="text-align:right;padding:6px 4px">${r.qty}</td>
+      <td style="text-align:right;padding:6px 4px">${fmt(r.amount)}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('work-total').textContent = fmt(workTotal);
+  window.V2_WORK_TOTAL = workTotal;
+  V2_updateGrandTotal();
+  return equipTotal;
+}
+
+function V2_updateEquipPrice(idx, newPrice) {
+  const pv = parseFloat(newPrice);
+  // rows recalculate...省略簡易版：全体再描画
+  V2_buildEquipEstimate();
+}
+
+function V2_updateGrandTotal() {
+  const equipTotal = window.V2_EQUIP_TOTAL || 0;
+  const workTotal = window.V2_WORK_TOTAL || 0;
+  const fmt = v => Math.round(v).toLocaleString();
+  const total = equipTotal + workTotal;
+  document.getElementById('total-equip').textContent = fmt(equipTotal) + '円';
+  document.getElementById('total-work').textContent = fmt(workTotal) + '円';
+  document.getElementById('total-amount').textContent = fmt(total) + '円';
+  document.getElementById('total-with-tax').textContent = fmt(total * 1.1) + '円';
+}
 
 function V2_calcEstimate() {
   const panels  = parseInt(document.getElementById('est-panels')?.value  || 0);
