@@ -682,8 +682,14 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div style="background:#111e36;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:20px;margin:0 0 20px 0">
       <h3 style="color:#ff7c2a;margin-bottom:15px;margin-top:0">📊 概算見積</h3>
 
+      <!-- TASK 99: Risk banner — shows unresolved risks -->
+      <div id="est-risk-banner" style="display:none;padding:12px;border-radius:4px;margin-bottom:15px;background:rgba(255,140,66,0.2);border-left:4px solid #ff7c2a;color:#ffb84d;font-weight:600"></div>
+
       <!-- Margin Gate Banner — ABOVE EVERYTHING -->
       <div id="est-margin-banner" style="display:none;padding:12px;border-radius:4px;margin-bottom:15px;font-weight:600;border-left:4px solid"></div>
+
+      <!-- TASK 95: Independent elec warning (small projects) -->
+      <div id="est-elec-warning" style="display:none;padding:12px;border-radius:4px;margin-bottom:15px;background:rgba(255,124,42,0.2);border-left:4px solid #ff7c2a;color:#ffb84d;font-weight:600">⚠ 小規模案件は電気工事費が実績で大幅超過する傾向。要実績確認</div>
 
       <!-- Component validation error -->
       <div id="est-component-error" style="display:none;padding:12px;border-radius:4px;margin-bottom:15px;font-weight:600;background:rgba(176,58,46,0.2);border-left:4px solid #b03a2e;color:#ff6b6b"></div>
@@ -693,6 +699,28 @@ input[type="range"] { accent-color:#ff7c2a; }
         <tr style="border-bottom:1px solid rgba(255,255,255,0.1);font-weight:600;background:rgba(100,150,200,0.05)">
           <td style="padding:8px">原価合計</td>
           <td style="text-align:right;padding:8px" id="est-cost-total">—</td>
+        </tr>
+
+        <!-- TASK 90-B: 販売価格層 -->
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0;font-size:12px">
+          <td style="padding:4px">機器販売</td>
+          <td style="text-align:right;padding:4px" id="est-equip-sale">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0;font-size:12px">
+          <td style="padding:4px">工事販売</td>
+          <td style="text-align:right;padding:4px" id="est-work-sale">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0;font-size:12px">
+          <td style="padding:4px">諸経費計</td>
+          <td style="text-align:right;padding:4px" id="est-oh-total">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);color:#8892b0;font-size:12px">
+          <td style="padding:4px">予備費販売</td>
+          <td style="text-align:right;padding:4px" id="est-contingency-sale">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1);font-weight:600;background:rgba(255,124,42,0.05)">
+          <td style="padding:8px">売価小計・値引前</td>
+          <td style="text-align:right;padding:8px" id="est-subtotal">—</td>
         </tr>
 
         <!-- 調整値引き -->
@@ -820,14 +848,14 @@ input[type="range"] { accent-color:#ff7c2a; }
       <h3 style="color:#ff7c2a;margin-bottom:15px;margin-top:0">⚠ 事前確認リスク</h3>
       <table style="width:100%;border-collapse:collapse">
         <tr><th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,0.1)">項目</th><th style="padding:8px">確認済(費用計上)</th><th style="padding:8px">確認済(不要)</th><th style="padding:8px">未確認</th></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">アスベスト</td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="none"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="unconfirmed" checked></td></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">既設設備撤去</td><td style="text-align:center"><input type="radio" name="risk-demolition" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="none"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="unconfirmed" checked></td></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">屋根補強</td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="none"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="unconfirmed" checked></td></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">電柱移設</td><td style="text-align:center"><input type="radio" name="risk-pole" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="none"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="unconfirmed" checked></td></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">キュービクル</td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="none"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="unconfirmed" checked></td></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">搬入制約</td><td style="text-align:center"><input type="radio" name="risk-access" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-access" value="none"></td><td style="text-align:center"><input type="radio" name="risk-access" value="unconfirmed" checked></td></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">近隣調整</td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="none"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="unconfirmed" checked></td></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">地中埋設物</td><td style="text-align:center"><input type="radio" name="risk-ground" value="cost"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="none"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="unconfirmed" checked></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">アスベスト</td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="cost" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="none" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-asbestos" value="unconfirmed" checked onchange="V2_calcEstimate()"></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">既設設備撤去</td><td style="text-align:center"><input type="radio" name="risk-demolition" value="cost" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="none" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-demolition" value="unconfirmed" checked onchange="V2_calcEstimate()"></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">屋根補強</td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="cost" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="none" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-reinforce" value="unconfirmed" checked onchange="V2_calcEstimate()"></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">電柱移設</td><td style="text-align:center"><input type="radio" name="risk-pole" value="cost" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="none" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-pole" value="unconfirmed" checked onchange="V2_calcEstimate()"></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">キュービクル</td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="cost" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="none" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-cubicle" value="unconfirmed" checked onchange="V2_calcEstimate()"></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">搬入制約</td><td style="text-align:center"><input type="radio" name="risk-access" value="cost" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-access" value="none" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-access" value="unconfirmed" checked onchange="V2_calcEstimate()"></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">近隣調整</td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="cost" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="none" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-neighbor" value="unconfirmed" checked onchange="V2_calcEstimate()"></td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><td style="padding:8px">地中埋設物</td><td style="text-align:center"><input type="radio" name="risk-ground" value="cost" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="none" onchange="V2_calcEstimate()"></td><td style="text-align:center"><input type="radio" name="risk-ground" value="unconfirmed" checked onchange="V2_calcEstimate()"></td></tr>
       </table>
     </div>
 
@@ -1059,14 +1087,16 @@ function V2_recommendPcs() {
   // 全メーカーのPCSを走査
   for (const maker in C_PCS_DB) {
     for (const pcs of C_PCS_DB[maker]) {
-      // DC/AC比1.2を目安にPCS台数を計算
-      const targetAc = dcCapacity / 1.2;
-      const quantity = Math.max(1, Math.round(targetAc / pcs.kw));
+      // TASK 94: PCS台数は max_dc_ac_ratio制約から算出
+      const quantity = Math.max(1, Math.ceil(dcCapacity / (pcs.kw * COST_MASTER.max_dc_ac_ratio)));
       const acTotal = quantity * pcs.kw;
       const dcAcRatio = dcCapacity / acTotal;
 
       // 低圧案件（50kW未満）の場合、AC合計49.5kW以下のみ
       if (!isHigh && acTotal > 49.5) continue;
+
+      // TASK 94: Filter out candidates that violate max_dc_ac_ratio
+      if (dcAcRatio > COST_MASTER.max_dc_ac_ratio) continue;
 
       candidates.push({
         maker, model: pcs.model, pcsKw: pcs.kw,
@@ -1136,6 +1166,7 @@ function C_calcString() {
   // TASK 91: Read panel specs from V2_SPEC.panel (stored by C_applyPanel), not from DOM
   // panelImp/panelTvoc don't exist in HTML; V2_SPEC is the single source of truth
   if (!V2_SPEC.panel) {
+    V2_SPEC.pcsUnits = null;
     if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（パネル未登録）</span>`;
     return;
   }
@@ -1147,6 +1178,7 @@ function C_calcString() {
   const wp = V2_SPEC.panel.wp || 485;
 
   if (!panels || !voc || !pcs || imp === null) {  // TASK 61: Block if Impp missing
+    V2_SPEC.pcsUnits = null;
     if (el) {
       const reason = !panels ? 'パネル枚数' : !voc ? 'パネルVoc' : !pcs ? 'PCS' : 'パネルImpp';
       el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（${reason}未登録）</span>`;
@@ -1163,6 +1195,7 @@ function C_calcString() {
   const seriesCap = Math.min(sMax, sMaxMppt);
 
   if (sMin > seriesCap) {
+    V2_SPEC.pcsUnits = null;
     if (el) el.innerHTML = `<span style="color:#ff4d6a">✗ 適合する直列数がありません（下限${sMin} > 上限${seriesCap}）。パネルまたはPCSを変更してください。</span>`;
     return;
   }
@@ -1204,6 +1237,7 @@ function C_calcString() {
   }
 
   if (!best) {
+    V2_SPEC.pcsUnits = null;
     const suggestions = [];
     for (let s = seriesCap; s >= sMin && suggestions.length < 3; s--) {
       const n = Math.floor(panels / s) * s;
@@ -1777,7 +1811,8 @@ function V2_loadMaster() {
 // ===== TASK 7: Risk helpers =====
 function countUnresolvedRisks(risks) {
   if (!risks) return 0;
-  return Object.values(risks).filter(state => state === '未確認').length;
+  // TASK 99: Use 'unconfirmed' everywhere (unified from previous '未確認')
+  return Object.values(risks).filter(state => state === 'unconfirmed').length;
 }
 
 function shouldShowRiskBanner(risks) {
@@ -1790,14 +1825,14 @@ function V2_logEstimate() {
 
   const body = JSON.stringify({
     ts: new Date().toISOString(),
-    user: COST_MASTER_STATE.updatedBy,
-    customer: document.getElementById('customer')?.value || '',
+    user: document.getElementById('proposer-name')?.value || 'unknown',
+    customer: document.getElementById('clientName')?.value || '',
     address: document.getElementById('address')?.value || '',
-    kw: V2_EST.perKw,
+    kw: V2_EST.dcKwTotal,
     panels: V2_EST.panels,
     pcsModel: document.getElementById('pcsModel')?.value || '',
     pcsUnits: V2_EST.pcsUnits,
-    roofMaterial: document.getElementById('roofMaterial')?.value || '',
+    roofMaterial: document.getElementById('roof-material')?.value || '',
     materialCost: V2_EST.materialCost,
     workCost: V2_EST.workCost,
     contingency: V2_EST.contingency || 0,
@@ -2095,6 +2130,14 @@ function V2_renderPanelLayout() {
 // ===== データ保存・読込 =====
 function V2_collectData() {
   const g = id => document.getElementById(id)?.value || '';
+  // TASK 98: Serialize roofFaces without Leaflet layers
+  const roofFaces = v2RoofFaces.map(f => ({
+    points: f.points,
+    tilt: f.tilt, azimuth: f.azimuth,
+    panelW: f.panelW, panelH: f.panelH, panelWp: f.panelWp,
+    panelModel: f.panelModel,
+    count: f.count, kw: f.kw,
+  }));
   return {
     app: 'SolarHack',
     version: '2.0',
@@ -2118,6 +2161,11 @@ function V2_collectData() {
       result: window.V2_SIM || null,
     },
     irradiance: window.V2_IRR || null,
+    roofFaces, // TASK 98: Save roof configuration
+    estimate: {  // TASK 98: Save estimate inputs and state
+      discount: g('est-discount'),
+      risks: V2_EST?.risks || {},
+    },
     masterOverrides: {
       panels: C_PANEL_DB, pcs: C_PCS_DB,
       equip: EQUIP_PRICES, cost: COST_MASTER,
@@ -2144,6 +2192,11 @@ function V2_loadJSON(ev) {
   reader.onload = e => {
     try {
       const d = JSON.parse(e.target.result);
+      // TASK 96: Version guard
+      if (d.app !== 'SolarHack' || d.version !== '2.0') {
+        const proceed = confirm(`保存形式が異なります（${d.version || '不明'}）。読み込みを続行しますか？`);
+        if (!proceed) return;
+      }
       const s = (id, v) => { const el=document.getElementById(id); if(el && v) el.value = v; };
       s('clientName', d.project?.customer);
       s('address', d.project?.address); s('map-address', d.project?.address);
@@ -2165,7 +2218,59 @@ function V2_loadJSON(ev) {
         if (d.masterOverrides.equip) Object.assign(EQUIP_PRICES, d.masterOverrides.equip);
         if (d.masterOverrides.cost) Object.assign(COST_MASTER, d.masterOverrides.cost);
       }
+      // TASK 98: Restore roof faces with empty layers (will be redrawn)
+      if (d.roofFaces && Array.isArray(d.roofFaces)) {
+        v2RoofFaces = d.roofFaces.map(f => ({...f, layers: []}));
+        // Re-render faces on the map if it's ready
+        if (v2Map) {
+          v2RoofFaces.forEach(f => V2_layoutFace(f));
+        }
+        // Update face list display
+        const faceListEl = document.getElementById('face-list');
+        if (faceListEl) {
+          faceListEl.innerHTML = v2RoofFaces.map((f,i) => `
+            <div style="padding:8px;background:#162540;border-radius:4px;margin-top:8px;font-size:11px;color:#7a91b0">
+              面${i+1}: ${f.count}枚 (${f.kw.toFixed(2)}kW) / 勾配${f.tilt}° / 方位${f.azimuth}°
+              <button onclick="v2RoofFaces.splice(${i},1); V2_renderPanelLayout(); V2_syncTotals()" style="float:right;padding:2px 6px;background:#1a2332;color:#ff7c2a;border:1px solid #ff7c2a;border-radius:2px;cursor:pointer;font-size:10px">削除</button>
+            </div>
+          `).join('');
+        }
+      }
+      // TASK 98: Restore estimate inputs
+      if (d.estimate?.discount) s('est-discount', d.estimate.discount);
+      // Restore risk states
+      if (d.estimate?.risks) {
+        for (const key in d.estimate.risks) {
+          const value = d.estimate.risks[key];
+          const radio = document.querySelector(`input[name="risk-${key}"][value="${value}"]`);
+          if (radio) radio.checked = true;
+        }
+      }
       C_initDropdowns();
+      // TASK 98: Restore panel/PCS selection via dropdown sequence
+      const panelMaker = d.system?.panelMaker;
+      const panelModel = d.system?.panelModel;
+      const pcsMaker = d.system?.pcsMaker;
+      const pcsModel = d.system?.pcsModel;
+      if (panelMaker && panelModel && pcsMaker && pcsModel) {
+        sv('panelMaker', panelMaker);
+        setTimeout(() => {
+          C_buildPanelModels();
+          setTimeout(() => {
+            sv('panelModel', panelModel);
+            C_applyPanel();
+            sv('pcsMaker', pcsMaker);
+            setTimeout(() => {
+              C_buildPcsModels();
+              setTimeout(() => {
+                sv('pcsModel', pcsModel);
+                C_applyPcs();
+                V2_calcEstimate();
+              }, 50);
+            }, 50);
+          }, 50);
+        }, 50);
+      }
       alert('読み込みました。シミュレーションを再実行してください。');
     } catch(err) { alert('読込エラー: ' + err.message); }
   };
@@ -2456,8 +2561,6 @@ function V2_buildEquipEstimate() {
   const pcsCostUnit = window.V2_PCS_COST;
   const pcsObjForCost = window.V2_PCS_OBJ;
 
-  console.log('DEBUG BUILD: panelCostEach=', panelCostEach, 'pcsCostUnit=', pcsCostUnit);
-
   const rows = [];
 
   // Panel row: use real cost from DB
@@ -2628,7 +2731,26 @@ function V2_getContingencyRate(dcKwTotal) {
   return 0.13;  // fallback
 }
 
+// TASK 99: Read current risk radio states into an object
+function V2_readRiskStates() {
+  const risks = {};
+  const riskKeys = ['asbestos', 'demolition', 'reinforce', 'pole', 'cubicle', 'access', 'neighbor', 'ground'];
+  for (const key of riskKeys) {
+    const checked = document.querySelector(`input[name="risk-${key}"]:checked`);
+    if (checked) risks[key] = checked.value;
+    else risks[key] = 'unconfirmed';
+  }
+  return risks;
+}
+
 function V2_calcEstimate() {
+  // TASK 99: Read and store current risk states before calculating
+  if (!V2_EST) V2_EST = {};
+  V2_EST.risks = V2_readRiskStates();
+
+  // TASK 108: Call C_calcString() at the TOP to ensure V2_SPEC.pcsUnits is current
+  C_calcString();
+
   // TASK 70: Read from actual DOM elements (not est-panels, roofMaterial, est-is-high)
   const panels  = parseInt(document.getElementById('totalPanels')?.value || 0);
   const roofType = document.getElementById('roof-material')?.value || 'flatroof';
@@ -2641,6 +2763,19 @@ function V2_calcEstimate() {
 
   if (panels === 0 || panels === '') {
     componentError = '未選択の機器があります: パネル';
+  }
+
+  // TASK 108: Block if string design couldn't compute (pcsUnits is null)
+  if (V2_SPEC.pcsUnits === null) {
+    const errorEl = document.getElementById('est-component-error');
+    if (errorEl) {
+      errorEl.style.display = 'block';
+      errorEl.textContent = '🛑 ストリング設計未確定';
+    }
+    const printBtn = document.getElementById('print-button');
+    if (printBtn) printBtn.disabled = true;
+    V2_EST = null;
+    return;
   }
 
   // TASK 20: Get panel model info from selected panel
@@ -2697,13 +2832,8 @@ function V2_calcEstimate() {
   // TASK 107: Store panel/PCS costs in window scope for V2_buildEquipEstimate to use
   window.V2_PANEL_COST_EACH = panelCostEach;
   window.V2_PANEL_OBJ = selectedPanel;
-  window.V2_PCS_COST = selectedPcs?.cost || null;
+  window.V2_PCS_COST = selectedPcs?.cost !== undefined && selectedPcs?.cost !== null ? selectedPcs.cost : null;
   window.V2_PCS_OBJ = selectedPcs;
-
-  console.log('DEBUG: panelMaker=', panelMaker, 'panelModel=', panelModel);
-  console.log('DEBUG: selectedPanel=', selectedPanel);
-  console.log('DEBUG: panelCostEach=', panelCostEach, 'panelWp=', panelWp);
-  console.log('DEBUG: selectedPcs=', selectedPcs);
 
   // TASK 70: Now render equipment/work tables with the real costs
   V2_buildEquipEstimate();
@@ -2740,11 +2870,8 @@ function V2_calcEstimate() {
   const contingencyRate = V2_getContingencyRate(dcKwTotal);
   const contingency = (panelCost + pcsCost + workCost) * contingencyRate;
 
-  // TASK 22: Warning for small projects
-  let elecWorkWarning = '';
-  if (dcKwTotal < COST_MASTER.elec_work_warning_threshold) {
-    elecWorkWarning = `⚠ 小規模案件は電気工事費が実績で大幅超過する傾向。要実績確認`;
-  }
+  // TASK 22: Warning for small projects (now shown independently from margin)
+  const showElecWarning = dcKwTotal < COST_MASTER.elec_work_warning_threshold;
 
   const materialCost = panelCost + pcsCost;
   const cost = materialCost + workCost + contingency;
@@ -2799,6 +2926,11 @@ function V2_calcEstimate() {
   setVal('est-material', fmt(materialCost));
   setVal('est-work', fmt(workCost));
   setVal('est-contingency', fmt(contingency));
+  // TASK 90-B: Display sale price layer components
+  setVal('est-equip-sale', fmt(equipSale));
+  setVal('est-work-sale', fmt(workSale));
+  setVal('est-oh-total', fmt(ohGeneral + ohSite + ohOtherFees + wasteFee));
+  setVal('est-contingency-sale', fmt(contingencySale));
   setVal('est-subtotal', fmt(subTotal));
   setVal('est-tax', fmt(tax));
   // TASK 82: est-total = netPrice (税抜・値引後), est-total-tax = total (税込)
@@ -2825,6 +2957,7 @@ function V2_calcEstimate() {
 
   // TASK 22: Margin gate banner + enhanced print block
   const bannerEl = document.getElementById('est-margin-banner');
+  const elecWarningEl = document.getElementById('est-elec-warning');
   const printBtn = document.getElementById('print-button');
   if (bannerEl) {
     if (grossMargin < 0) {
@@ -2838,10 +2971,15 @@ function V2_calcEstimate() {
       bannerEl.style.background = 'rgba(255,124,42,0.2)';
       bannerEl.style.borderColor = '#ff7c2a';
       bannerEl.style.color = '#ffb84d';
-      bannerEl.textContent = `⚠ 粗利率 ${(grossMargin * 100).toFixed(2)}% < 20%：部長承認が必要です。${elecWorkWarning}`;
+      bannerEl.textContent = `⚠ 粗利率 ${(grossMargin * 100).toFixed(2)}% < 20%：部長承認が必要です`;
     } else {
       bannerEl.style.display = 'none';
     }
+  }
+
+  // TASK 95: Independent elec warning
+  if (elecWarningEl) {
+    elecWarningEl.style.display = showElecWarning ? 'block' : 'none';
   }
 
   // TASK 1: Save estimate result
@@ -2849,9 +2987,21 @@ function V2_calcEstimate() {
     panels, pcsUnits, pcsKwTotal, isHigh, dcKwTotal, contingencyRate,
     panelCost, pcsCost, materialCost, workCost, contingency, subTotal, discount, tax, total, netPrice, grossProfit, grossMargin,
     perKw: dcKwTotal > 0 ? total / dcKwTotal : 0,
-    risks: {},
+    risks: V2_EST?.risks || {},
     calcedAt: new Date().toISOString(),
   };
+
+  // TASK 99: Show risk banner with unresolved count
+  const unresolvedCount = countUnresolvedRisks(V2_EST.risks);
+  const riskBannerEl = document.getElementById('est-risk-banner');
+  if (riskBannerEl) {
+    if (unresolvedCount > 0) {
+      riskBannerEl.style.display = 'block';
+      riskBannerEl.textContent = `⚠ 未確認リスク ${unresolvedCount}件`;
+    } else {
+      riskBannerEl.style.display = 'none';
+    }
+  }
 
   // TASK 3: Update print button state (multiple guards) ← AFTER V2_EST is assigned
   if (printBtn) {
@@ -2859,7 +3009,8 @@ function V2_calcEstimate() {
     const canPrint = V2_EST !== null &&
                      !hasComponentError &&
                      V2_IRR_STATE.source !== 'NONE' &&
-                     grossMargin >= 0;
+                     grossMargin >= 0 &&
+                     unresolvedCount === 0;  // TASK 99: Require all risks confirmed
     printBtn.disabled = !canPrint;
   }
 
@@ -3194,6 +3345,12 @@ function V2_handlePrint() {
   // Guard 4: Cannot print loss-making estimates
   if (V2_EST.grossMargin < 0) {
     alert('赤字見積のため出力できません');
+    return;
+  }
+  // Guard 5: TASK 99 - All risks must be resolved
+  const unresolvedCount = countUnresolvedRisks(V2_EST.risks);
+  if (unresolvedCount > 0) {
+    alert(`未確認リスクが${unresolvedCount}件あります`);
     return;
   }
   // All guards pass
