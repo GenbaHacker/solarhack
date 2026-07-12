@@ -669,6 +669,7 @@ input[type="range"] { accent-color:#ff7c2a; }
       </div>
     </div>
   </div>
+</div>
 
   <!-- === 概算見積 === -->
   <div class="card" id="sec-estimate">
@@ -2430,40 +2431,68 @@ function V2_buildEquipEstimate() {
     owave_slate: '大波スレート用', flat_roof: '陸屋根置き型', ground: '野立て架台',
   };
 
-  const rows = [
-    { item:'太陽光パネル', model:panelModel, qty:panels+'枚',
-      priceId:'panelPerW', price:EQUIP_PRICES.panelPerW*wp,
-      amount:panels*EQUIP_PRICES.panelPerW*wp },
-    { item:'パワーコンディショナ', model:pcsModel, qty:units+'台',
-      priceId:'pcsPerKw', price:EQUIP_PRICES.pcsPerKw*pcsKw,
-      amount:units*EQUIP_PRICES.pcsPerKw*pcsKw },
-    { item:'架台', model:matLabels[document.getElementById('roof-material')?.value]||'-', qty:panels+'枚分',
-      priceId:'mountPerPanel', price:Math.round(EQUIP_PRICES.mountPerPanel*matCoef),
-      amount:panels*EQUIP_PRICES.mountPerPanel*matCoef },
-    { item:'ケーブル・接続箱', model:'-', qty:dcKw.toFixed(1)+'kW',
-      priceId:'cablePerKw', price:EQUIP_PRICES.cablePerKw,
-      amount:dcKw*EQUIP_PRICES.cablePerKw },
-    { item:'遠隔監視装置', model:'-', qty:'一式',
-      priceId:'monitorFix', price:EQUIP_PRICES.monitorFix,
-      amount:EQUIP_PRICES.monitorFix },
-  ];
+  // TASK 107: Use real DB costs, not fictional EQUIP_PRICES
+  const panelCostEach = window.V2_PANEL_COST_EACH;
+  const panelObjForCost = window.V2_PANEL_OBJ;
+  const pcsCostUnit = window.V2_PCS_COST;
+  const pcsObjForCost = window.V2_PCS_OBJ;
+
+  const rows = [];
+
+  // Panel row: use real cost from DB
+  if (panelCostEach === null || panelCostEach === undefined) {
+    rows.push({ item:'太陽光パネル', model:panelModel, qty:panels+'枚',
+      priceId:'panel', price:'⚠仕入値未登録', amount:'—', dbObj: panelObjForCost });
+  } else {
+    rows.push({ item:'太陽光パネル', model:panelModel, qty:panels+'枚',
+      priceId:'panel', price:panelCostEach, amount:panels*panelCostEach, dbObj: panelObjForCost });
+  }
+
+  // PCS row: use real cost from DB
+  if (pcsCostUnit === null || pcsCostUnit === undefined) {
+    rows.push({ item:'パワーコンディショナ', model:pcsModel, qty:units+'台',
+      priceId:'pcs', price:'⚠仕入値未登録', amount:'—', dbObj: pcsObjForCost });
+  } else {
+    rows.push({ item:'パワーコンディショナ', model:pcsModel, qty:units+'台',
+      priceId:'pcs', price:pcsCostUnit, amount:units*pcsCostUnit, dbObj: pcsObjForCost });
+  }
+
+  // Mount/cable/monitor stay on EQUIP_PRICES for now (TASK 90 will absorb into COST_MASTER)
+  rows.push({ item:'架台', model:matLabels[document.getElementById('roof-material')?.value]||'-', qty:panels+'枚分',
+    priceId:'mountPerPanel', price:Math.round(EQUIP_PRICES.mountPerPanel*matCoef),
+    amount:panels*EQUIP_PRICES.mountPerPanel*matCoef });
+  rows.push({ item:'ケーブル・接続箱', model:'-', qty:dcKw.toFixed(1)+'kW',
+    priceId:'cablePerKw', price:EQUIP_PRICES.cablePerKw,
+    amount:dcKw*EQUIP_PRICES.cablePerKw });
+  rows.push({ item:'遠隔監視装置', model:'-', qty:'一式',
+    priceId:'monitorFix', price:EQUIP_PRICES.monitorFix,
+    amount:EQUIP_PRICES.monitorFix });
 
   const fmt = v => Math.round(v).toLocaleString();
   const tbody = document.getElementById('equip-tbody');
-  tbody.innerHTML = rows.map((r,i) => `
+  tbody.innerHTML = rows.map((r,i) => {
+    // TASK 107: Handle warning messages (price is a string when cost missing)
+    const isWarning = typeof r.price === 'string';
+    const priceDisplay = isWarning ? r.price : fmt(r.price);
+    const amountDisplay = r.amount === '—' ? '—' : fmt(r.amount);
+    const priceInput = isWarning ?
+      `<span style="color:#ff6b6b;font-weight:600">${priceDisplay}</span>` :
+      `<input type="number" value="${Math.round(r.price)}" style="width:80px;padding:4px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:11px"
+        onchange="V2_updateEquipPrice(${i},this.value)">`;
+
+    return `
     <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
       <td style="padding:6px 4px">${r.item}</td>
       <td style="padding:6px 4px;font-size:11px;color:#7a91b0">${r.model}</td>
       <td style="text-align:right;padding:6px 4px">${r.qty}</td>
-      <td style="text-align:right;padding:6px 4px">
-        <input type="number" value="${r.price}" style="width:80px;padding:4px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:11px"
-          onchange="V2_updateEquipPrice(${i},this.value)">
-      </td>
-      <td style="text-align:right;padding:6px 4px" id="equip-amt-${i}">${fmt(r.amount)}</td>
+      <td style="text-align:right;padding:6px 4px">${priceInput}</td>
+      <td style="text-align:right;padding:6px 4px" id="equip-amt-${i}">${amountDisplay}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
-  const equipTotal = rows.reduce((s,r)=>s+r.amount,0);
+  // TASK 107: Skip rows with missing costs (amount === "—")
+  const equipTotal = rows.reduce((s,r)=>s+(typeof r.amount === 'number' ? r.amount : 0),0);
   document.getElementById('equip-total').textContent = fmt(equipTotal);
   window.V2_EQUIP_TOTAL = equipTotal;
   window.V2_EQUIP_ROWS = rows;  // TASK 105: Store rows for V2_updateEquipPrice access
@@ -2525,7 +2554,6 @@ function V2_buildEquipEstimate() {
 }
 
 function V2_updateEquipPrice(idx, newPrice) {
-  // TASK 105: Convert user input (total amount for row) to unit price and save to EQUIP_PRICES
   const parsed = parseFloat(newPrice);
   if (!Number.isFinite(parsed) || parsed < 0) {
     console.log(`❌ V2_updateEquipPrice: invalid price (${newPrice})`);
@@ -2536,17 +2564,25 @@ function V2_updateEquipPrice(idx, newPrice) {
   if (!row) return;
 
   const priceId = row.priceId;
-  let unitPrice = parsed;
 
-  // Convert total amount to unit price based on priceId semantics
-  if (priceId === 'panelPerW') {
-    unitPrice = parsed / (window.V2_EQUIP_WP || 485);
+  // TASK 107: Write back to DB for panel/PCS; EQUIP_PRICES for others
+  if (priceId === 'panel' && row.dbObj) {
+    // Input is per-unit panel cost (already in cost form)
+    row.dbObj.cost = parsed;
+    console.log(`✓ Panel cost updated: ¥${parsed.toLocaleString()}`);
+  } else if (priceId === 'pcs' && row.dbObj) {
+    // Input is per-unit PCS cost (already in cost form, not per-kW)
+    row.dbObj.cost = parsed;
+    console.log(`✓ PCS cost updated: ¥${parsed.toLocaleString()}`);
+  } else if (priceId === 'panelPerW') {
+    EQUIP_PRICES[priceId] = parsed / (window.V2_EQUIP_WP || 485);
   } else if (priceId === 'pcsPerKw') {
-    unitPrice = parsed / (window.V2_EQUIP_PCSKW || 1);
+    EQUIP_PRICES[priceId] = parsed / (window.V2_EQUIP_PCSKW || 1);
+  } else {
+    // mount, cable, monitor: input is already a unit price
+    EQUIP_PRICES[priceId] = parsed;
   }
-  // else: input is already a unit price
 
-  EQUIP_PRICES[priceId] = unitPrice;
   V2_calcEstimate();  // Re-render with updated price
 }
 
@@ -2572,9 +2608,6 @@ function V2_getContingencyRate(dcKwTotal) {
 }
 
 function V2_calcEstimate() {
-  // TASK 70: Render equipment/work tables first (they're always visible)
-  V2_buildEquipEstimate();
-
   // TASK 70: Read from actual DOM elements (not est-panels, roofMaterial, est-is-high)
   const panels  = parseInt(document.getElementById('totalPanels')?.value || 0);
   const roofType = document.getElementById('roof-material')?.value || 'flatroof';
@@ -2594,9 +2627,10 @@ function V2_calcEstimate() {
   const panelModel = document.getElementById('panelModel')?.value;
   let panelCostEach = null;
   let panelWp = 485;  // TASK 70: Will be overridden by selected panel below
+  let selectedPanel = null;
 
   if (panelMaker && panelModel && C_PANEL_DB[panelMaker]) {
-    const selectedPanel = C_PANEL_DB[panelMaker].find(p => p.model === panelModel);
+    selectedPanel = C_PANEL_DB[panelMaker].find(p => p.model === panelModel);
     if (selectedPanel) {
       panelWp = selectedPanel.wp;
       if (selectedPanel.cost !== null && selectedPanel.cost !== undefined) {
@@ -2620,12 +2654,13 @@ function V2_calcEstimate() {
   let pcsCost = 0;
   let pcsKwTotal = 0;
   let blockEstimate = false;
+  let selectedPcs = null;
 
   if (!pcsMaker || !pcsModel || !C_PCS_DB[pcsMaker]) {
     componentError = '未選択の機器があります: パワーコンディショナ';
     blockEstimate = true;
   } else {
-    const selectedPcs = C_PCS_DB[pcsMaker].find(p => p.model === pcsModel);
+    selectedPcs = C_PCS_DB[pcsMaker].find(p => p.model === pcsModel);
     if (!selectedPcs) {
       componentError = '未選択の機器があります: パワーコンディショナ';
       blockEstimate = true;
@@ -2637,6 +2672,15 @@ function V2_calcEstimate() {
       pcsKwTotal = pcsUnits * selectedPcs.kw;
     }
   }
+
+  // TASK 107: Store panel/PCS costs in window scope for V2_buildEquipEstimate to use
+  window.V2_PANEL_COST_EACH = panelCostEach;
+  window.V2_PANEL_OBJ = selectedPanel;
+  window.V2_PCS_COST = selectedPcs?.cost || null;
+  window.V2_PCS_OBJ = selectedPcs;
+
+  // TASK 70: Now render equipment/work tables with the real costs
+  V2_buildEquipEstimate();
 
   // Show component error and block estimation
   if (componentError) {
