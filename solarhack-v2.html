@@ -3125,14 +3125,70 @@ function V2_renderEquipMaster(el) {
 }
 
 function V2_renderCostMaster(el) {
-  let html = '<div style="font-size:11px;color:#7a91b0;margin-bottom:10px">※初期値: SAWADA 2026年版工事単価表</div><table class="master-table"><tr><th>項目</th><th>単価（円）</th></tr>';
+  let html = '<div style="font-size:11px;color:#7a91b0;margin-bottom:10px">※初期値: SAWADA 2026年版工事単価表</div>';
+  html += '<table class="master-table"><tr><th>項目</th><th>単価（円）</th></tr>';
+
+  // TASK 92: Handle different value types and nested objects
+  const rateKeys = ['markup_equipment', 'markup_work', 'overhead_general_rate', 'overhead_site_rate',
+    'waste_disposal_rate', 'other_fees_rate', 'referral_fee_rate', 'min_gross_margin',
+    'max_dc_ac_ratio', 'om_per_kw_year', 'sim_base_coefficient'];
 
   for (const key in COST_MASTER) {
+    const value = COST_MASTER[key];
     const label = key.replace(/_/g, ' ');
+
+    // Skip nested objects and arrays here (handle separately below)
+    if (typeof value === 'object') continue;
+
+    // Determine input type (number for int, with step for rate keys)
+    const isRate = rateKeys.includes(key);
+    const inputType = 'number';
+    const step = isRate ? '0.01' : '1';
+    const displayVal = isRate ? (value || 0).toFixed(4) : Math.round(value || 0);
+
     html += `<tr>
       <td>${label}</td>
-      <td><input value="${COST_MASTER[key]}" type="number" onchange="COST_MASTER['${key}']=parseInt(this.value)"></td>
+      <td><input type="number" step="${step}" value="${displayVal}" style="width:120px;padding:4px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:12px"
+        onchange="const v = ${isRate ? 'parseFloat' : 'parseInt'}(this.value); if(!isNaN(v) && v >= 0) { COST_MASTER['${key}'] = v; V2_saveMaster(); } else { this.value = ${isRate ? (value || 0).toFixed(4) : value || 0}; }"></td>
     </tr>`;
+  }
+
+  // TASK 92: Render nested monitoring/transformer/protection objects
+  const nestedKeys = ['monitor', 'transformer', 'protection'];
+  for (const nestedKey of nestedKeys) {
+    if (!COST_MASTER[nestedKey] || typeof COST_MASTER[nestedKey] !== 'object') continue;
+
+    const obj = COST_MASTER[nestedKey];
+    html += `<tr style="background:rgba(100,150,200,0.1);font-weight:600"><td colspan="2">${nestedKey.toUpperCase()}</td></tr>`;
+
+    for (const subkey in obj) {
+      const subval = obj[subkey];
+      html += `<tr style="padding-left:20px">
+        <td style="padding-left:30px;font-size:11px;color:#8892b0">${subkey}</td>
+        <td><input type="number" value="${Math.round(subval || 0)}" style="width:120px;padding:4px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:12px"
+          onchange="const v = parseInt(this.value); if(!isNaN(v) && v >= 0) { COST_MASTER['${nestedKey}']['${subkey}'] = v; V2_saveMaster(); } else { this.value = ${subval || 0}; }"></td>
+      </tr>`;
+    }
+  }
+
+  // TASK 92: Render contingency_rate_by_capacity as 3 rows
+  if (COST_MASTER.contingency_rate_by_capacity && Array.isArray(COST_MASTER.contingency_rate_by_capacity)) {
+    html += `<tr style="background:rgba(100,150,200,0.1);font-weight:600"><td colspan="2">CONTINGENCY_RATE_BY_CAPACITY</td></tr>`;
+    const rates = COST_MASTER.contingency_rate_by_capacity;
+    for (let i = 0; i < 3; i++) {
+      const row = rates[i] || {};
+      const maxKw = row.max_kw !== null && row.max_kw !== undefined ? row.max_kw : '';
+      const rate = (row.rate || 0).toFixed(4);
+      html += `<tr style="font-size:11px">
+        <td>max_kw_${i}</td>
+        <td style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px">
+          <input type="number" placeholder="blank=null" value="${maxKw}" style="width:60px;padding:2px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:11px"
+            onchange="const v = this.value ? parseInt(this.value) : null; if(v === null || (typeof v === 'number' && v >= 0)) { COST_MASTER.contingency_rate_by_capacity[${i}].max_kw = v; V2_saveMaster(); } else { this.value = ${maxKw}; }">
+          <input type="number" step="0.01" value="${rate}" style="width:60px;padding:2px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:11px"
+            onchange="const v = parseFloat(this.value); if(!isNaN(v) && v >= 0) { COST_MASTER.contingency_rate_by_capacity[${i}].rate = v; V2_saveMaster(); } else { this.value = ${rate}; }">
+        </td>
+      </tr>`;
+    }
   }
 
   html += '</table>';
