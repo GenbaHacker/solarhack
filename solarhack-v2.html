@@ -2168,7 +2168,7 @@ function V2_collectData() {
     },
     masterOverrides: {
       panels: C_PANEL_DB, pcs: C_PCS_DB,
-      equip: EQUIP_PRICES, cost: COST_MASTER,
+      cost: COST_MASTER,  // TASK 109: equip removed (consolidated to COST_MASTER)
     },
   };
 }
@@ -2215,7 +2215,7 @@ function V2_loadJSON(ev) {
       if (d.masterOverrides) {
         if (d.masterOverrides.panels) Object.assign(C_PANEL_DB, d.masterOverrides.panels);
         if (d.masterOverrides.pcs) Object.assign(C_PCS_DB, d.masterOverrides.pcs);
-        if (d.masterOverrides.equip) Object.assign(EQUIP_PRICES, d.masterOverrides.equip);
+        // TASK 109: equip removed (consolidated to COST_MASTER)
         if (d.masterOverrides.cost) Object.assign(COST_MASTER, d.masterOverrides.cost);
       }
       // TASK 98: Restore roof faces with empty layers (will be redrawn)
@@ -2477,6 +2477,7 @@ const COST_MASTER = {
   cubicle_connect:       330000,    // キュービクル内接続工事（高圧時のみ）
   withstand_test:         26000,    // 耐圧試験費用（高圧時のみ）
   warranty_per_pcs:      300000,    // ワランティ延長保証（PCS 1台あたり）
+  monitor_fix_cost:      120000,    // 遠隔監視装置（一式）
 
   // ===== 利益付加率 =====
   markup_equipment: 0.5,  // 機器は原価×1.5で売却
@@ -2512,14 +2513,7 @@ const COST_MASTER = {
   sim_base_coefficient: 0.92,  // K = inverter 0.945 × wiring/soiling 0.97 (no tempFactor, temp applied separately)
 };
 
-// ===== 機器単価マスタ =====
-const EQUIP_PRICES = {
-  panelPerW:    28,      // パネル 円/W
-  pcsPerKw:     18000,   // PCS 円/kW
-  mountPerPanel: 8000,   // 架台 円/枚
-  cablePerKw:   3500,    // ケーブル・接続箱 円/kW
-  monitorFix:   120000,  // 監視装置 一式
-};
+// TASK 109: EQUIP_PRICES deleted — all costs now in COST_MASTER
 
 // ===== TASK 7: リスク確認チェックリスト =====
 const RISK_ITEMS = [
@@ -2581,16 +2575,7 @@ function V2_buildEquipEstimate() {
       priceId:'pcs', price:pcsCostUnit, amount:units*pcsCostUnit, dbObj: pcsObjForCost });
   }
 
-  // Mount/cable/monitor stay on EQUIP_PRICES for now (TASK 90 will absorb into COST_MASTER)
-  rows.push({ item:'架台', model:matLabels[document.getElementById('roof-material')?.value]||'-', qty:panels+'枚分',
-    priceId:'mountPerPanel', price:Math.round(EQUIP_PRICES.mountPerPanel*matCoef),
-    amount:panels*EQUIP_PRICES.mountPerPanel*matCoef });
-  rows.push({ item:'ケーブル・接続箱', model:'-', qty:dcKw.toFixed(1)+'kW',
-    priceId:'cablePerKw', price:EQUIP_PRICES.cablePerKw,
-    amount:dcKw*EQUIP_PRICES.cablePerKw });
-  rows.push({ item:'遠隔監視装置', model:'-', qty:'一式',
-    priceId:'monitorFix', price:EQUIP_PRICES.monitorFix,
-    amount:EQUIP_PRICES.monitorFix });
+  // TASK 109: Delete 架台/ケーブル/監視 (moved to COST_MASTER as single ledger)
 
   const fmt = v => Math.round(v).toLocaleString();
   const tbody = document.getElementById('equip-tbody');
@@ -2689,22 +2674,13 @@ function V2_updateEquipPrice(idx, newPrice) {
 
   const priceId = row.priceId;
 
-  // TASK 107: Write back to DB for panel/PCS; EQUIP_PRICES for others
+  // TASK 109: Only panel and PCS are in equip table now
   if (priceId === 'panel' && row.dbObj) {
-    // Input is per-unit panel cost (already in cost form)
     row.dbObj.cost = parsed;
     console.log(`✓ Panel cost updated: ¥${parsed.toLocaleString()}`);
   } else if (priceId === 'pcs' && row.dbObj) {
-    // Input is per-unit PCS cost (already in cost form, not per-kW)
     row.dbObj.cost = parsed;
     console.log(`✓ PCS cost updated: ¥${parsed.toLocaleString()}`);
-  } else if (priceId === 'panelPerW') {
-    EQUIP_PRICES[priceId] = parsed / (window.V2_EQUIP_WP || 485);
-  } else if (priceId === 'pcsPerKw') {
-    EQUIP_PRICES[priceId] = parsed / (window.V2_EQUIP_PCSKW || 1);
-  } else {
-    // mount, cable, monitor: input is already a unit price
-    EQUIP_PRICES[priceId] = parsed;
   }
 
   V2_calcEstimate();  // Re-render with updated price
@@ -2858,13 +2834,14 @@ function V2_calcEstimate() {
   const tempWork = dcKwTotal * COST_MASTER.temp_work_per_kw;
   const finalInspection = COST_MASTER.final_inspection;
   const warrantyPerPcs = pcsUnits * COST_MASTER.warranty_per_pcs;
+  const monitorFix = COST_MASTER.monitor_fix_cost || 120000;  // TASK 109
 
   let highVoltageWork = 0;
   if (isHigh) {
     highVoltageWork = COST_MASTER.cubicle_connect + COST_MASTER.withstand_test;
   }
 
-  const workCost = fixBracket + otherMaterial + mountInstall + elecWork + tempWork + finalInspection + warrantyPerPcs + highVoltageWork;
+  const workCost = fixBracket + otherMaterial + mountInstall + elecWork + tempWork + finalInspection + warrantyPerPcs + monitorFix + highVoltageWork;
 
   // TASK 20: Capacity-scaled contingency
   const contingencyRate = V2_getContingencyRate(dcKwTotal);
@@ -3038,11 +3015,10 @@ function V2_masterTab(tab) {
     V2_renderPanelMaster(content);
   } else if (tab === 'pcs') {
     V2_renderPcsMaster(content);
-  } else if (tab === 'equip') {
-    V2_renderEquipMaster(content);
   } else if (tab === 'cost') {
     V2_renderCostMaster(content);
   }
+  // TASK 109: equip tab removed (consolidated to COST_MASTER)
 }
 
 function V2_renderPanelMaster(el) {
@@ -3095,34 +3071,7 @@ function V2_renderPcsMaster(el) {
   el.innerHTML = html;
 }
 
-function V2_renderEquipMaster(el) {
-  let html = '<table class="master-table"><tr><th>項目</th><th>単価</th><th>単位</th></tr>';
-  const labels = {
-    panelPerW: 'パネル',
-    pcsPerKw: 'PCS',
-    mountPerPanel: '架台',
-    cablePerKw: 'ケーブル・接続箱',
-    monitorFix: '監視装置',
-  };
-  const units = {
-    panelPerW: '円/W',
-    pcsPerKw: '円/kW',
-    mountPerPanel: '円/枚',
-    cablePerKw: '円/kW',
-    monitorFix: '一式',
-  };
-
-  for (const key in EQUIP_PRICES) {
-    html += `<tr>
-      <td>${labels[key]||key}</td>
-      <td><input value="${EQUIP_PRICES[key]}" type="number" onchange="EQUIP_PRICES['${key}']=parseInt(this.value)"></td>
-      <td>${units[key]||''}</td>
-    </tr>`;
-  }
-
-  html += '</table>';
-  el.innerHTML = html;
-}
+// TASK 109: V2_renderEquipMaster deleted (EQUIP_PRICES consolidated to COST_MASTER)
 
 function V2_renderCostMaster(el) {
   let html = '<div style="font-size:11px;color:#7a91b0;margin-bottom:10px">※初期値: SAWADA 2026年版工事単価表</div>';
@@ -3276,7 +3225,7 @@ document.addEventListener('click', () => {
 function V2_exportMaster() {
   const data = {
     panels: C_PANEL_DB, pcs: C_PCS_DB,
-    equip: EQUIP_PRICES, cost: COST_MASTER
+    cost: COST_MASTER  // TASK 109: equip removed
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -3295,7 +3244,7 @@ function V2_importMaster(event) {
       const m = JSON.parse(e.target.result);
       if (m.panels) Object.assign(C_PANEL_DB, m.panels);
       if (m.pcs) Object.assign(C_PCS_DB, m.pcs);
-      if (m.equip) Object.assign(EQUIP_PRICES, m.equip);
+      // TASK 109: equip removed
       if (m.cost) Object.assign(COST_MASTER, m.cost);
       V2_masterTab('panel');
       alert('マスタがインポートされました');
