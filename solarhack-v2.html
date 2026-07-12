@@ -1023,7 +1023,7 @@ function C_applyPanel() {
   const panel = C_PANEL_DB[maker].find(p => p.model === model);
   if (!panel) return;
 
-  // TASK 91: Store full panel object in V2_SPEC (single source of truth for C_calcString)
+  // TASK 116: Store full panel object in V2_SPEC
   V2_SPEC.panel = panel;
 
   sv('panelWp', panel.wp);
@@ -1032,11 +1032,37 @@ function C_applyPanel() {
   sv('panelWidth', panel.w);
   sv('panelHeight', panel.h);
 
-  // TASK 97: Do NOT re-layout confirmed faces — they have snapshots of their panel specs
-  // Changing the panel selector only affects the NEXT face to be confirmed.
-  // To change a confirmed face's panel, user must click "このパネルに変更" (see V2_renderFaceList)
+  // TASK 116: Re-layout ALL confirmed faces with new panel model (override TASK 97)
+  if (v2RoofFaces.length > 0) {
+    v2RoofFaces.forEach(f => {
+      const oldAutoCount = f.autoCount;
+      const oldCount = f.count;
 
-  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
+      f.panelW = panel.w;
+      f.panelH = panel.h;
+      f.panelWp = panel.wp;
+      f.panelModel = panel.model;
+
+      V2_layoutFace(f);
+
+      if (oldCount === oldAutoCount) {
+        f.count = f.autoCount;
+        f.adjustedFlag = false;
+      } else {
+        f.count = Math.min(oldCount, f.autoCount);
+        f.adjustedFlag = (f.count < f.autoCount);
+      }
+      f.kw = f.count * f.panelWp / 1000;
+    });
+
+    const newDescr = v2RoofFaces.map((f,i) => `面${i+1} ${f.autoCount}枚`).join(' / ');
+    const totalNew = v2RoofFaces.reduce((s,f) => s + f.count, 0);
+    const kwNew = totalNew * panel.wp / 1000;
+    alert(`パネル変更: ${maker} ${model}。配置再計算: ${newDescr}。合計 ${totalNew}枚 / ${kwNew.toFixed(1)}kW`);
+    V2_renderPanelLayout();
+  }
+
+  // TASK 70: Calculate estimate
   V2_calcEstimate();
 }
 
@@ -1642,8 +1668,11 @@ function V2_confirmFace() {
     id: ++v2FaceSeq,
     points: [...v2MapPoints],
     tilt, azimuth: az,
-    panelW, panelH, panelWp, panelModel,  // TASK 97: Snapshot, read-only for this face
-    count: 0, kw: 0, layers: []
+    panelW, panelH, panelWp, panelModel,
+    autoCount: 0,  // TASK 116: Layout result (upper bound)
+    count: 0,      // TASK 116: Effective count (user adjustment)
+    adjustedFlag: false,  // TASK 116: 要再確認 badge
+    kw: 0, layers: []
   };
   v2RoofFaces.push(face);
   // 現在の点をリセット（次の面用）
@@ -2050,9 +2079,18 @@ function V2_layoutFace(face) {
     }
   }
 
-  // TASK 97: Use per-face panelWp from snapshot, not global selector
-  face.count = count;
-  face.kw = count * (face.panelWp || 485) / 1000;
+  // TASK 116: Store autoCount from layout; count defaults to autoCount
+  face.autoCount = count;
+  if (!face.count || face.count === 0) {
+    face.count = count;  // First layout
+    face.adjustedFlag = false;
+  } else if (face.count > count) {
+    face.count = count;  // Impossible, clamp
+    face.adjustedFlag = false;
+  } else if (face.count < count) {
+    face.adjustedFlag = true;  // User adjusted down
+  }
+  face.kw = face.count * (face.panelWp || 485) / 1000;
 }
 
 // 現在の入力値でプレビュー描画（未確定面）
@@ -2134,13 +2172,15 @@ function V2_renderPanelLayout() {
 // ===== データ保存・読込 =====
 function V2_collectData() {
   const g = id => document.getElementById(id)?.value || '';
-  // TASK 98: Serialize roofFaces without Leaflet layers
+  // TASK 116: Serialize roofFaces with autoCount and adjustedFlag
   const roofFaces = v2RoofFaces.map(f => ({
     points: f.points,
     tilt: f.tilt, azimuth: f.azimuth,
     panelW: f.panelW, panelH: f.panelH, panelWp: f.panelWp,
     panelModel: f.panelModel,
+    autoCount: f.autoCount,
     count: f.count, kw: f.kw,
+    adjustedFlag: f.adjustedFlag || false,
   }));
   return {
     app: 'SolarHack',
@@ -2232,12 +2272,17 @@ function V2_loadJSON(ev) {
         // Update face list display
         const faceListEl = document.getElementById('face-list');
         if (faceListEl) {
-          faceListEl.innerHTML = v2RoofFaces.map((f,i) => `
+          faceListEl.innerHTML = v2RoofFaces.map((f,i) => {
+            const badge = f.adjustedFlag ? '<span style="color:#ffa500;font-weight:600"> −${f.autoCount - f.count}枚 調整済</span>' : '';
+            return `
             <div style="padding:8px;background:#162540;border-radius:4px;margin-top:8px;font-size:11px;color:#7a91b0">
-              面${i+1}: ${f.count}枚 (${f.kw.toFixed(2)}kW) / 勾配${f.tilt}° / 方位${f.azimuth}°
+              面${i+1}: <input type="number" id="face-count-${i}" value="${f.count}" min="1" max="${f.autoCount}" style="width:50px;padding:2px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:11px"
+                onchange="const v=parseInt(this.value); if(isNaN(v) || v < 1 || v > ${f.autoCount}) { alert('配置可能数(${f.autoCount}枚)を超えています'); this.value=${f.count}; } else { v2RoofFaces[${i}].count = v; v2RoofFaces[${i}].kw = v * (v2RoofFaces[${i}].panelWp || 485) / 1000; V2_syncTotals(); }"> / 配置可能 ${f.autoCount}枚${badge}
+              (${f.kw.toFixed(2)}kW) / 勾配${f.tilt}° / 方位${f.azimuth}°
               <button onclick="v2RoofFaces.splice(${i},1); V2_renderPanelLayout(); V2_syncTotals()" style="float:right;padding:2px 6px;background:#1a2332;color:#ff7c2a;border:1px solid #ff7c2a;border-radius:2px;cursor:pointer;font-size:10px">削除</button>
             </div>
-          `).join('');
+            `;
+          }).join('');
         }
       }
       // TASK 98: Restore estimate inputs
