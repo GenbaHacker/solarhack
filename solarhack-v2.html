@@ -495,8 +495,10 @@ input[type="range"] { accent-color:#ff7c2a; }
     </div>
     <div class="card-body-content">
     <div class="form-group">
-      <label>設置パネル枚数</label>
+      <label id="totalPanels-label">設置パネル枚数</label>
       <input type="number" id="totalPanels" value="20" min="1" onchange="C_calcString()">
+      <!-- TASK 116: Quick mode tag -->
+      <div id="quick-mode-tag" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">⚠ 概算（配置未設計）</div>
     </div>
     <button class="btn primary" onclick="C_calcString()">計算実行</button>
 
@@ -1724,10 +1726,25 @@ function V2_renderFaceList() {
 function V2_syncTotals() {
   const total = v2RoofFaces.reduce((s,f)=>s+f.count, 0);
   const tp = document.getElementById('totalPanels');
-  if (tp) tp.value = total;
-  // TASK 70: est-panels doesn't exist, removed
+  if (tp) {
+    tp.value = total;
+    // TASK 116: Mode detection — readonly when faces exist, editable when zero
+    const hasDesign = v2RoofFaces.length > 0;
+    tp.readOnly = hasDesign;
+
+    // Update label
+    const label = document.getElementById('totalPanels-label');
+    if (label) {
+      label.textContent = hasDesign ? '枚数（屋根面から自動）' : '設置パネル枚数';
+    }
+
+    // Show/hide quick-mode tag
+    const quickTag = document.getElementById('quick-mode-tag');
+    if (quickTag) {
+      quickTag.style.display = hasDesign ? 'none' : 'block';
+    }
+  }
   V2_setMapStatus(`✅ 屋根面${v2RoofFaces.length}面 / 合計${total}枚`);
-  // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
   V2_calcEstimate();
 }
 
@@ -3016,7 +3033,9 @@ function V2_calcEstimate() {
   // TASK 1: Save estimate result
   V2_EST = {
     panels, pcsUnits, pcsKwTotal, isHigh, dcKwTotal, contingencyRate,
-    panelCost, pcsCost, materialCost, workCost, contingency, subTotal, discount, tax, total, netPrice, grossProfit, grossMargin,
+    panelCost, pcsCost, materialCost, workCost, contingency,
+    cost: materialCost + workCost + contingency,
+    subTotal, discount, tax, total, netPrice, grossProfit, grossMargin,
     perKw: dcKwTotal > 0 ? total / dcKwTotal : 0,
     risks: V2_EST?.risks || {},
     calcedAt: new Date().toISOString(),
