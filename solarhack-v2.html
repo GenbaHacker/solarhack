@@ -2679,6 +2679,11 @@ function V2_calcEstimate() {
   window.V2_PCS_COST = selectedPcs?.cost || null;
   window.V2_PCS_OBJ = selectedPcs;
 
+  console.log('DEBUG: panelMaker=', panelMaker, 'panelModel=', panelModel);
+  console.log('DEBUG: selectedPanel=', selectedPanel);
+  console.log('DEBUG: panelCostEach=', panelCostEach, 'panelWp=', panelWp);
+  console.log('DEBUG: selectedPcs=', selectedPcs);
+
   // TASK 70: Now render equipment/work tables with the real costs
   V2_buildEquipEstimate();
 
