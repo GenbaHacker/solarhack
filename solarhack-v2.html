@@ -1895,6 +1895,7 @@ function V2_logEstimate() {
     perKw: V2_EST.perKw,
     unresolvedRisks: countUnresolvedRisks(V2_EST.risks),
     irrSource: V2_IRR_STATE.source,
+    layoutDesigned: v2RoofFaces.length > 0,   // TASK 116: false=quick mode, true=design mode
   });
 
   try {
@@ -3436,6 +3437,13 @@ function V2_handlePrint() {
   }
   // All guards pass
   window.print();
+}
+
+// TASK 116-TAG: Initialize mode on page load (zero faces → tag visible)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', V2_syncTotals);
+} else {
+  V2_syncTotals();
 }
 </script>
 
