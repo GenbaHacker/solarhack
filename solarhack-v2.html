@@ -701,6 +701,12 @@ input[type="range"] { accent-color:#ff7c2a; }
           <td style="padding:8px"><input type="number" id="est-discount" value="0" style="width:100px;padding:4px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right" onchange="V2_calcEstimate()" placeholder="円"></td>
         </tr>
 
+        <!-- TASK 90: 紹介料オプション -->
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
+          <td style="padding:8px"><label><input type="checkbox" id="referral-fee-check" onchange="V2_calcEstimate()"> 紹介料あり（3%）</label></td>
+          <td style="text-align:right;padding:8px;font-size:12px;color:#ff7c2a" id="referral-fee-display">—</td>
+        </tr>
+
         <!-- 売価（税抜） -->
         <tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(0,200,150,0.05);font-weight:600">
           <td style="padding:8px">売価（税抜）</td>
@@ -2741,7 +2747,17 @@ function V2_calcEstimate() {
   }
 
   const materialCost = panelCost + pcsCost;
-  const subTotal = materialCost + workCost + contingency;
+  const cost = materialCost + workCost + contingency;
+
+  // ===== TASK 90: SALE PRICE LAYER (markup + overhead rates) =====
+  const equipSale    = materialCost * (1 + COST_MASTER.markup_equipment);
+  const workSale     = workCost * (1 + COST_MASTER.markup_work);
+  const ohGeneral    = workSale * COST_MASTER.overhead_general_rate;
+  const ohSite       = workSale * COST_MASTER.overhead_site_rate;
+  const ohOtherFees  = workSale * COST_MASTER.other_fees_rate;
+  const wasteFee     = equipSale * COST_MASTER.waste_disposal_rate;
+  const contingencySale = contingency * (1 + COST_MASTER.markup_work);
+  const subTotal = equipSale + workSale + ohGeneral + ohSite + ohOtherFees + wasteFee + contingencySale;
 
   // TASK 21: Discount is manual input (already normalized)
   const discountRaw = document.getElementById('est-discount')?.value || '0';
@@ -2752,9 +2768,21 @@ function V2_calcEstimate() {
   if (isNaN(discount) || discount < 0) discount = 0;
   discount = Math.min(discount, subTotal);
 
-  const netPrice = subTotal - discount;
-  const cost = materialCost + workCost + contingency;
-  const grossProfit = netPrice - cost;
+  // TASK 90: Referral fee (3% of netPrice if checkbox checked) reduces margin
+  let netPrice = subTotal - discount;
+  const referralCheckbox = document.getElementById('referral-fee-check');
+  if (referralCheckbox?.checked) {
+    const referralFee = netPrice * COST_MASTER.referral_fee_rate;
+    // Referral fee is a cost, so iterate once: cost +=  referralFee, then recalc margin
+    const grossProfit1 = netPrice - (cost + referralFee);
+    const grossMargin1 = netPrice > 0 ? grossProfit1 / netPrice : 0;
+    // For UI clarity: show it as a deduction from profit, not cost
+    window.V2_REFERRAL_FEE = referralFee;
+  } else {
+    window.V2_REFERRAL_FEE = 0;
+  }
+
+  const grossProfit = netPrice - cost - (window.V2_REFERRAL_FEE || 0);
   const grossMargin = netPrice > 0 ? grossProfit / netPrice : 0;
 
   // TASK 82: Tax applied to netPrice (post-discount), not pre-discount
@@ -2780,6 +2808,16 @@ function V2_calcEstimate() {
   setVal('est-net-price', fmt(netPrice));
   setVal('est-gross-profit', fmt(grossProfit));
   setVal('est-gross-margin', (grossMargin * 100).toFixed(2) + '%');  // ← Now always has value
+
+  // TASK 90: Display referral fee if checked
+  const referralDisplay = document.getElementById('referral-fee-display');
+  if (referralDisplay) {
+    if (window.V2_REFERRAL_FEE > 0) {
+      referralDisplay.textContent = '−' + fmt(window.V2_REFERRAL_FEE);
+    } else {
+      referralDisplay.textContent = '—';
+    }
+  }
 
   // TASK 50: Display actual PCS unit count in estimate
   const pcsUnitsDisplay = document.getElementById('est-pcs-units-display');
