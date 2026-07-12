@@ -2437,6 +2437,8 @@ function V2_buildEquipEstimate() {
   const pcsCostUnit = window.V2_PCS_COST;
   const pcsObjForCost = window.V2_PCS_OBJ;
 
+  console.log('DEBUG BUILD: panelCostEach=', panelCostEach, 'pcsCostUnit=', pcsCostUnit);
+
   const rows = [];
 
   // Panel row: use real cost from DB
