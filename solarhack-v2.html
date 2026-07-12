@@ -835,8 +835,12 @@ input[type="range"] { accent-color:#ff7c2a; }
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
         <span>工事費合計</span><span style="font-weight:700" id="total-work">-</span>
       </div>
+      <!-- TASK 109-B: Add contingency row -->
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span>予備費</span><span style="font-weight:700" id="total-contingency">-</span>
+      </div>
       <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;margin-top:8px;font-size:14px;font-weight:700;color:#ff7c2a">
-        <span>総合計（税抜）</span><span id="total-amount">-</span>
+        <span>総合計（税抜・原価）</span><span id="total-amount">-</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#00c896">
         <span>総合計（税込10%）</span><span id="total-with-tax">-</span>
@@ -2658,7 +2662,7 @@ function V2_buildEquipEstimate() {
 
   document.getElementById('work-total').textContent = fmt(workTotal);
   window.V2_WORK_TOTAL = workTotal;
-  V2_updateGrandTotal();
+  // TASK 109-B: V2_updateGrandTotal moved to V2_calcEstimate (after V2_EST assigned)
   return equipTotal;
 }
 
@@ -2687,14 +2691,19 @@ function V2_updateEquipPrice(idx, newPrice) {
 }
 
 function V2_updateGrandTotal() {
-  const equipTotal = window.V2_EQUIP_TOTAL || 0;
-  const workTotal = window.V2_WORK_TOTAL || 0;
+  // TASK 109-B: Read from V2_EST (single source of truth)
+  const materialCost = V2_EST?.materialCost || 0;
+  const workCost = V2_EST?.workCost || 0;
+  const contingency = V2_EST?.contingency || 0;
+  const cost = V2_EST?.cost || (materialCost + workCost + contingency);
+
   const fmt = v => Math.round(v).toLocaleString();
-  const total = equipTotal + workTotal;
-  document.getElementById('total-equip').textContent = fmt(equipTotal) + '円';
-  document.getElementById('total-work').textContent = fmt(workTotal) + '円';
-  document.getElementById('total-amount').textContent = fmt(total) + '円';
-  document.getElementById('total-with-tax').textContent = fmt(total * 1.1) + '円';
+
+  document.getElementById('total-equip').textContent = fmt(materialCost) + '円';
+  document.getElementById('total-work').textContent = fmt(workCost) + '円';
+  document.getElementById('total-contingency').textContent = fmt(contingency) + '円';
+  document.getElementById('total-amount').textContent = fmt(cost) + '円';
+  document.getElementById('total-with-tax').textContent = fmt(cost * 1.1) + '円';
 }
 
 // TASK 20: Get contingency rate by total capacity
@@ -2990,6 +2999,9 @@ function V2_calcEstimate() {
                      unresolvedCount === 0;  // TASK 99: Require all risks confirmed
     printBtn.disabled = !canPrint;
   }
+
+  // TASK 109-B: Update orange box AFTER V2_EST is complete
+  V2_updateGrandTotal();
 
   // TASK 8: Log estimate to cloud (fire-and-forget)
   V2_logEstimate();
