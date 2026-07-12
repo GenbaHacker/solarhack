@@ -985,11 +985,12 @@ function C_applyPanel() {
   const panel = C_PANEL_DB[maker].find(p => p.model === model);
   if (!panel) return;
 
+  // TASK 91: Store full panel object in V2_SPEC (single source of truth for C_calcString)
+  V2_SPEC.panel = panel;
+
   sv('panelWp', panel.wp);
   sv('panelVoc', panel.voc);
   sv('panelVmp', panel.vmp);
-  sv('panelImp', panel.imp);
-  sv('panelTvoc', panel.tvoc);
   sv('panelWidth', panel.w);
   sv('panelHeight', panel.h);
 
@@ -1023,6 +1024,9 @@ function C_applyPcs() {
   if (!maker || !C_PCS_DB[maker]) return;
   const pcs = C_PCS_DB[maker].find(p => p.model === model);
   if (!pcs) return;
+
+  // TASK 91: Store PCS object in V2_SPEC (single source of truth)
+  V2_SPEC.pcs = pcs;
 
   sv('pcsKw', pcs.kw);
   sv('pcsMpptRange', `${pcs.mpptMin}-${pcs.mpptMax}`);
@@ -1120,14 +1124,21 @@ function C_getSelectedPcs() {
 
 function C_calcString() {
   const panels = parseInt(document.getElementById('totalPanels')?.value || 0);
-  const voc = parseFloat(document.getElementById('panelVoc')?.value || 0);
-  const vmp = parseFloat(document.getElementById('panelVmp')?.value || 0);
-  const impRaw = document.getElementById('panelImp')?.value;
-  const imp = impRaw ? parseFloat(impRaw) : null;  // TASK 61: null if missing, not 0
-  const tvoc = parseFloat(document.getElementById('panelTvoc')?.value || -0.29);
-  const wp = parseFloat(document.getElementById('panelWp')?.value || 485);
   const pcs = C_getSelectedPcs();
   const el = document.getElementById('safety-checks');
+
+  // TASK 91: Read panel specs from V2_SPEC.panel (stored by C_applyPanel), not from DOM
+  // panelImp/panelTvoc don't exist in HTML; V2_SPEC is the single source of truth
+  if (!V2_SPEC.panel) {
+    if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（パネル未登録）</span>`;
+    return;
+  }
+
+  const voc = V2_SPEC.panel.voc || 0;
+  const vmp = V2_SPEC.panel.vmp || 0;
+  const imp = V2_SPEC.panel.imp || null;  // null if missing
+  const tvoc = V2_SPEC.panel.tvoc || -0.29;
+  const wp = V2_SPEC.panel.wp || 485;
 
   if (!panels || !voc || !pcs || imp === null) {  // TASK 61: Block if Impp missing
     if (el) {
@@ -1835,7 +1846,9 @@ let V2_EST = null;  // TASK 1: persisted estimate result
 
 // ===== TASK 50: Single source of truth for PCS unit count =====
 let V2_SPEC = {
-  pcsUnits: 1,  // number of PCS units (from C_calcStrings)
+  pcsUnits: 1,  // number of PCS units (from C_calcString)
+  panel: null,  // TASK 91: Selected panel object (C_applyPanel stores this)
+  pcs: null,    // TASK 91: Selected PCS object (C_applyPcs stores this)
 };
 
 // ===== TASK 5: 単価マスタ状態 =====
