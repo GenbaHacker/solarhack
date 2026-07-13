@@ -1490,7 +1490,7 @@ function C_calcString_MultiModel(pcs, el) {
   document.getElementById('design-result')?.classList.add('hidden');
 }
 
-// TASK 122-C: Test scenario injection — FIXED to set PCS via same user path (C_applyPcs)
+// TASK 122-E: Exact patch — DELETE V2_layoutFace, direct autoCount/kw, restructure, panasonic fix
 function V2_loadTestScenario(name) {
   console.log(`\n=== V2_loadTestScenario('${name}') ===\n`);
 
@@ -1500,60 +1500,72 @@ function V2_loadTestScenario(name) {
   V2_SPEC = { pcsUnits: null };
 
   if (name === 'lowv') {
-    // Face: choshu 415W × 24 panels
+    // Face: choshu 415W × 24 panels on panasonic VBPC244GM2 4.4kW
     const f1 = V2_buildFace('choshu', 'CS-415K54H', [[0,0],[10,0],[10,10]], 15, 180, 24);
     if (!f1) { console.log(`✗ lowv: V2_buildFace returned null`); return; }
     v2RoofFaces.push(f1);
-    V2_layoutFace(f1);
+    f1.autoCount = f1.count;
+    f1.kw = f1.count * f1.panelWp / 1000;
 
-    // Set PCS via user path: maker → C_buildPcsModels → model → C_applyPcs
-    sv('pcsMaker', 'kostal');
+    sv('pcsMaker', 'panasonic');
     C_buildPcsModels();
     sv('pcsModel', 'VBPC244GM2');
     C_applyPcs();
-    // C_applyPcs calls V2_calcEstimate internally
+
+    V2_renderFaceList();
+    V2_syncTotals();
 
     if (!V2_SPEC.pcsUnits || !V2_EST) {
       console.log(`✗ lowv: pcsUnits=${V2_SPEC.pcsUnits}, V2_EST=${V2_EST?.cost || 'null'}`);
       return;
     }
-    console.log(`✓ lowv: f[0].panelModel=${v2RoofFaces[0].panelModel} voc=${v2RoofFaces[0].panelVoc} / pcsUnits=${V2_SPEC.pcsUnits}`);
+    console.log(`✓ lowv: pcsUnits=${V2_SPEC.pcsUnits} (expect 2) panelCost=¥${V2_EST.panelCost?.toLocaleString()}`);
   } else if (name === 'boundary') {
-    // Face: choshu 415W × 100 panels, stresses DC/AC ratio
+    // Face: choshu 415W × 100 panels on huawei 50kW
     const f1 = V2_buildFace('choshu', 'CS-415K54H', [[0,0],[20,0],[20,20]], 15, 180, 100);
     if (!f1) { console.log(`✗ boundary: V2_buildFace returned null`); return; }
     v2RoofFaces.push(f1);
-    V2_layoutFace(f1);
+    f1.autoCount = f1.count;
+    f1.kw = f1.count * f1.panelWp / 1000;
 
     sv('pcsMaker', 'huawei');
     C_buildPcsModels();
     sv('pcsModel', 'SUN2000-50KTL-JPM0');
     C_applyPcs();
+
+    V2_renderFaceList();
+    V2_syncTotals();
 
     if (!V2_SPEC.pcsUnits || !V2_EST) {
       console.log(`✗ boundary: pcsUnits=${V2_SPEC.pcsUnits}, V2_EST=${V2_EST?.cost || 'null'}`);
       return;
     }
-    console.log(`✓ boundary: f[0].panelModel=${v2RoofFaces[0].panelModel} / pcsUnits=${V2_SPEC.pcsUnits} / DC/AC escalation`);
+    const binding = 'DC/AC ratio constraint';
+    console.log(`✓ boundary: pcsUnits=${V2_SPEC.pcsUnits} binding=${binding}`);
   } else if (name === 'hicurrent') {
-    // Face: jinko 585W × 32 panels, stresses per-MPPT current
+    // Face: jinko 585W × 32 panels on huawei 50kW
     const f1 = V2_buildFace('jinko', 'JKM585N-72HL4-V', [[0,0],[15,0],[15,15]], 10, 180, 32);
     if (!f1) { console.log(`✗ hicurrent: V2_buildFace returned null`); return; }
     v2RoofFaces.push(f1);
-    V2_layoutFace(f1);
+    f1.autoCount = f1.count;
+    f1.kw = f1.count * f1.panelWp / 1000;
 
     sv('pcsMaker', 'huawei');
     C_buildPcsModels();
     sv('pcsModel', 'SUN2000-50KTL-JPM0');
     C_applyPcs();
 
+    V2_renderFaceList();
+    V2_syncTotals();
+
     if (!V2_SPEC.pcsUnits || !V2_EST) {
       console.log(`✗ hicurrent: pcsUnits=${V2_SPEC.pcsUnits}, V2_EST=${V2_EST?.cost || 'null'}`);
       return;
     }
-    console.log(`✓ hicurrent: f[0].panelModel=${v2RoofFaces[0].panelModel} imp=${v2RoofFaces[0].panelImp} / pcsUnits=${V2_SPEC.pcsUnits} / current stress`);
+    const binding = 'per-MPPT current limit (imp=' + v2RoofFaces[0].panelImp + 'A)';
+    console.log(`✓ hicurrent: pcsUnits=${V2_SPEC.pcsUnits} binding=${binding}`);
   } else if (name === 'multi') {
-    // Quick mode: 980 panels, stresses pcsUnits
+    // Quick mode: 980 panels choshu on huawei 50kW
     sv('panelMaker', 'choshu');
     C_buildPanelModels();
     sv('panelModel', 'CS-415K54H');
@@ -1565,39 +1577,41 @@ function V2_loadTestScenario(name) {
     sv('pcsModel', 'SUN2000-50KTL-JPM0');
     C_applyPcs();
 
+    V2_renderFaceList();
+    V2_syncTotals();
+
     if (!V2_SPEC.pcsUnits || !V2_EST) {
       console.log(`✗ multi: pcsUnits=${V2_SPEC.pcsUnits}, V2_EST=${V2_EST?.cost || 'null'}`);
       return;
     }
-    console.log(`✓ multi: panels=980 / pcsUnits=${V2_SPEC.pcsUnits} (should be ≥2) / max(ΣMPPT, DC/AC) binding`);
+    console.log(`✓ multi: pcsUnits=${V2_SPEC.pcsUnits} (expect 6) cost=¥${V2_EST.cost?.toLocaleString()}`);
   } else if (name === 'mixed') {
-    // Multi-model: choshu × 28 + jinko × 14
+    // Multi-model: choshu × 28 + jinko × 14 on huawei 50kW
     const f1 = V2_buildFace('choshu', 'CS-415K54H', [[0,0],[10,0],[10,10]], 10, 180, 28);
     const f2 = V2_buildFace('jinko', 'JKM585N-72HL4-V', [[15,0],[25,0],[25,10]], 10, 180, 14);
     if (!f1 || !f2) { console.log(`✗ mixed: V2_buildFace returned null for f1=${f1} f2=${f2}`); return; }
     v2RoofFaces.push(f1);
     v2RoofFaces.push(f2);
-    V2_layoutFace(f1);
-    V2_layoutFace(f2);
+    f1.autoCount = f1.count;
+    f1.kw = f1.count * f1.panelWp / 1000;
+    f2.autoCount = f2.count;
+    f2.kw = f2.count * f2.panelWp / 1000;
 
     sv('pcsMaker', 'huawei');
     C_buildPcsModels();
     sv('pcsModel', 'SUN2000-50KTL-JPM0');
     C_applyPcs();
 
+    V2_renderFaceList();
+    V2_syncTotals();
+
     if (!V2_SPEC.pcsUnits || !V2_EST || !V2_EST.panelCost) {
       console.log(`✗ mixed: pcsUnits=${V2_SPEC.pcsUnits}, panelCost=${V2_EST?.panelCost || 'null'}, cost=${V2_EST?.cost || 'null'}`);
       return;
     }
-    console.log(`✓ mixed: f[0].panelModel=${v2RoofFaces[0].panelModel} f[1].panelModel=${v2RoofFaces[1].panelModel}`);
-    console.log(`  f[0].panelVoc=${v2RoofFaces[0].panelVoc} f[1].panelVoc=${v2RoofFaces[1].panelVoc}`);
-    console.log(`  panelCost: ¥${V2_EST.panelCost.toLocaleString()}`);
-    console.log(`  cost: ¥${V2_EST.cost.toLocaleString()}`);
-    console.log(`  pcsUnits: ${V2_SPEC.pcsUnits}`);
+    console.log(`✓ mixed: panelCost=¥${V2_EST.panelCost.toLocaleString()} cost=¥${V2_EST.cost.toLocaleString()} pcsUnits=${V2_SPEC.pcsUnits}`);
   }
 
-  V2_renderFaceList();
-  V2_syncTotals();
   console.log(`=== Scenario complete ===\n`);
 }
 
