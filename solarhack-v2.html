@@ -2233,12 +2233,13 @@ function V2_applyVoltageClass() {
   // TASK 70: est-is-high doesn't exist, removed; voltage-class is the source of truth
   // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
   V2_calcEstimate();
-  // 電気料金プランを自動切替
+  // FIX 3: DO NOT call C_runSim here (irradiance warning belongs only on simulation execution)
+  // Suggest elec plan but don't auto-switch (user can manually change if desired)
   const isHigh = document.getElementById('voltage-class').value === 'high';
   const planSel = document.getElementById('elec-plan');
   if (planSel) {
+    // Just update value, don't trigger C_runSim
     planSel.value = isHigh ? 'highv_a' : 'lowv';
-    V2_applyPlan();
   }
 }
 
