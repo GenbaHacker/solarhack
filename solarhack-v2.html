@@ -1960,7 +1960,7 @@ function V2_renderFaceList() {
 
     return `
     <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <strong style="color:#ff7c2a">面${f.id}</strong>
+      <strong style="color:#ff7c2a">面${idx+1}</strong>
       <label style="font-size:11px">パネル
         <select style="padding:2px 6px;background:#162540;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:3px;font-size:11px"
           onchange="const [maker, model] = this.value.split('|'); V2_updateFacePanel(${idx}, maker, model)">
