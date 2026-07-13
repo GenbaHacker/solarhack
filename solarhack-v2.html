@@ -215,6 +215,21 @@ input[type="range"] { accent-color:#ff7c2a; }
 #info-popup dt { color:#f0f4ff; font-weight:600; margin-top:8px; }
 #info-popup dd { color:#7a91b0; margin:2px 0 0 0; }
 </style>
+<script type="module">
+  // TASK 123-A: Load DenkiHack module with fallback guard
+  try {
+    import('./denkihack.mjs').then(module => {
+      window.DenkiHack_calc = module.DenkiHack_calc;
+      console.log('✓ DenkiHack module loaded');
+    }).catch(err => {
+      console.warn('⚠ DenkiHack module not found:', err.message);
+      window.DenkiHack_calc = null;
+    });
+  } catch (err) {
+    console.warn('⚠ DenkiHack module import failed:', err.message);
+    window.DenkiHack_calc = null;
+  }
+</script>
 </head>
 <body>
 <div style="display:flex">
@@ -227,6 +242,7 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div class="nav-item" onclick="V2_scrollTo('sec-design')">⚙ システム設計</div>
     <div class="nav-item" onclick="V2_scrollTo('sec-sim')">📊 シミュレーション</div>
     <div class="nav-item" onclick="V2_scrollTo('sec-estimate')">💴 概算見積</div>
+    <div class="nav-item" onclick="V2_scrollTo('sec-detail')">🔧 詳細見積（現場調査）</div>
     <div class="nav-item" onclick="V2_scrollTo('sec-cf')">💹 CF・IRR</div>
     <div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:12px;padding-top:12px">
       <div class="nav-item" onclick="V2_openMaster()">🗄 マスタ管理</div>
@@ -1218,6 +1234,7 @@ function C_calcString() {
 
   if (!pcs) {
     V2_SPEC.pcsUnits = null;
+    V2_SPEC.stringTotal = null;
     if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（PCS未登録）</span>`;
     return;
   }
@@ -1237,6 +1254,7 @@ function C_calcString_SingleModel(pcs, el) {
 
   if (!V2_SPEC.panel) {
     V2_SPEC.pcsUnits = null;
+    V2_SPEC.stringTotal = null;
     if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（パネル未登録）</span>`;
     return;
   }
@@ -1249,6 +1267,7 @@ function C_calcString_SingleModel(pcs, el) {
 
   if (!panels || !voc || imp === null) {
     V2_SPEC.pcsUnits = null;
+    V2_SPEC.stringTotal = null;
     if (el) {
       const reason = !panels ? 'パネル枚数' : !voc ? 'パネルVoc' : 'パネルImpp';
       el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（${reason}未登録）</span>`;
@@ -1266,6 +1285,7 @@ function C_calcString_SingleModel(pcs, el) {
 
   if (sMin > seriesCap) {
     V2_SPEC.pcsUnits = null;
+    V2_SPEC.stringTotal = null;
     if (el) el.innerHTML = `<span style="color:#ff4d6a">✗ 適合する直列数がありません（下限${sMin} > 上限${seriesCap}）。パネルまたはPCSを変更してください。</span>`;
     return;
   }
@@ -1345,6 +1365,7 @@ function C_calcString_SingleModel(pcs, el) {
 
   // TASK 50: Store PCS unit count in canonical location
   V2_SPEC.pcsUnits = best.units;
+  V2_SPEC.stringTotal = best.nStr;  // TASK 123-A: stringTotal for DenkiHack
 
   // Store values for UI
   sv('opt-series', best.s);
@@ -1373,6 +1394,7 @@ function C_calcString_MultiModel(pcs, el) {
   const groupArray = Object.values(groups);
   if (!groupArray.length) {
     V2_SPEC.pcsUnits = null;
+    V2_SPEC.stringTotal = null;
     if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（面が確定されていません）</span>`;
     return;
   }
@@ -1486,6 +1508,8 @@ function C_calcString_MultiModel(pcs, el) {
 
   if (el) el.innerHTML = html;
   V2_SPEC.pcsUnits = pcsUnits;
+  // TASK 123-A: Compute total string count across all groups for DenkiHack
+  V2_SPEC.stringTotal = groupArray.reduce((sum, g) => sum + (g.best?.nStr || 0), 0);
   sv('pcs-units', pcsUnits);
   document.getElementById('design-result')?.classList.add('hidden');
 }
