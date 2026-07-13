@@ -1836,28 +1836,17 @@ function V2_updateUsage() {
 }
 
 // ===== 屋根面確定・管理 =====
-function V2_confirmFace() {
-  if (v2MapPoints.length < 3) { alert('3点以上指定してください'); return; }
-  const tilt = parseFloat(document.getElementById('roof-tilt').value);
-  const az   = parseFloat(document.getElementById('roof-azimuth').value);
+// TASK 117-C: Shared face builder function (used by confirm, test scenario, etc.)
+function V2_buildFace(maker, model, points, tilt, azimuth, count = 0) {
+  // Guard: panel must be selected
+  if (!maker || !model || !C_PANEL_DB[maker]) return null;
+  const panelObj = C_PANEL_DB[maker].find(p => p.model === model);
+  if (!panelObj) return null;
 
-  // TASK 117: Snapshot panel identity at confirmation time
-  const maker = document.getElementById('panelMaker')?.value || '';
-  const model = document.getElementById('panelModel')?.value || '';
-  let panelObj = null;
-  if (maker && C_PANEL_DB[maker]) {
-    panelObj = C_PANEL_DB[maker].find(p => p.model === model);
-  }
-  if (!panelObj) {
-    alert('パネルを選択してください');
-    return;
-  }
-
-  const face = {
+  return {
     id: ++v2FaceSeq,
-    points: [...v2MapPoints],
-    tilt, azimuth: az,
-    // TASK 117: Store panel identity (maker, model, and specs from DB)
+    points: [...points],
+    tilt, azimuth,
     panelMaker: maker,
     panelModel: model,
     panelWp: panelObj.wp,
@@ -1867,12 +1856,27 @@ function V2_confirmFace() {
     panelVmp: panelObj.vmp,
     panelImp: panelObj.imp,
     panelTvoc: panelObj.tvoc,
-    // TASK 116: Count tracking
     autoCount: 0,
-    count: 0,
+    count: count,
     adjustedFlag: false,
     kw: 0, layers: []
   };
+}
+
+function V2_confirmFace() {
+  if (v2MapPoints.length < 3) { alert('3点以上指定してください'); return; }
+  const tilt = parseFloat(document.getElementById('roof-tilt').value);
+  const az   = parseFloat(document.getElementById('roof-azimuth').value);
+  const maker = document.getElementById('panelMaker')?.value || '';
+  const model = document.getElementById('panelModel')?.value || '';
+
+  // TASK 117-C: Use shared builder (enforces panel selection guard)
+  const face = V2_buildFace(maker, model, v2MapPoints, tilt, az);
+  if (!face) {
+    alert('パネルを選択してください');
+    return;
+  }
+
   v2RoofFaces.push(face);
   // 現在の点をリセット（次の面用）
   v2MapPoints = [];
@@ -2552,21 +2556,8 @@ function V2_loadJSON(ev) {
         if (v2Map) {
           v2RoofFaces.forEach(f => V2_layoutFace(f));
         }
-        // Update face list display
-        const faceListEl = document.getElementById('face-list');
-        if (faceListEl) {
-          faceListEl.innerHTML = v2RoofFaces.map((f,i) => {
-            const badge = f.adjustedFlag ? '<span style="color:#ffa500;font-weight:600"> −${f.autoCount - f.count}枚 調整済</span>' : '';
-            return `
-            <div style="padding:8px;background:#162540;border-radius:4px;margin-top:8px;font-size:11px;color:#7a91b0">
-              面${i+1}: <input type="number" id="face-count-${i}" value="${f.count}" min="1" max="${f.autoCount}" style="width:50px;padding:2px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:11px"
-                onchange="const v=parseInt(this.value); if(isNaN(v) || v < 1 || v > ${f.autoCount}) { alert('配置可能数(${f.autoCount}枚)を超えています'); this.value=${f.count}; } else { v2RoofFaces[${i}].count = v; v2RoofFaces[${i}].kw = v * (v2RoofFaces[${i}].panelWp || 485) / 1000; V2_syncTotals(); }"> / 配置可能 ${f.autoCount}枚${badge}
-              (${f.kw.toFixed(2)}kW) / 勾配${f.tilt}° / 方位${f.azimuth}°
-              <button onclick="v2RoofFaces.splice(${i},1); V2_renderPanelLayout(); V2_syncTotals()" style="float:right;padding:2px 6px;background:#1a2332;color:#ff7c2a;border:1px solid #ff7c2a;border-radius:2px;cursor:pointer;font-size:10px">削除</button>
-            </div>
-            `;
-          }).join('');
-        }
+        // Update face list display via shared renderer (includes panel dropdown)
+        V2_renderFaceList();
       }
       // TASK 98: Restore estimate inputs
       if (d.estimate?.discount) s('est-discount', d.estimate.discount);
