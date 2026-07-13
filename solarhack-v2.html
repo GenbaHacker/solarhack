@@ -379,10 +379,11 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div style="margin-top:10px;padding:8px;background:#162540;border-radius:6px;font-size:12px;color:#ff7c2a">
       <strong>離隔距離 <button class="info-btn" onclick="showInfo('margin-rule',event)">i</button></strong>: <span id="margin-display">自動計算</span>
     </div>
-    <button onclick="V2_renderPanelLayout()"
+    <button id="v2-draw-btn" onclick="V2_renderPanelLayout()"
       style="width:100%;margin-top:10px;padding:10px;background:#ff7c2a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">
       ☀ パネル配置を描画
     </button>
+    <div id="v2-draw-msg" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">先にパネルを選択してください</div>
     <div id="layout-result" style="margin-top:8px;font-size:13px;color:#00c896"></div>
     <button onclick="V2_confirmFace()"
       style="width:100%;margin-top:8px;padding:10px;background:#00c896;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">
@@ -1003,6 +1004,23 @@ function C_initDropdowns() {
   });
 }
 
+// TASK 119: Update draw button state based on panel selection
+function V2_updateDrawButtonState() {
+  const maker = document.getElementById('panelMaker')?.value || '';
+  const model = document.getElementById('panelModel')?.value || '';
+  const btn = document.getElementById('v2-draw-btn');
+  const msg = document.getElementById('v2-draw-msg');
+  if (btn) {
+    const isDisabled = !maker || !model;
+    btn.disabled = isDisabled;
+    btn.style.opacity = isDisabled ? '0.5' : '1';
+    btn.style.cursor = isDisabled ? 'not-allowed' : 'pointer';
+  }
+  if (msg) {
+    msg.style.display = (!maker || !model) ? 'block' : 'none';
+  }
+}
+
 function C_buildPanelModels() {
   const maker = gv('panelMaker');
   const pmModel = document.getElementById('panelModel');
@@ -1016,6 +1034,7 @@ function C_buildPanelModels() {
     opt.textContent = `${p.model} (${p.wp}Wp)`;
     pmModel.appendChild(opt);
   });
+  V2_updateDrawButtonState();  // TASK 119
 }
 
 function C_applyPanel() {
@@ -1064,6 +1083,8 @@ function C_applyPanel() {
     alert(`パネル変更: ${maker} ${model}。配置再計算: ${newDescr}。合計 ${totalNew}枚 / ${kwNew.toFixed(1)}kW`);
     V2_renderPanelLayout();
   }
+
+  V2_updateDrawButtonState();  // TASK 119
 
   // TASK 70: Calculate estimate
   V2_calcEstimate();
@@ -2346,6 +2367,14 @@ function V2_layoutFace(face) {
 
 // 現在の入力値でプレビュー描画（未確定面）
 function V2_renderPanelLayout() {
+  // TASK 119: Enforce panel selection before drawing
+  const maker = document.getElementById('panelMaker')?.value || '';
+  const model = document.getElementById('panelModel')?.value || '';
+  if (!maker || !model) {
+    alert('先にパネルを選択してください');
+    return;
+  }
+
   if (v2MapPoints.length < 3) {
     alert('先に地図上で屋根の頂点を3点以上指定してください');
     return;
@@ -2852,21 +2881,24 @@ function V2_buildEquipEstimate() {
     owave_slate: '大波スレート用', flat_roof: '陸屋根置き型', ground: '野立て架台',
   };
 
-  // TASK 107: Use real DB costs, not fictional EQUIP_PRICES
-  const panelCostEach = window.V2_PANEL_COST_EACH;
-  const panelObjForCost = window.V2_PANEL_OBJ;
+  // TASK 117-B: Use panelModelBreakdown from V2_calcEstimate (single source)
+  const panelBreakdown = window.V2_PANEL_MODEL_BREAKDOWN || [];
   const pcsCostUnit = window.V2_PCS_COST;
   const pcsObjForCost = window.V2_PCS_OBJ;
 
   const rows = [];
 
-  // Panel row: use real cost from DB
-  if (panelCostEach === null || panelCostEach === undefined) {
-    rows.push({ item:'太陽光パネル', model:panelModel, qty:panels+'枚',
-      priceId:'panel', price:'⚠仕入値未登録', amount:'—', dbObj: panelObjForCost });
-  } else {
-    rows.push({ item:'太陽光パネル', model:panelModel, qty:panels+'枚',
-      priceId:'panel', price:panelCostEach, amount:panels*panelCostEach, dbObj: panelObjForCost });
+  // Panel rows: one row per model (TASK 117)
+  for (const pb of panelBreakdown) {
+    const costEach = pb.costEach || 0;
+    const totalCost = pb.count * costEach;
+    if (costEach <= 0) {
+      rows.push({ item:'太陽光パネル', model:pb.model, qty:pb.count+'枚',
+        priceId:'panel', price:'⚠仕入値未登録', amount:'—', dbObj: pb.panel });
+    } else {
+      rows.push({ item:'太陽光パネル', model:pb.model, qty:pb.count+'枚',
+        priceId:'panel', price:costEach, amount:totalCost, dbObj: pb.panel });
+    }
   }
 
   // PCS row: use real cost from DB
@@ -3153,9 +3185,9 @@ function V2_calcEstimate() {
     }
   }
 
-  // TASK 107: Store panel/PCS costs in window scope for V2_buildEquipEstimate to use
-  window.V2_PANEL_COST_EACH = panelCostEach;
-  window.V2_PANEL_OBJ = selectedPanel;
+  // TASK 117-B: Store panel model breakdown for V2_buildEquipEstimate
+  window.V2_PANEL_MODEL_BREAKDOWN = panelModelBreakdown;
+  // TASK 107: Store PCS costs in window scope for V2_buildEquipEstimate to use
   window.V2_PCS_COST = selectedPcs?.cost !== undefined && selectedPcs?.cost !== null ? selectedPcs.cost : null;
   window.V2_PCS_OBJ = selectedPcs;
 
@@ -3720,9 +3752,13 @@ function V2_handlePrint() {
 
 // TASK 116-TAG: Initialize mode on page load (zero faces → tag visible)
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', V2_syncTotals);
+  document.addEventListener('DOMContentLoaded', () => {
+    V2_syncTotals();
+    V2_updateDrawButtonState();  // TASK 119: Initialize draw button state
+  });
 } else {
   V2_syncTotals();
+  V2_updateDrawButtonState();  // TASK 119: Initialize draw button state
 }
 </script>
 
