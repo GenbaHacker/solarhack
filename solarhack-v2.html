@@ -1490,6 +1490,89 @@ function C_calcString_MultiModel(pcs, el) {
   document.getElementById('design-result')?.classList.add('hidden');
 }
 
+// TASK 122: Test scenario injection (console-only, no UI)
+function V2_loadTestScenario(name) {
+  console.log(`\n=== V2_loadTestScenario('${name}') ===\n`);
+
+  // Reset state
+  v2RoofFaces = [];
+  v2FaceSeq = 0;
+  V2_SPEC = { pcsUnits: null };
+
+  if (name === 'lowv') {
+    // Scenario: LOW-VOLTAGE small PCS (VBPC244GM2 4.4kW, 2 MPPT)
+    // + choshu 415W, ~24 panels, voltage=low
+    // Stresses: narrow MPPT window, few MPPTs, small AC
+    const f1 = V2_buildFace('choshu', 'CS-415K54H', [[0,0],[10,0],[10,10]], 15, 180, 24);
+    if (f1) v2RoofFaces.push(f1);
+    sv('panelMaker', 'choshu');
+    sv('panelModel', 'CS-415K54H');
+    sv('pcsMaker', 'kostal');
+    sv('pcsModel', 'VBPC244GM2');
+    sv('voltage-class', 'low');
+    sv('totalPanels', '24');
+    C_calcString();
+    console.log(`✓ lowv: panels=24 / pcsModel=VBPC244GM2 (4.4kW, 2MPPT) / voltage=low`);
+  } else if (name === 'boundary') {
+    // Scenario: Just OVER 49.5kW AC → auto-escalates to high voltage
+    // Use 50KTL: 100 panels × 485W = 48.5kW, requires escalation to 50kW+
+    const f1 = V2_buildFace('choshu', 'CS-415K54H', [[0,0],[20,0],[20,20]], 15, 180, 100);
+    if (f1) v2RoofFaces.push(f1);
+    sv('panelMaker', 'choshu');
+    sv('panelModel', 'CS-415K54H');
+    sv('pcsMaker', 'huawei');
+    sv('pcsModel', 'SUN2000-50KTL-JPM0');
+    sv('voltage-class', 'high');
+    sv('totalPanels', '100');
+    C_calcString();
+    console.log(`✓ boundary: panels=100 / voltage escalation check / PCS=50KTL`);
+  } else if (name === 'hicurrent') {
+    // Scenario: jinko 585W (imp ~13.92A) stressing per-MPPT current limit
+    const f1 = V2_buildFace('jinko', 'JKM585N-72HL4-V', [[0,0],[15,0],[15,15]], 10, 180, 32);
+    if (f1) v2RoofFaces.push(f1);
+    sv('panelMaker', 'jinko');
+    sv('panelModel', 'JKM585N-72HL4-V');
+    sv('pcsMaker', 'huawei');
+    sv('pcsModel', 'SUN2000-50KTL-JPM0');
+    sv('voltage-class', 'high');
+    sv('totalPanels', '32');
+    C_calcString();
+    console.log(`✓ hicurrent: jinko 585W × 32 / current stress test / imaxPerMppt constraint`);
+  } else if (name === 'multi') {
+    // Scenario: Big load forcing pcsUnits ≥ 2 on 50KTL
+    // 980 panels quick mode: 980 × 485W = 475.3kW DC → needs pcsUnits ≥ 10
+    sv('panelMaker', 'choshu');
+    sv('panelModel', 'CS-415K54H');
+    sv('pcsMaker', 'huawei');
+    sv('pcsModel', 'SUN2000-50KTL-JPM0');
+    sv('voltage-class', 'high');
+    sv('totalPanels', '980');
+    C_calcString();
+    console.log(`✓ multi: quick-mode 980 panels / forces pcsUnits ≥ 2 / max(ΣMPPT, DC/AC) binding`);
+  } else if (name === 'mixed') {
+    // Scenario: Two models (choshu×28 + jinko×14) with MPPT separation
+    const f1 = V2_buildFace('choshu', 'CS-415K54H', [[0,0],[10,0],[10,10]], 10, 180, 28);
+    const f2 = V2_buildFace('jinko', 'JKM585N-72HL4-V', [[15,0],[25,0],[25,10]], 10, 180, 14);
+    if (f1) v2RoofFaces.push(f1);
+    if (f2) v2RoofFaces.push(f2);
+    sv('panelMaker', 'choshu');
+    sv('panelModel', 'CS-415K54H');
+    sv('pcsMaker', 'huawei');
+    sv('pcsModel', 'SUN2000-50KTL-JPM0');
+    sv('voltage-class', 'high');
+    C_calcString();
+    V2_calcEstimate();
+    console.log(`✓ mixed: choshu×28 + jinko×14 / multi-model groups / MPPT separation`);
+    console.log(`  panelCost: ¥${V2_EST.panelCost?.toLocaleString() || '—'}`);
+    console.log(`  cost: ¥${V2_EST.cost?.toLocaleString() || '—'}`);
+    console.log(`  pcsUnits: ${V2_SPEC.pcsUnits || '—'}`);
+  }
+
+  V2_renderFaceList();
+  V2_syncTotals();
+  console.log(`\n=== End scenario ===\n`);
+}
+
 function C_runSim() {
   // TASK 4: Block simulation if irradiation source is NONE
   if (V2_IRR_STATE.source === 'NONE') {
