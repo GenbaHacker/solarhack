@@ -1492,7 +1492,11 @@ function C_calcString_MultiModel(pcs, el) {
 
 // TASK 122-E: Exact patch — DELETE V2_layoutFace, direct autoCount/kw, restructure, panasonic fix
 function V2_loadTestScenario(name) {
-  console.log(`\n=== V2_loadTestScenario('${name}') ===\n`);
+  // Contamination detector: log COST_MASTER values
+  const dcAcRatio = COST_MASTER.max_dc_ac_ratio;
+  const contingencyFunc = V2_getContingencyRate ? `V2_getContingencyRate(dcKwTotal)` : 'null';
+  console.log(`\n=== V2_loadTestScenario('${name}') ===`);
+  console.log(`[DETECTOR] max_dc_ac_ratio=${dcAcRatio} contingency=${contingencyFunc}\n`);
 
   // Reset state
   v2RoofFaces = [];
