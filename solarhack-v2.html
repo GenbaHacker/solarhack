@@ -651,6 +651,82 @@ input[type="range"] { accent-color:#ff7c2a; }
     </div>
   </div>
 
+  <!-- === TASK 123-B: 詳細見積（現場調査） === -->
+  <div class="card" id="sec-detail">
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>🔧 詳細見積（現場調査）</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body" style="display:none">
+      <!-- Project header (read-only) -->
+      <div style="background:rgba(255,255,255,0.03);padding:12px;border-radius:4px;margin-bottom:16px;font-size:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>パネル: <strong id="detail-panel-count">—</strong>枚</div>
+          <div>DC容量: <strong id="detail-dc-kw">—</strong>kW</div>
+          <div>PCS: <strong id="detail-pcs-model">—</strong></div>
+          <div>ストリング数: <strong id="detail-string-count">—</strong></div>
+          <div>電圧クラス: <strong id="detail-voltage">—</strong></div>
+        </div>
+        <div id="detail-fallback-msg" style="color:#ff8c42;margin-top:8px;display:none">
+          ⚠ 詳細計算モジュール未読込 — 概算値を表示中
+        </div>
+      </div>
+
+      <!-- 現場調査入力 -->
+      <div style="margin-bottom:20px">
+        <h3 style="color:#ff7c2a;font-size:14px;margin-bottom:12px">現場調査入力</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label style="display:block;font-size:11px;color:#7a91b0;margin-bottom:4px">PV→PCS距離 (m)</label>
+            <input type="number" id="detail-dist-pv-pcs" value="50" min="0" max="500" style="width:100%;padding:6px;background:#1e2e48;border:1px solid #3a5a7f;border-radius:4px;color:#e8f0ff">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:#7a91b0;margin-bottom:4px">PCS→受電点距離 (m)</label>
+            <input type="number" id="detail-dist-pcs-grid" value="100" min="0" max="500" style="width:100%;padding:6px;background:#1e2e48;border:1px solid #3a5a7f;border-radius:4px;color:#e8f0ff">
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:11px;color:#7a91b0;margin-bottom:4px">配線ルート</label>
+          <select id="detail-routing" style="width:100%;padding:6px;background:#1e2e48;border:1px solid #3a5a7f;border-radius:4px;color:#e8f0ff">
+            <option value="露出">露出（Outdoor）</option>
+            <option value="屋内">屋内（Indoor）</option>
+            <option value="埋設">埋設（Buried）</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 詳細計算ボタン -->
+      <button class="btn primary" onclick="V2_runDetailCalc()" style="width:100%;margin-bottom:16px">詳細計算実行</button>
+
+      <!-- 計算結果 -->
+      <div id="detail-result" style="display:none">
+        <!-- Comparison block -->
+        <div style="background:rgba(255,127,42,0.1);border:1px solid #ff7c2a;border-radius:4px;padding:12px;margin-bottom:16px">
+          <div style="font-size:13px;line-height:1.8">
+            <div>概算原価（内諾ベース）: <strong id="detail-base-cost">¥—</strong></div>
+            <div>実査原価（詳細計算）: <strong id="detail-calc-cost">¥—</strong></div>
+            <div id="detail-diff-line" style="font-weight:600">差分: <strong id="detail-diff-amount">¥0</strong> <span id="detail-diff-note"></span></div>
+          </div>
+        </div>
+
+        <!-- BOM Table -->
+        <div style="margin-bottom:16px">
+          <h3 style="color:#ff7c2a;font-size:14px;margin-bottom:8px">部材費内訳（DenkiHack）</h3>
+          <div id="detail-bom-table" style="font-size:11px;overflow-x:auto"></div>
+        </div>
+      </div>
+
+      <!-- 内諾スナップショット -->
+      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-top:16px">
+        <button class="btn" onclick="V2_snaphotNaitaku()" style="width:100%;margin-bottom:8px">内諾時の概算を固定</button>
+        <div id="detail-snapshot-badge" style="font-size:11px;color:#7a91b0;display:none">
+          内諾固定: <span id="detail-snapshot-info"></span>
+          <a href="#" onclick="V2_clearSnapshot();return false" style="margin-left:8px;color:#ff7c2a">解除</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- === CF・IRR計算 === -->
   <div class="card" id="sec-cf">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
@@ -3526,6 +3602,180 @@ function V2_calcEstimate() {
 
   // TASK 8: Log estimate to cloud (fire-and-forget)
   V2_logEstimate();
+
+  // TASK 123-B: Update detail header whenever estimate changes
+  V2_updateDetailHeader();
+}
+
+// ===== TASK 123-B: 詳細見積（現場調査） =====
+function V2_updateDetailHeader() {
+  // Update read-only project header
+  if (!V2_EST) {
+    document.getElementById('detail-panel-count').textContent = '—';
+    document.getElementById('detail-dc-kw').textContent = '—';
+    document.getElementById('detail-pcs-model').textContent = '—';
+    document.getElementById('detail-string-count').textContent = '—';
+    document.getElementById('detail-voltage').textContent = '—';
+    return;
+  }
+
+  document.getElementById('detail-panel-count').textContent = (V2_EST.panels || 0).toLocaleString();
+  document.getElementById('detail-dc-kw').textContent = (V2_EST.dcKwTotal || 0).toFixed(2);
+
+  const pcsModel = V2_SPEC.pcs ? `${V2_SPEC.pcs.model} × ${V2_SPEC.pcsUnits || 1}` : '—';
+  document.getElementById('detail-pcs-model').textContent = pcsModel;
+
+  document.getElementById('detail-string-count').textContent = (V2_SPEC.stringTotal || '—');
+
+  const voltageClass = document.getElementById('voltage-class')?.value === 'high' ? '高圧' : '低圧';
+  document.getElementById('detail-voltage').textContent = voltageClass;
+
+  // Show fallback if DenkiHack not loaded
+  const hasDenkiHack = typeof window.DenkiHack_calc === 'function';
+  document.getElementById('detail-fallback-msg').style.display = hasDenkiHack ? 'none' : 'block';
+}
+
+function V2_runDetailCalc() {
+  // Check prerequisites
+  if (!V2_EST || !V2_SPEC.stringTotal) {
+    alert('先に概算見積を完成させてください');
+    return;
+  }
+
+  // Get input values
+  const distPvToPcs = parseFloat(document.getElementById('detail-dist-pv-pcs')?.value || 50);
+  const distPcsToGrid = parseFloat(document.getElementById('detail-dist-pcs-grid')?.value || 100);
+  const routing = document.getElementById('detail-routing')?.value || '露出';
+  const mountType = document.getElementById('roof-material')?.value === 'ground' ? 'ground' : 'roof';
+
+  // Call DenkiHack if available
+  if (typeof window.DenkiHack_calc !== 'function') {
+    alert('詳細計算モジュールが未読込です');
+    return;
+  }
+
+  const pcsKwTotal = (V2_SPEC.pcsUnits || 1) * (V2_SPEC.pcs?.kw || 50);
+  const params = {
+    kw: V2_EST.dcKwTotal,
+    pcsKwTotal: pcsKwTotal,
+    stringCount: V2_SPEC.stringTotal,
+    panelCount: V2_EST.panels,
+    distPvToPcs_m: distPvToPcs,
+    distPcsToGrid_m: distPcsToGrid,
+    routing: routing,
+    supply: document.getElementById('voltage-class')?.value === 'high' ? 'high' : 'low',
+    mountType: mountType
+  };
+
+  try {
+    const denki = window.DenkiHack_calc(params);
+    V2_renderDetailResults(denki);
+  } catch (err) {
+    alert('詳細計算エラー: ' + err.message);
+    console.error('DenkiHack error:', err);
+  }
+}
+
+function V2_renderDetailResults(denki) {
+  // Calculate detailCost (removing double-counted lines)
+  const dcKwTotal = V2_EST.dcKwTotal || 0;
+  const elecWorkLine = dcKwTotal * (COST_MASTER.elec_work_per_kw || 0);
+  const otherMaterialLine = dcKwTotal * (COST_MASTER.other_material_per_kw || 0);
+  const detailCost = (V2_EST.cost || 0) - elecWorkLine - otherMaterialLine + (denki.total || 0);
+
+  // Get base cost (from snapshot or current V2_EST)
+  const naitakuSnapshot = window.V2_NAITAKU_SNAPSHOT;
+  const baseCost = naitakuSnapshot ? naitakuSnapshot.cost : (V2_EST.cost || 0);
+  const diffAmount = baseCost - detailCost;
+
+  // Render comparison block
+  document.getElementById('detail-base-cost').textContent = `¥${(baseCost || 0).toLocaleString()}`;
+  document.getElementById('detail-calc-cost').textContent = `¥${detailCost.toLocaleString()}`;
+  document.getElementById('detail-diff-amount').textContent = `¥${Math.abs(diffAmount).toLocaleString()}`;
+
+  const diffNote = diffAmount >= 0
+    ? `<span style="color:#00c896">交渉余地</span>`
+    : `<span style="color:#ff4d6a">増額要協議</span>`;
+  document.getElementById('detail-diff-note').innerHTML = diffNote;
+
+  // Render BOM table
+  const bomHtml = V2_renderBomTable(denki);
+  document.getElementById('detail-bom-table').innerHTML = bomHtml;
+
+  // Show results
+  document.getElementById('detail-result').style.display = 'block';
+}
+
+function V2_renderBomTable(denki) {
+  if (!denki.items || denki.items.length === 0) {
+    return '<div style="color:#7a91b0">部材データなし</div>';
+  }
+
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03)">';
+  html += '<th style="text-align:left;padding:6px;min-width:100px">品目</th>';
+  html += '<th style="text-align:left;padding:6px;min-width:150px">名称</th>';
+  html += '<th style="text-align:left;padding:6px;min-width:100px">型式</th>';
+  html += '<th style="text-align:center;padding:6px;width:40px">数量</th>';
+  html += '<th style="text-align:center;padding:6px;width:40px">単位</th>';
+  html += '<th style="text-align:right;padding:6px;width:80px">単価</th>';
+  html += '<th style="text-align:right;padding:6px;width:100px">金額</th>';
+  html += '</tr>';
+
+  for (const item of denki.items) {
+    const spec = item.spec ? ` <small style="color:#7a91b0">${item.spec}</small>` : '';
+    html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+      <td style="padding:6px">${item.category || '—'}</td>
+      <td style="padding:6px">${item.name || '—'}</td>
+      <td style="padding:6px">${item.model || '—'}${spec}</td>
+      <td style="padding:6px;text-align:center">${item.qty || 0}</td>
+      <td style="padding:6px;text-align:center">${item.unit || '—'}</td>
+      <td style="padding:6px;text-align:right">¥${(item.unitPrice || 0).toLocaleString()}</td>
+      <td style="padding:6px;text-align:right">¥${(item.amount || 0).toLocaleString()}</td>
+    </tr>`;
+  }
+
+  // Summary rows
+  if (denki.summary) {
+    for (const [label, value] of Object.entries(denki.summary)) {
+      html += `<tr style="border-top:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03)">
+        <td colspan="6" style="padding:6px;text-align:right;font-weight:600">${label}</td>
+        <td style="padding:6px;text-align:right;font-weight:600">¥${(value || 0).toLocaleString()}</td>
+      </tr>`;
+    }
+  }
+
+  html += '</table>';
+  return html;
+}
+
+function V2_snapshotNaitaku() {
+  if (!V2_EST) {
+    alert('先に概算見積を計算してください');
+    return;
+  }
+
+  // Store snapshot
+  window.V2_NAITAKU_SNAPSHOT = {
+    date: new Date().toISOString().split('T')[0],
+    cost: V2_EST.cost,
+    subTotal: V2_EST.subTotal,
+    netPrice: V2_EST.netPrice
+  };
+
+  // Update badge
+  const badgeEl = document.getElementById('detail-snapshot-badge');
+  const infoEl = document.getElementById('detail-snapshot-info');
+  infoEl.textContent = `${window.V2_NAITAKU_SNAPSHOT.date} ¥${(window.V2_NAITAKU_SNAPSHOT.cost || 0).toLocaleString()}`;
+  badgeEl.style.display = 'block';
+
+  alert('内諾時の概算が固定されました');
+}
+
+function V2_clearSnapshot() {
+  window.V2_NAITAKU_SNAPSHOT = null;
+  document.getElementById('detail-snapshot-badge').style.display = 'none';
+  alert('内諾固定が解除されました');
 }
 
 // ===== マスタ管理 =====
