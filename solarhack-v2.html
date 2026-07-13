@@ -2383,6 +2383,8 @@ function V2_logEstimate() {
     irrSource: V2_IRR_STATE.source,
     layoutDesigned: v2RoofFaces.length > 0,   // TASK 116: false=quick mode, true=design mode
     panelModels: V2_EST.panelModels || [],    // TASK 117: Panel model breakdown
+    // TASK 123-D: Detail calculation snapshot
+    naitakuSnapshot: window.V2_NAITAKU_SNAPSHOT || null,
   });
 
   try {
@@ -2727,6 +2729,12 @@ function V2_collectData() {
       discount: g('est-discount'),
       risks: V2_EST?.risks || {},
     },
+    detail: {  // TASK 123-D: Persist detail inputs
+      distPvToPcs_m: g('detail-dist-pv-pcs') || '50',
+      distPcsToGrid_m: g('detail-dist-pcs-grid') || '100',
+      routing: g('detail-routing') || '露出',
+      naitakuSnapshot: window.V2_NAITAKU_SNAPSHOT || null,
+    },
     masterOverrides: {
       panels: C_PANEL_DB, pcs: C_PCS_DB,
       cost: COST_MASTER,  // TASK 109: equip removed (consolidated to COST_MASTER)
@@ -2823,6 +2831,21 @@ function V2_loadJSON(ev) {
             }, 50);
           }, 50);
         }, 50);
+      }
+      // TASK 123-D: Restore detail inputs and snapshot
+      if (d.detail) {
+        s('detail-dist-pv-pcs', d.detail.distPvToPcs_m);
+        s('detail-dist-pcs-grid', d.detail.distPcsToGrid_m);
+        s('detail-routing', d.detail.routing);
+        if (d.detail.naitakuSnapshot) {
+          window.V2_NAITAKU_SNAPSHOT = d.detail.naitakuSnapshot;
+          const badgeEl = document.getElementById('detail-snapshot-badge');
+          const infoEl = document.getElementById('detail-snapshot-info');
+          if (badgeEl && infoEl) {
+            infoEl.textContent = `${window.V2_NAITAKU_SNAPSHOT.date} ¥${(window.V2_NAITAKU_SNAPSHOT.cost || 0).toLocaleString()}`;
+            badgeEl.style.display = 'block';
+          }
+        }
       }
       alert('読み込みました。シミュレーションを再実行してください。');
     } catch(err) { alert('読込エラー: ' + err.message); }
