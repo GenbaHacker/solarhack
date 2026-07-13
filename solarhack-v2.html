@@ -401,7 +401,8 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div class="card-body-content">
     <div class="form-row">
       <div class="form-group">
-        <label>メーカー</label>
+        <label>次に確定する面のパネル</label>
+        <label style="font-size:11px;font-weight:normal;display:block;margin-top:4px">メーカー</label>
         <select id="panelMaker" onchange="C_buildPanelModels()">
           <option value="">選択してください</option>
         </select>
@@ -1191,12 +1192,28 @@ function C_getSelectedPcs() {
 }
 
 function C_calcString() {
-  const panels = parseInt(document.getElementById('totalPanels')?.value || 0);
-  const pcs = C_getSelectedPcs();
   const el = document.getElementById('safety-checks');
+  const pcs = C_getSelectedPcs();
 
-  // TASK 91: Read panel specs from V2_SPEC.panel (stored by C_applyPanel), not from DOM
-  // panelImp/panelTvoc don't exist in HTML; V2_SPEC is the single source of truth
+  if (!pcs) {
+    V2_SPEC.pcsUnits = null;
+    if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（PCS未登録）</span>`;
+    return;
+  }
+
+  // TASK 117: Detect mode — design (faces exist) or quick (zero faces)
+  if (v2RoofFaces.length > 0) {
+    // Design mode: multi-model support
+    C_calcString_MultiModel(pcs, el);
+  } else {
+    // Quick mode: single-model (existing logic)
+    C_calcString_SingleModel(pcs, el);
+  }
+}
+
+function C_calcString_SingleModel(pcs, el) {
+  const panels = parseInt(document.getElementById('totalPanels')?.value || 0);
+
   if (!V2_SPEC.panel) {
     V2_SPEC.pcsUnits = null;
     if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（パネル未登録）</span>`;
@@ -1205,14 +1222,14 @@ function C_calcString() {
 
   const voc = V2_SPEC.panel.voc || 0;
   const vmp = V2_SPEC.panel.vmp || 0;
-  const imp = V2_SPEC.panel.imp || null;  // null if missing
+  const imp = V2_SPEC.panel.imp || null;
   const tvoc = V2_SPEC.panel.tvoc || -0.29;
   const wp = V2_SPEC.panel.wp || 485;
 
-  if (!panels || !voc || !pcs || imp === null) {  // TASK 61: Block if Impp missing
+  if (!panels || !voc || imp === null) {
     V2_SPEC.pcsUnits = null;
     if (el) {
-      const reason = !panels ? 'パネル枚数' : !voc ? 'パネルVoc' : !pcs ? 'PCS' : 'パネルImpp';
+      const reason = !panels ? 'パネル枚数' : !voc ? 'パネルVoc' : 'パネルImpp';
       el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（${reason}未登録）</span>`;
     }
     return;
@@ -1315,6 +1332,143 @@ function C_calcString() {
   document.getElementById('design-result')?.classList.remove('hidden');
 }
 
+// TASK 117: Multi-model string design
+function C_calcString_MultiModel(pcs, el) {
+  // Group faces by panel model
+  const groups = {};
+  for (const f of v2RoofFaces) {
+    if (!f.panelModel) {
+      V2_SPEC.pcsUnits = null;
+      if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（面${f.id}のパネルが未選択）</span>`;
+      return;
+    }
+    const key = `${f.panelMaker}/${f.panelModel}`;
+    if (!groups[key]) {
+      groups[key] = { maker: f.panelMaker, model: f.panelModel, panelObj: f, count: 0, checks: null };
+    }
+    groups[key].count += f.count;
+  }
+
+  const groupArray = Object.values(groups);
+  if (!groupArray.length) {
+    V2_SPEC.pcsUnits = null;
+    if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（面が確定されていません）</span>`;
+    return;
+  }
+
+  // Design each group independently
+  const T_LOW = -15, T_HIGH = 70;
+  const spm = pcs.stringsPerMppt || 2;
+  let totalMpptDemand = 0;
+  let totalDcKw = 0;
+  let allPass = true;
+
+  for (const g of groupArray) {
+    const p = g.panelObj;
+    const voc = p.panelVoc, vmp = p.panelVmp, imp = p.panelImp, tvoc = p.panelTvoc;
+    const wp = p.panelWp;
+
+    if (!voc || !vmp || imp === null) {
+      V2_SPEC.pcsUnits = null;
+      if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（${g.model}のパネル仕様が不完全）</span>`;
+      return;
+    }
+
+    const vocLow = voc * (1 + (tvoc/100) * (T_LOW - 25));
+    const vmpHigh = vmp * (1 + (tvoc/100) * (T_HIGH - 25));
+    const sMax = Math.floor(pcs.vmax / vocLow);
+    const sMaxMppt = Math.floor(pcs.mpptMax / vmp);
+    const sMin = Math.ceil(pcs.mpptMin / vmpHigh);
+    const seriesCap = Math.min(sMax, sMaxMppt);
+
+    if (sMin > seriesCap) {
+      V2_SPEC.pcsUnits = null;
+      if (el) el.innerHTML = `<span style="color:#ff4d6a">✗ [${g.model}] 適合する直列数がありません（下限${sMin} > 上限${seriesCap}）</span>`;
+      return;
+    }
+
+    // Find best series count for this group (uniform divisibility)
+    let best = null;
+    for (let s = seriesCap; s >= sMin; s--) {
+      if (g.count % s !== 0) continue;
+      const nStr = g.count / s;
+      const strPerMpptUsed = Math.ceil(nStr / pcs.mppt);
+      if (strPerMpptUsed > spm) continue;
+      if (imp * strPerMpptUsed > pcs.imaxPerMppt) continue;
+      best = { s, nStr, strPerMppt: strPerMpptUsed };
+      break;
+    }
+
+    // Fallback if exact divisibility fails
+    if (!best) {
+      for (let s = seriesCap; s >= sMin; s--) {
+        if (g.count % s !== 0) continue;
+        const nStr = g.count / s;
+        const strPerMpptUsed = Math.ceil(nStr / pcs.mppt);
+        if (strPerMpptUsed > spm) continue;
+        if (imp * strPerMpptUsed > pcs.imaxPerMppt) continue;
+        best = { s, nStr, strPerMppt: strPerMpptUsed };
+        break;
+      }
+    }
+
+    if (!best) {
+      V2_SPEC.pcsUnits = null;
+      const suggestions = [];
+      for (let s = seriesCap; s >= sMin && suggestions.length < 3; s--) {
+        const n = Math.floor(g.count / s) * s;
+        if (n > 0) suggestions.push(`${n}枚（${s}直列×${Math.floor(n/s)}回路）`);
+      }
+      if (el) el.innerHTML = `<span style="color:#ffc107">△ [${g.model}] ${g.count}枚では均等な構成が組めません。推奨: ${suggestions.join(' / ')}</span>`;
+      return;
+    }
+
+    // Safety checks for this group
+    const checks = [
+      { label: '低温時Voc', ok: vocLow*best.s <= pcs.vmax, val: `${(vocLow*best.s).toFixed(0)}V ≦ ${pcs.vmax}V` },
+      { label: 'MPPT下限', ok: vmpHigh*best.s >= pcs.mpptMin, val: `${(vmpHigh*best.s).toFixed(0)}V ≧ ${pcs.mpptMin}V` },
+      { label: 'MPPT上限', ok: vmp*best.s <= pcs.mpptMax, val: `${(vmp*best.s).toFixed(0)}V ≦ ${pcs.mpptMax}V` },
+      { label: 'MPPT電流', ok: imp * best.strPerMppt <= pcs.imaxPerMppt, val: `${(imp*best.strPerMppt).toFixed(1)}A ≦ ${pcs.imaxPerMppt}A` },
+    ];
+    g.checks = checks;
+    g.best = best;
+    g.dcKw = g.count * wp / 1000;
+    totalDcKw += g.dcKw;
+    totalMpptDemand += Math.ceil(best.nStr / pcs.mppt);
+
+    if (!checks.every(c => c.ok)) allPass = false;
+  }
+
+  // Compute PCS units from MPPT demand AND DC/AC constraint
+  const maxAcKw = totalDcKw / COST_MASTER.max_dc_ac_ratio;
+  const unitsFromMppt = Math.ceil(totalMpptDemand / pcs.mppt);
+  const unitsFromDcAc = Math.ceil(maxAcKw / pcs.kw);
+  const pcsUnits = Math.max(unitsFromMppt, unitsFromDcAc);
+  const acKwTotal = pcsUnits * pcs.kw;
+  const dcacRatio = totalDcKw / acKwTotal;
+
+  // Render safety checks per group
+  let html = `<div style="font-weight:600;margin-bottom:6px">推奨ストリング構成 <button class="info-btn" onclick="showInfo('string-design',event)" style="margin-left:0">i</button></div>`;
+  for (const g of groupArray) {
+    const b = g.best;
+    html += `<div style="font-size:12px;margin-bottom:8px;padding:8px;background:rgba(255,255,255,0.03);border-radius:4px">
+      <strong>[${g.model}]</strong> ${b.s}直列 × ${b.nStr}ストリング / ${g.dcKw.toFixed(2)}kW<br>
+      <span style="font-size:11px">`;
+    html += g.checks.map(c => `<span style="color:${c.ok?'#00c896':'#ff4d6a'}">${c.ok?'✓':'✗'} ${c.label}: ${c.val}</span>`).join(' ');
+    html += `</span></div>`;
+  }
+
+  html += `<div style="font-size:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1)">
+    PCS ${pcsUnits}台 / ΣMPPT需要 ${totalMpptDemand} / DC ${totalDcKw.toFixed(2)}kW / AC ${acKwTotal.toFixed(1)}kW / DC/AC比 ${dcacRatio.toFixed(3)}<br>
+    <span style="font-size:10px;color:#7a91b0">※型式はMPPT単位で分離配線</span>
+  </div>`;
+
+  if (el) el.innerHTML = html;
+  V2_SPEC.pcsUnits = pcsUnits;
+  sv('pcs-units', pcsUnits);
+  document.getElementById('design-result')?.classList.add('hidden');
+}
+
 function C_runSim() {
   // TASK 4: Block simulation if irradiation source is NONE
   if (V2_IRR_STATE.source === 'NONE') {
@@ -1337,11 +1491,15 @@ function C_runSim() {
   const sellPrice = parseFloat(document.getElementById('sell-price')?.value || 8.3);
   const sellMode = document.getElementById('sell-mode')?.value || 'surplus';
 
-  const wp = parseFloat(gv('est-panel-wp') || gv('panelWp')) || 485;
   const faces = v2RoofFaces.length ? v2RoofFaces
-    : [{ count: parseInt(gv('est-panels') || gv('totalPanels')) || 0, tilt: 30, azimuth: 180 }];
+    : [{ count: parseInt(gv('est-panels') || gv('totalPanels')) || 0, tilt: 30, azimuth: 180, panelWp: parseFloat(gv('panelWp')) || 485 }];
 
-  const totalKw = faces.reduce((s,f)=>s+(f.count || 0), 0) * wp / 1000;
+  // TASK 117: Compute total kW with per-face panelWp
+  let totalKw = 0;
+  for (const f of faces) {
+    const faceWp = f.panelWp || parseFloat(gv('panelWp')) || 485;
+    totalKw += (f.count || 0) * faceWp / 1000;
+  }
   if (totalKw <= 0) { alert('パネル枚数を入力してください'); return; }
 
   // 使用量ベースの自家消費率計算用
@@ -1355,7 +1513,9 @@ function C_runSim() {
   for (let m = 0; m < 12; m++) {
     let genM = 0;
     for (const f of faces) {
-      const fkw = (f.count || 0) * wp / 1000;
+      // TASK 117: Use per-face panelWp for generation calculation
+      const faceWp = f.panelWp || parseFloat(gv('panelWp')) || 485;
+      const fkw = (f.count || 0) * faceWp / 1000;
       if (!fkw) continue;
       const irrF = V2_getIrrFor(f.azimuth, f.tilt)[m];
       const snowCm = V2_IRR.snow ? (V2_IRR.snow[m] || 0) : 0;
@@ -1660,20 +1820,36 @@ function V2_confirmFace() {
   const tilt = parseFloat(document.getElementById('roof-tilt').value);
   const az   = parseFloat(document.getElementById('roof-azimuth').value);
 
-  // TASK 97: Snapshot panel specs at confirmation time (NEVER read from DOM later)
-  const panelW = parseFloat(document.getElementById('panelWidth')?.value) || 1762;  // mm
-  const panelH = parseFloat(document.getElementById('panelHeight')?.value) || 1134; // mm
-  const panelWp = parseFloat(document.getElementById('panelWp')?.value) || 485;
-  const panelModel = document.getElementById('panelModel')?.value || '';
+  // TASK 117: Snapshot panel identity at confirmation time
+  const maker = document.getElementById('panelMaker')?.value || '';
+  const model = document.getElementById('panelModel')?.value || '';
+  let panelObj = null;
+  if (maker && C_PANEL_DB[maker]) {
+    panelObj = C_PANEL_DB[maker].find(p => p.model === model);
+  }
+  if (!panelObj) {
+    alert('パネルを選択してください');
+    return;
+  }
 
   const face = {
     id: ++v2FaceSeq,
     points: [...v2MapPoints],
     tilt, azimuth: az,
-    panelW, panelH, panelWp, panelModel,
-    autoCount: 0,  // TASK 116: Layout result (upper bound)
-    count: 0,      // TASK 116: Effective count (user adjustment)
-    adjustedFlag: false,  // TASK 116: 要再確認 badge
+    // TASK 117: Store panel identity (maker, model, and specs from DB)
+    panelMaker: maker,
+    panelModel: model,
+    panelWp: panelObj.wp,
+    panelW: panelObj.w,
+    panelH: panelObj.h,
+    panelVoc: panelObj.voc,
+    panelVmp: panelObj.vmp,
+    panelImp: panelObj.imp,
+    panelTvoc: panelObj.tvoc,
+    // TASK 116: Count tracking
+    autoCount: 0,
+    count: 0,
+    adjustedFlag: false,
     kw: 0, layers: []
   };
   v2RoofFaces.push(face);
@@ -1683,6 +1859,46 @@ function V2_confirmFace() {
   v2MapMarkers = [];
   if (v2MapPoly) { v2Map.removeLayer(v2MapPoly); v2MapPoly = null; }
   V2_layoutFace(face);
+  V2_renderFaceList();
+  V2_syncTotals();
+}
+
+// TASK 117: Update face panel model
+function V2_updateFacePanel(idx, maker, model) {
+  if (idx < 0 || idx >= v2RoofFaces.length) return;
+  const f = v2RoofFaces[idx];
+
+  // Look up panel from C_PANEL_DB
+  if (!maker || !C_PANEL_DB[maker]) return;
+  const panel = C_PANEL_DB[maker].find(p => p.model === model);
+  if (!panel) return;
+
+  // Store new panel identity
+  const oldAutoCount = f.autoCount;
+  const oldCount = f.count;
+  f.panelMaker = maker;
+  f.panelModel = model;
+  f.panelWp = panel.wp;
+  f.panelW = panel.w;
+  f.panelH = panel.h;
+  f.panelVoc = panel.voc;
+  f.panelVmp = panel.vmp;
+  f.panelImp = panel.imp;
+  f.panelTvoc = panel.tvoc;
+
+  // Re-layout with new panel size
+  V2_layoutFace(f);
+
+  // Apply count carry-over logic (TASK 116)
+  if (oldCount === oldAutoCount) {
+    f.count = f.autoCount;
+    f.adjustedFlag = false;
+  } else {
+    f.count = Math.min(oldCount, f.autoCount);
+    f.adjustedFlag = (f.count < f.autoCount);
+  }
+  f.kw = f.count * f.panelWp / 1000;
+
   V2_renderFaceList();
   V2_syncTotals();
 }
@@ -1708,9 +1924,24 @@ function V2_updateFace(id, key, val) {
 function V2_renderFaceList() {
   const el = document.getElementById('face-list');
   if (!v2RoofFaces.length) { el.innerHTML = ''; return; }
-  el.innerHTML = v2RoofFaces.map(f => `
+  el.innerHTML = v2RoofFaces.map((f, idx) => {
+    // Build panel dropdown options from C_PANEL_DB
+    const panelOptions = Object.entries(C_PANEL_DB).flatMap(([maker, models]) =>
+      models.map(m => ({maker, model: m.model, label: `${maker} ${m.model} (${m.wp}W)`}))
+    );
+    const selectedLabel = f.panelMaker && f.panelModel
+      ? `${f.panelMaker} ${f.panelModel} (${f.panelWp}W)`
+      : 'パネル未選択';
+
+    return `
     <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <strong style="color:#ff7c2a">面${f.id}</strong>
+      <label style="font-size:11px">パネル
+        <select style="padding:2px 6px;background:#162540;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:3px;font-size:11px"
+          onchange="const [maker, model] = this.value.split('|'); V2_updateFacePanel(${idx}, maker, model)">
+          <option value="">-- 選択 --</option>
+          ${panelOptions.map(p => `<option value="${p.maker}|${p.model}" ${f.panelMaker === p.maker && f.panelModel === p.model ? 'selected' : ''}>${p.label}</option>`).join('')}
+        </select></label>
       <label style="font-size:11px">勾配
         <input type="number" value="${f.tilt}" min="0" max="60" style="width:52px"
           onchange="V2_updateFace(${f.id},'tilt',this.value)">°</label>
@@ -1720,7 +1951,8 @@ function V2_renderFaceList() {
       <span style="font-size:12px;color:#00c896">${f.count}枚 / ${f.kw.toFixed(2)}kW</span>
       <button onclick="V2_removeFace(${f.id})"
         style="margin-left:auto;font-size:11px;padding:3px 10px;background:transparent;color:#ff4d6a;border:1px solid rgba(255,77,106,0.4);border-radius:4px;cursor:pointer">削除</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function V2_syncTotals() {
@@ -1896,6 +2128,7 @@ function V2_logEstimate() {
     unresolvedRisks: countUnresolvedRisks(V2_EST.risks),
     irrSource: V2_IRR_STATE.source,
     layoutDesigned: v2RoofFaces.length > 0,   // TASK 116: false=quick mode, true=design mode
+    panelModels: V2_EST.panelModels || [],    // TASK 117: Panel model breakdown
   });
 
   try {
@@ -2191,11 +2424,14 @@ function V2_renderPanelLayout() {
 function V2_collectData() {
   const g = id => document.getElementById(id)?.value || '';
   // TASK 116: Serialize roofFaces with autoCount and adjustedFlag
+  // TASK 117: Include per-face panel identity (maker, model, specs)
   const roofFaces = v2RoofFaces.map(f => ({
     points: f.points,
     tilt: f.tilt, azimuth: f.azimuth,
-    panelW: f.panelW, panelH: f.panelH, panelWp: f.panelWp,
+    panelMaker: f.panelMaker,
     panelModel: f.panelModel,
+    panelW: f.panelW, panelH: f.panelH, panelWp: f.panelWp,
+    panelVoc: f.panelVoc, panelVmp: f.panelVmp, panelImp: f.panelImp, panelTvoc: f.panelTvoc,
     autoCount: f.autoCount,
     count: f.count, kw: f.kw,
     adjustedFlag: f.adjustedFlag || false,
@@ -2826,29 +3062,69 @@ function V2_calcEstimate() {
     return;
   }
 
-  // TASK 20: Get panel model info from selected panel
-  const panelMaker = document.getElementById('panelMaker')?.value;
-  const panelModel = document.getElementById('panelModel')?.value;
-  let panelCostEach = null;
-  let panelWp = 485;  // TASK 70: Will be overridden by selected panel below
-  let selectedPanel = null;
+  // TASK 117: Compute panel cost per-face if design mode, else use global selector
+  let panelCost = 0;
+  let dcKwTotal = 0;
+  const panelModelBreakdown = [];
 
-  if (panelMaker && panelModel && C_PANEL_DB[panelMaker]) {
-    selectedPanel = C_PANEL_DB[panelMaker].find(p => p.model === panelModel);
-    if (selectedPanel) {
-      panelWp = selectedPanel.wp;
-      if (selectedPanel.cost !== null && selectedPanel.cost !== undefined) {
-        panelCostEach = selectedPanel.cost;
+  if (v2RoofFaces.length > 0) {
+    // Design mode: sum costs and kW across all faces
+    for (const f of v2RoofFaces) {
+      const faceWp = f.panelWp || 485;
+      let faceCost = 0;
+      let facePanel = null;
+
+      if (f.panelMaker && f.panelModel && C_PANEL_DB[f.panelMaker]) {
+        facePanel = C_PANEL_DB[f.panelMaker].find(p => p.model === f.panelModel);
+        if (facePanel) {
+          if (facePanel.cost !== null && facePanel.cost !== undefined) {
+            faceCost = f.count * facePanel.cost;
+          } else {
+            faceCost = f.count * faceWp * COST_MASTER.panel_cost_per_w;
+          }
+        }
       } else {
-        panelCostEach = panelWp * COST_MASTER.panel_cost_per_w;
+        faceCost = f.count * faceWp * COST_MASTER.panel_cost_per_w;
       }
+
+      panelCost += faceCost;
+      dcKwTotal += f.count * faceWp / 1000;
+
+      // Track breakdown for equip table
+      const key = `${f.panelMaker}/${f.panelModel}`;
+      let breakdown = panelModelBreakdown.find(b => b.key === key);
+      if (!breakdown) {
+        breakdown = { key, model: f.panelModel, count: 0, costEach: faceCost / (f.count || 1), panel: facePanel };
+        panelModelBreakdown.push(breakdown);
+      }
+      breakdown.count += f.count;
     }
   } else {
-    panelCostEach = panelWp * COST_MASTER.panel_cost_per_w;
-  }
+    // Quick mode: use global panel selector
+    const panelMaker = document.getElementById('panelMaker')?.value;
+    const panelModel = document.getElementById('panelModel')?.value;
+    let panelCostEach = null;
+    let panelWp = 485;
+    let selectedPanel = null;
 
-  const panelCost = panels * panelCostEach;
-  const dcKwTotal = panels * panelWp / 1000;
+    if (panelMaker && panelModel && C_PANEL_DB[panelMaker]) {
+      selectedPanel = C_PANEL_DB[panelMaker].find(p => p.model === panelModel);
+      if (selectedPanel) {
+        panelWp = selectedPanel.wp;
+        if (selectedPanel.cost !== null && selectedPanel.cost !== undefined) {
+          panelCostEach = selectedPanel.cost;
+        } else {
+          panelCostEach = panelWp * COST_MASTER.panel_cost_per_w;
+        }
+      }
+    } else {
+      panelCostEach = panelWp * COST_MASTER.panel_cost_per_w;
+    }
+
+    panelCost = panels * panelCostEach;
+    dcKwTotal = panels * panelWp / 1000;
+    panelModelBreakdown.push({ model: panelModel, count: panels, costEach: panelCostEach, panel: selectedPanel });
+  }
 
   // TASK 20/50: Get PCS costs from master (use canonical pcsUnits from V2_SPEC, not DOM input)
   const pcsUnits = V2_SPEC.pcsUnits;  // ← Single source of truth
@@ -3032,6 +3308,8 @@ function V2_calcEstimate() {
   }
 
   // TASK 1: Save estimate result
+  // TASK 117: Include panelModels breakdown for cloud log
+  const panelModels = panelModelBreakdown.map(b => ({ model: b.model, count: b.count }));
   V2_EST = {
     panels, pcsUnits, pcsKwTotal, isHigh, dcKwTotal, contingencyRate,
     panelCost, pcsCost, materialCost, workCost, contingency,
@@ -3039,6 +3317,7 @@ function V2_calcEstimate() {
     subTotal, discount, tax, total, netPrice, grossProfit, grossMargin,
     perKw: dcKwTotal > 0 ? total / dcKwTotal : 0,
     risks: V2_EST?.risks || {},
+    panelModels,
     calcedAt: new Date().toISOString(),
   };
 
