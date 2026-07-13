@@ -1,0 +1,2601 @@
+ <!-- RETIRED 2026-07-13. 後継: solarhack-v2.html。発電量計算に致命欠陥あり、使用禁止 -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>太陽光発電 提案ツール</title>
+<style>
+/* ── Bデザインシステム共通 ── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f0;--surface:#fff;--surface2:#f9f8f5;--border:#e2e0d8;--border2:#ccc9be;
+  --text:#1a1a18;--text2:#5a5a56;--text3:#8a8a84;
+  --accent:#1e3a5f;--accent-light:#e8f0fa;--accent2:#0f1e35;
+  --warn:#ff8c42;--warn-light:#fff5e8;--danger:#b03a2e;--danger-light:#fdecea;
+  --info:#1a4d7a;--info-light:#e8f0f8;
+  --r:8px;--rl:12px;
+}
+body{font-family:'Hiragino Kaku Gothic Pro','Meiryo',system-ui,sans-serif;
+     background:var(--bg);color:var(--text);font-size:13px;display:flex;height:100vh;overflow:hidden}
+
+/* ── サイドバー ── */
+.sidebar{width:220px;min-width:220px;background:var(--accent2);color:#fff;
+         position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0}
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.12)}
+.sidebar-logo h1{font-size:13px;font-weight:600;letter-spacing:.05em;
+                 color:rgba(255,255,255,.95);line-height:1.4}
+.sidebar-logo p{font-size:10px;color:rgba(255,255,255,.45);margin-top:2px}
+.nav-section{padding:12px 0 4px}
+.nav-section-title{font-size:10px;font-weight:600;letter-spacing:.08em;
+                   color:rgba(255,255,255,.35);padding:0 16px;margin-bottom:4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;
+          font-size:12px;color:rgba(255,255,255,.7);transition:all .15s;
+          border-left:3px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav-item.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:#7dcf97}
+.nav-ico{font-size:14px;width:18px;text-align:center}
+
+/* ── メインエリア ── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.top-bar{background:var(--surface);border-bottom:1px solid var(--border);
+         padding:10px 24px;display:flex;align-items:center;gap:10px;
+         position:sticky;top:0;z-index:10}
+.top-bar h2{font-size:15px;font-weight:600;flex:1}
+.content{padding:24px;max-width:1100px}
+
+/* ── カード ── */
+.card{background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--rl);padding:18px;margin-bottom:14px}
+.card-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;
+             padding-bottom:10px;border-bottom:1px solid var(--border)}
+.card-header h3{font-size:14px;font-weight:600}
+.card-icon{width:26px;height:26px;border-radius:6px;background:var(--accent-light);
+           display:flex;align-items:center;justify-content:center;font-size:13px}
+
+/* ── フォーム ── */
+.form-row{display:grid;gap:12px;margin-bottom:12px}
+.form-row.c2{grid-template-columns:1fr 1fr}
+.form-row.c3{grid-template-columns:1fr 1fr 1fr}
+.form-row.c4{grid-template-columns:1fr 1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;font-weight:500;color:var(--text2)}
+.field label .unit{font-weight:400;color:var(--text3)}
+input[type=text],input[type=number],select,textarea{
+  width:100%;padding:7px 10px;border:1px solid var(--border2);
+  border-radius:var(--r);font-size:13px;background:var(--surface);
+  color:var(--text);font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+input[readonly]{background:var(--surface2);color:var(--text2)}
+
+/* ── ボタン ── */
+.btn{padding:7px 14px;border-radius:var(--r);border:1px solid var(--border2);
+     background:var(--surface);font-size:12px;cursor:pointer;font-family:inherit;
+     color:var(--text);transition:all .15s}
+.btn:hover{background:var(--surface2)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:var(--accent2)}
+.btn.warn{background:var(--warn);color:#fff;border-color:var(--warn)}
+.btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn.block{width:100%;justify-content:center;display:flex;gap:6px;padding:10px}
+.btn.lg{padding:10px 20px;font-size:13px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── バッジ・タグ ── */
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;
+       font-size:11px;font-weight:500}
+.badge.green{background:var(--accent-light);color:var(--accent2)}
+.badge.warn{background:var(--warn-light);color:var(--warn)}
+.badge.danger{background:var(--danger-light);color:var(--danger)}
+.badge.info{background:var(--info-light);color:var(--info)}
+
+/* ── 結果値表示 ── */
+.rv{font-size:15px;font-weight:600;color:var(--accent);padding:6px 10px;
+    background:var(--accent-light);border-radius:var(--r);min-height:34px;
+    display:flex;align-items:center}
+.rv.warn{color:var(--warn);background:var(--warn-light)}
+.rv.danger{color:var(--danger);background:var(--danger-light)}
+.rv.neutral{color:var(--text);background:var(--surface2)}
+
+/* ── サマリーバー ── */
+.summary-bar{background:var(--accent);color:#fff;border-radius:var(--rl);
+             padding:14px 20px;margin-bottom:16px;
+             display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.summary-item .lbl{font-size:10px;opacity:.7;margin-bottom:3px}
+.summary-item .val{font-size:18px;font-weight:700}
+.summary-item .unit{font-size:11px;opacity:.8}
+
+/* ── スキームバッジ（大） ── */
+.scheme-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.scheme-tab{padding:8px 16px;border-radius:var(--r);border:2px solid var(--border);
+            cursor:pointer;font-size:12px;font-weight:500;transition:all .15s;
+            background:var(--surface)}
+.scheme-tab:hover{border-color:var(--accent);color:var(--accent)}
+.scheme-tab.active{border-color:var(--accent);background:var(--accent);color:#fff}
+
+/* ── 屋根面カード ── */
+.roof-face{border:1px solid var(--border);border-radius:var(--r);
+           padding:14px;margin-bottom:10px;background:var(--surface2);position:relative}
+.roof-face-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:600;font-size:13px}
+.roof-face-del{position:absolute;top:10px;right:10px;background:none;border:none;
+               color:var(--danger);cursor:pointer;font-size:14px}
+
+/* ── グラフ ── */
+.chart-wrap{background:var(--surface2);border-radius:var(--r);padding:12px;margin-top:12px}
+canvas{display:block;width:100%}
+
+/* ── セクション ── */
+.section{display:none}.section.active{display:block}
+
+/* ── テーブル ── */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{background:var(--surface2);padding:7px 10px;text-align:left;
+        font-weight:500;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2)}
+.tbl td{padding:7px 10px;border-bottom:1px solid var(--border)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl tfoot td{font-weight:600;background:var(--accent-light);color:var(--accent2)}
+
+/* ── ローディング ── */
+.loading{display:none;align-items:center;gap:8px;padding:10px 14px;
+         background:var(--info-light);border-radius:var(--r);font-size:12px;color:var(--info)}
+.spinner{width:14px;height:14px;border:2px solid rgba(26,77,122,.3);
+         border-top-color:var(--info);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── 印刷 ── */
+@media print{
+  .sidebar,.top-bar,.btn-row,.no-print{display:none!important}
+  .main{overflow:visible}
+  .content{padding:0;max-width:none}
+  .card{break-inside:avoid;box-shadow:none;border:1px solid #ccc}
+  .summary-bar{background:#2d5a3d!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h1>☀ 太陽光発電<br>提案ツール</h1>
+    <p>v1.0 &nbsp;|&nbsp; 株式会社SAWADA</p>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">案件情報</div>
+    <div class="nav-item active" onclick="C_goto('s-project')">
+      <span class="nav-ico">📋</span>案件・顧客情報
+    </div>
+    <div class="nav-item" onclick="C_goto('s-scheme')">
+      <span class="nav-ico">⚡</span>スキーム選択
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">設計</div>
+    <div class="nav-item" onclick="C_goto('s-roof')">
+      <span class="nav-ico">🏠</span>屋根・パネル設定
+    </div>
+    <div class="nav-item" onclick="C_goto('s-pcs')">
+      <span class="nav-ico">🔌</span>PCS選定
+    </div>
+    <div class="nav-item" onclick="C_goto('s-irr')">
+      <span class="nav-ico">☀</span>日射量取得
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">収支・提案</div>
+    <div class="nav-item" onclick="C_goto('s-sim')">
+      <span class="nav-ico">📊</span>発電シミュレーション
+    </div>
+    <div class="nav-item" onclick="C_goto('s-est')">
+      <span class="nav-ico">💰</span>概算見積
+    </div>
+    <div class="nav-item" onclick="C_goto('s-cf')">
+      <span class="nav-ico">📈</span>CF・IRR計算
+    </div>
+    <div class="nav-item" onclick="C_goto('s-out')">
+      <span class="nav-ico">📄</span>提案書出力
+    </div>
+    <div class="nav-item" onclick="C_goto('s-settings')" style="border-top:1px solid rgba(255,255,255,0.1);margin-top:12px;padding-top:8px">
+      <span class="nav-ico">⚙</span>設定
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">データ</div>
+    <div class="nav-item" onclick="C_save()">
+      <span class="nav-ico">💾</span>保存（localStorage）
+    </div>
+    <div class="nav-item" onclick="C_exportToA()">
+      <span class="nav-ico">→</span>設計ツールへ連携
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main">
+  <div class="top-bar">
+    <h2 id="top-title">案件・顧客情報</h2>
+    <div class="badge green" id="scheme-badge">スキーム未選択</div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button class="btn" onclick="C_load()">📂 読込</button>
+      <button class="btn primary" onclick="C_save()">💾 保存</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ サマリーバー ══ -->
+    <div class="summary-bar" id="summary-bar">
+      <div class="summary-item">
+        <div class="lbl">設備容量</div>
+        <div><span class="val" id="sum-kw">—</span> <span class="unit">kWp</span></div>
+      </div>
+      <div class="summary-item">
+        <div class="lbl">年間発電量</div>
+        <div><span class="val" id="sum-gen">—</span> <span class="unit">kWh/年</span></div>
+      </div>
+      <div class="summary-item">
+        <div class="lbl">年間経済効果</div>
+        <div><span class="val" id="sum-save">—</span> <span class="unit">万円/年</span></div>
+      </div>
+      <div class="summary-item">
+        <div class="lbl">投資回収</div>
+        <div><span class="val" id="sum-pb">—</span> <span class="unit">年</span></div>
+      </div>
+    </div>
+
+    <!-- ══ S1: 案件・顧客情報 ══ -->
+    <div id="s-project" class="section active">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📋</div>
+          <h3>案件・顧客情報</h3>
+        </div>
+        <div class="form-row c2">
+          <div class="field">
+            <label>顧客名（法人・個人）</label>
+            <input type="text" id="clientName" placeholder="○○株式会社 / 山田 太郎" oninput="C_autosave()">
+          </div>
+          <div class="field">
+            <label>担当営業</label>
+            <input type="text" id="salesName" placeholder="清田 雄也" oninput="C_autosave()">
+          </div>
+          <div class="field">
+            <label>設置住所</label>
+            <input type="text" id="address" placeholder="広島県福山市○○町0-0-0" oninput="C_autosave()">
+          </div>
+          <div class="field">
+            <label>作成日</label>
+            <input type="text" id="propDate" oninput="C_autosave()">
+          </div>
+          <div class="field">
+            <label>電話番号</label>
+            <input type="text" id="clientTel" placeholder="000-000-0000">
+          </div>
+          <div class="field">
+            <label>メールアドレス</label>
+            <input type="text" id="clientEmail" placeholder="xxx@xxx.com">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">⚡</div>
+          <h3>電力情報</h3>
+        </div>
+        <div class="form-row c3">
+          <div class="field">
+            <label>電力会社</label>
+            <select id="powerCo">
+              <option>中国電力</option><option>関西電力</option><option>九州電力</option>
+              <option>四国電力</option><option>東京電力</option><option>中部電力</option>
+              <option>東北電力</option><option>北海道電力</option><option>北陸電力</option>
+              <option>沖縄電力</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>月平均電力使用量 <span class="unit">(kWh)</span></label>
+            <input type="number" id="monthlyUsage" value="3000" min="100" oninput="C_calcBasic()">
+          </div>
+          <div class="field">
+            <label>電力単価（税込）<span class="unit">(円/kWh)</span></label>
+            <input type="number" id="elecPrice" value="30" step="0.1" oninput="C_calcBasic()">
+          </div>
+          <div class="field">
+            <label>再エネ賦課金 <span class="unit">(円/kWh)</span></label>
+            <input type="number" id="renewLevy" value="1.4" step="0.1" oninput="C_calcBasic()">
+          </div>
+          <div class="field">
+            <label>燃料調整費 <span class="unit">(円/kWh)</span></label>
+            <input type="number" id="fuelAdj" value="5.5" step="0.1" oninput="C_calcBasic()">
+          </div>
+          <div class="field">
+            <label>合計単価（自動計算）<span class="unit">(円/kWh)</span></label>
+            <input type="number" id="totalElecPrice" readonly>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" onclick="C_goto('s-scheme')">次へ：スキーム選択 →</button>
+      </div>
+    </div>
+
+    <!-- ══ S2: スキーム選択 ══ -->
+    <div id="s-scheme" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">⚡</div>
+          <h3>受電種別・事業スキーム</h3>
+        </div>
+
+        <div class="form-row c2" style="margin-bottom:20px">
+          <div class="field">
+            <label>概算設備容量 <span class="unit">(kWp)</span></label>
+            <input type="number" id="approxKW" value="10" step="0.5" min="1"
+                   oninput="C_autoDetectVoltage()">
+            <span style="font-size:10px;color:var(--text3);margin-top:2px">
+              ※ 入力値に応じて受電種別を自動提示
+            </span>
+          </div>
+          <div class="field">
+            <label>受電種別</label>
+            <select id="voltageType" onchange="C_updateSchemeOptions()">
+              <option value="low">低圧</option>
+              <option value="high">高圧</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">
+          事業スキームを選択してください
+        </div>
+        <div class="scheme-tabs" id="scheme-tabs">
+          <!-- JS で生成 -->
+        </div>
+
+        <div id="scheme-desc" style="background:var(--surface2);border-radius:var(--r);
+             padding:14px;font-size:12px;line-height:1.7;color:var(--text2);margin-top:8px">
+          スキームを選択してください
+        </div>
+      </div>
+
+      <!-- FIT単価（余剰売電時のみ表示） -->
+      <div class="card" id="fit-card" style="display:none">
+        <div class="card-header">
+          <div class="card-icon">💴</div>
+          <h3>FIT売電単価</h3>
+        </div>
+        <div class="form-row c3">
+          <div class="field">
+            <label>売電単価 <span class="unit">(円/kWh)</span></label>
+            <input type="number" id="sellPrice" value="16" step="0.1" oninput="C_calcBasic()">
+          </div>
+          <div class="field">
+            <label>FIT認定年度</label>
+            <select id="fitYear">
+              <option>2024年度（16円）</option>
+              <option>2023年度（16円）</option>
+              <option>2022年度（17円）</option>
+              <option>手動入力</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- PPA設定（PPA時のみ表示） -->
+      <div class="card" id="ppa-card" style="display:none">
+        <div class="card-header">
+          <div class="card-icon">📑</div>
+          <h3>PPA条件</h3>
+        </div>
+        <div class="form-row c3">
+          <div class="field">
+            <label>PPA単価 <span class="unit">(円/kWh)</span></label>
+            <input type="number" id="ppaPrice" value="18" step="0.5" oninput="C_calcBasic()">
+          </div>
+          <div class="field">
+            <label>PPA契約年数 <span class="unit">(年)</span></label>
+            <input type="number" id="ppaTerm" value="20" min="10" max="25">
+          </div>
+          <div class="field">
+            <label>検定付メーター</label>
+            <select id="meterType">
+              <option value="required">必要（自動選定）</option>
+              <option value="manual">型式を手動入力</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="C_goto('s-project')">← 戻る</button>
+        <button class="btn primary" onclick="C_goto('s-roof')">次へ：屋根・パネル設定 →</button>
+      </div>
+    </div>
+
+    <!-- ══ S3: 屋根・パネル設定 ══ -->
+    <div id="s-roof" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">🏠</div>
+          <h3>屋根形状・各面設定</h3>
+        </div>
+
+        <div class="form-row c2" style="margin-bottom:16px">
+          <div class="field">
+            <label>屋根形状</label>
+            <select id="roofType" onchange="C_generateRoofFaces()">
+              <option value="kirizuma">切妻（2面）</option>
+              <option value="katanagare">片流れ（1面）</option>
+              <option value="yosemune">寄棟（4面）</option>
+              <option value="rikuya">陸屋根（1面）</option>
+              <option value="custom">カスタム（任意追加）</option>
+              <option value="ground" disabled>地面設置（準備中）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>棟の方位角 <span class="unit">(°　南=180°)</span></label>
+            <input type="number" id="ridgeAzimuth" value="180" min="0" max="360"
+                   oninput="C_updateFaceAzimuths()">
+            <span style="font-size:10px;color:var(--text3);margin-top:2px">
+              主棟の向きを入力すると各面に自動反映
+            </span>
+          </div>
+        </div>
+
+        <div id="roof-faces-list"></div>
+        <button class="btn" id="add-face-btn" onclick="C_addFace()"
+                style="display:none;margin-top:8px">＋ 面を追加</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">☀</div>
+          <h3>パネル選定</h3>
+        </div>
+        <div class="form-row c3">
+          <div class="field">
+            <label>パネルメーカー</label>
+            <select id="panelMaker" onchange="C_buildPanelModels()">
+              <option value="longi">LONGi Solar</option>
+              <option value="jinko">Jinko Solar</option>
+              <option value="canadian">Canadian Solar</option>
+              <option value="huawei">HUAWEI（Seraphim）</option>
+              <option value="yingli">YINGLI SOLAR</option>
+              <option value="das">DAS SOLAR</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>パネル型式</label>
+            <select id="panelModel" onchange="C_applyPanel()"></select>
+          </div>
+          <div class="field">
+            <label>定格出力 <span class="unit">(Wp)</span></label>
+            <input type="number" id="panelWp" value="485" oninput="C_calcAll()">
+          </div>
+          <div class="field">
+            <label>パネル幅 <span class="unit">(mm)</span></label>
+            <input type="number" id="panelW" value="1134" oninput="C_calcAll()">
+          </div>
+          <div class="field">
+            <label>パネル高さ <span class="unit">(mm)</span></label>
+            <input type="number" id="panelH" value="1800" oninput="C_calcAll()">
+          </div>
+          <div class="field">
+            <label>Voc <span class="unit">(V)</span></label>
+            <input type="number" id="panelVoc" value="40.4" step="0.1" oninput="C_calcAll()">
+          </div>
+          <div class="field">
+            <label>Vmp <span class="unit">(V)</span></label>
+            <input type="number" id="panelVmp" value="33.4" step="0.1" oninput="C_calcAll()">
+          </div>
+          <div class="field">
+            <label>Isc <span class="unit">(A)</span></label>
+            <input type="number" id="panelIsc" value="15.23" step="0.01" oninput="C_calcAll()">
+          </div>
+          <div class="field">
+            <label>Imp <span class="unit">(A)</span></label>
+            <input type="number" id="panelImp" value="14.53" step="0.01" oninput="C_calcAll()">
+          </div>
+        </div>
+        <div class="form-row c3">
+          <div class="field">
+            <label>Voc温度係数 <span class="unit">(%/℃)</span></label>
+            <input type="number" id="panelTvoc" value="-0.200" step="0.001" oninput="C_calcAll()">
+          </div>
+          <div class="field">
+            <label>パネル設置方向</label>
+            <select id="panelOrient" onchange="C_calcAll()">
+              <option value="portrait">縦置き（長辺＝高さ方向）</option>
+              <option value="landscape">横置き（長辺＝幅方向）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>パネル間隔：縦 <span class="unit">(mm)</span></label>
+            <input type="number" id="gapV" value="20" oninput="C_calcAll()">
+          </div>
+          <div class="field">
+            <label>パネル間隔：横 <span class="unit">(mm)</span></label>
+            <input type="number" id="gapH" value="20" oninput="C_calcAll()">
+          </div>
+        </div>
+
+        <div style="background:var(--accent-light);border-radius:var(--r);
+             padding:12px 16px;margin-top:8px">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">
+            全面合計
+          </div>
+          <div class="form-row c4" style="margin-bottom:0">
+            <div class="field">
+              <label>総枚数</label>
+              <div class="rv" id="totalPanels">—</div>
+            </div>
+            <div class="field">
+              <label>DC容量</label>
+              <div class="rv" id="totalKW">—</div>
+            </div>
+            <div class="field">
+              <label>受電種別（確定）</label>
+              <div class="rv" id="finalVoltage">—</div>
+            </div>
+            <div class="field">
+              <label>設置面積</label>
+              <div class="rv" id="totalArea">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="C_goto('s-scheme')">← 戻る</button>
+        <button class="btn primary" onclick="C_goto('s-pcs')">次へ：PCS選定 →</button>
+      </div>
+    </div>
+
+    <!-- ══ S4: PCS選定 ══ -->
+    <div id="s-pcs" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">🔌</div>
+          <h3>パワーコンディショナー選定</h3>
+        </div>
+        <div class="form-row c3">
+          <div class="field">
+            <label>PCSメーカー</label>
+            <select id="pcsMaker" onchange="C_buildPcsModels()">
+              <option value="huawei">HUAWEI</option>
+              <option value="yasukawa">安川電機</option>
+              <option value="omron">OMRON</option>
+              <option value="sungrow">SUNGROW</option>
+              <option value="solaredge">SolarEdge</option>
+              <option value="panasonic">パナソニック</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>PCS型式</label>
+            <select id="pcsModel" onchange="C_applyPcs()"></select>
+          </div>
+          <div class="field">
+            <label>AC容量 <span class="unit">(kW/台)</span></label>
+            <input type="number" id="pcsKw" value="50" oninput="C_calcString()">
+          </div>
+          <div class="field">
+            <label>最大DC電圧 <span class="unit">(V)</span></label>
+            <input type="number" id="pcsVmax" value="1000" oninput="C_calcString()">
+          </div>
+          <div class="field">
+            <label>MPPT電圧範囲 <span class="unit">(V)</span></label>
+            <input type="text" id="pcsMpptRange" value="200-1000" oninput="C_calcString()">
+          </div>
+          <div class="field">
+            <label>最大入力電流 <span class="unit">(A/MPPT)</span></label>
+            <input type="number" id="pcsImaxPerMppt" value="30" oninput="C_calcString()">
+          </div>
+          <div class="field">
+            <label>MPPT数</label>
+            <input type="number" id="pcsMpptCount" value="8" oninput="C_calcString()">
+          </div>
+          <div class="field">
+            <label>設計低温 <span class="unit">(℃)</span></label>
+            <input type="number" id="tLow" value="-15" oninput="C_calcString()">
+          </div>
+          <div class="field">
+            <label>設計高温＋パネル上昇 <span class="unit">(℃)</span></label>
+            <input type="number" id="tHigh" value="70" oninput="C_calcString()">
+          </div>
+        </div>
+
+        <!-- PCS自動候補テーブル -->
+        <div style="background:var(--accent-light);border-radius:var(--r);padding:12px 16px;margin-top:8px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px;font-weight:600">
+            PCS自動候補（パネル容量から適合判定）
+          </div>
+          <div style="overflow-x:auto;max-height:200px;border:1px solid var(--border);border-radius:4px">
+            <table id="pcs-candidates" style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead style="position:sticky;top:0;background:var(--surface2)">
+                <tr style="border-bottom:1px solid var(--border)">
+                  <th style="padding:6px 8px;text-align:left">メーカー</th>
+                  <th style="padding:6px 8px;text-align:left">型番</th>
+                  <th style="padding:6px 8px;text-align:right">kW</th>
+                  <th style="padding:6px 8px;text-align:right">直列</th>
+                  <th style="padding:6px 8px;text-align:right">並列</th>
+                  <th style="padding:6px 8px;text-align:right">台数</th>
+                  <th style="padding:6px 8px;text-align:right">DC/AC</th>
+                  <th style="padding:6px 8px;text-align:center">判定</th>
+                </tr>
+              </thead>
+              <tbody id="pcs-candidates-body">
+                <tr><td colspan="8" style="padding:12px;text-align:center;color:var(--text3);font-size:11px">パネル確定後に候補が表示されます</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 選択中PCSの詳細 -->
+        <div style="background:var(--info-light);border-radius:var(--r);padding:12px 16px;margin-top:8px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px;font-weight:600">
+            選択中PCSのストリング構成
+          </div>
+          <div class="form-row c4" style="margin-bottom:0">
+            <div class="field"><label>推奨直列数</label><div class="rv" id="strOpt">—</div></div>
+            <div class="field"><label>並列数/MPPT</label><div class="rv" id="strPar">—</div></div>
+            <div class="field"><label>PCS台数</label><div class="rv" id="pcsUnits">—</div></div>
+            <div class="field"><label>DC/AC比</label><div class="rv" id="dcacRatio">—</div></div>
+          </div>
+          <div id="str-detail" style="margin-top:8px;font-size:11px;color:var(--text3);line-height:1.8"></div>
+          <div id="str-check" style="margin-top:6px;font-size:11px"></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="C_goto('s-roof')">← 戻る</button>
+        <button class="btn primary" onclick="C_goto('s-irr')">次へ：日射量取得 →</button>
+      </div>
+    </div>
+
+    <!-- ══ S5: 日射量取得 ══ -->
+    <div id="s-irr" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">☀</div>
+          <h3>NEDO日射量データ取得（面別）</h3>
+        </div>
+        <div class="form-row c2" style="margin-bottom:12px">
+          <div class="field">
+            <label>設置住所（都道府県＋市区町村まで入力）</label>
+            <input type="text" id="irrAddress" placeholder="例：広島県福山市">
+            <div style="font-size:11px;color:#888;margin-top:4px;">Nominatim APIで最寄りの観測所を自動検索します。番地は不要です。</div>
+          </div>
+          <div class="field" style="justify-content:flex-end">
+            <label>&nbsp;</label>
+            <button class="btn primary" onclick="C_fetchAllIrr()">
+              ☀ 全面の日射量を一括取得
+            </button>
+          </div>
+        </div>
+        <div class="loading" id="loading-irr">
+          <div class="spinner"></div>NEDO APIから日射量を取得中…
+        </div>
+        <div id="irr-faces-list"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="C_goto('s-pcs')">← 戻る</button>
+        <button class="btn primary" onclick="C_goto('s-sim');C_runSim()">次へ：シミュレーション →</button>
+      </div>
+    </div>
+
+    <!-- ══ S6: 発電シミュレーション ══ -->
+    <div id="s-sim" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📊</div>
+          <h3>発電シミュレーション</h3>
+        </div>
+        <div class="form-row c3" style="margin-bottom:12px">
+          <div class="field">
+            <label>損失係数合計 <span class="unit">(%)</span></label>
+            <input type="number" id="lossRate" value="15" step="0.5" oninput="C_runSim()">
+            <span style="font-size:10px;color:var(--text3)">温度2%・配線2%・パワコン4%・その他7%</span>
+          </div>
+          <div class="field">
+            <label>自家消費率 <span class="unit">(%)</span></label>
+            <input type="number" id="selfRate" value="80" min="0" max="100" oninput="C_runSim()">
+          </div>
+          <div class="field">
+            <label>実発電率（ロス考慮後）<span class="unit">(%)</span></label>
+            <input type="number" id="perfRatio" readonly>
+          </div>
+        </div>
+
+        <!-- 月別自家消費率 -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:6px">
+            月別自家消費率（個別設定可）
+            <button class="btn sm" style="margin-left:8px" onclick="C_fillSelfRate()">
+              全月に一括適用
+            </button>
+            <button class="btn sm" style="margin-left:4px;background:rgba(255,124,42,0.2);border-color:#ff7c2a;color:#ff7c2a" onclick="C_goto('s-settings')">
+              ⚙ パターン
+            </button>
+          </div>
+          <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+            <button class="btn sm" style="font-size:10px;padding:4px 8px" onclick="C_applySelfPattern('typical')">📊 標準パターン</button>
+            <button class="btn sm" style="font-size:10px;padding:4px 8px" onclick="C_applySelfPattern('summer')">☀️ 夏型（外出多）</button>
+            <button class="btn sm" style="font-size:10px;padding:4px 8px" onclick="C_applySelfPattern('winter')">❄️ 冬型（在宅多）</button>
+            <button class="btn sm" style="font-size:10px;padding:4px 8px" onclick="C_applySelfPattern('uniform')">⚙️ 均一</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px"
+               id="monthly-self-rate"></div>
+        </div>
+
+        <div id="sim-result" style="display:none">
+          <div class="summary-bar" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px">
+            <div class="summary-item">
+              <div class="lbl">年間発電量</div>
+              <div><span class="val" id="sim-annual-gen">—</span><span class="unit"> kWh</span></div>
+            </div>
+            <div class="summary-item">
+              <div class="lbl">自家消費量</div>
+              <div><span class="val" id="sim-annual-self">—</span><span class="unit"> kWh</span></div>
+            </div>
+            <div class="summary-item">
+              <div class="lbl">売電量</div>
+              <div><span class="val" id="sim-annual-sell">—</span><span class="unit"> kWh</span></div>
+            </div>
+            <div class="summary-item">
+              <div class="lbl">年間経済効果</div>
+              <div><span class="val" id="sim-annual-benefit">—</span><span class="unit"> 万円</span></div>
+            </div>
+            <div class="summary-item">
+              <div class="lbl">CO₂削減量</div>
+              <div><span class="val" id="sim-co2">—</span><span class="unit"> t/年</span></div>
+            </div>
+          </div>
+
+          <div class="chart-wrap">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:500">
+              月別発電量（kWh）
+            </div>
+            <canvas id="sim-chart" height="180"></canvas>
+            <div style="display:flex;gap:16px;margin-top:6px;font-size:11px;color:var(--text2)">
+              <span style="display:flex;align-items:center;gap:4px">
+                <span style="width:12px;height:12px;background:#2d5a3d;border-radius:2px;display:inline-block"></span>自家消費
+              </span>
+              <span style="display:flex;align-items:center;gap:4px">
+                <span style="width:12px;height:12px;background:#7dcf97;border-radius:2px;display:inline-block"></span>売電・逆潮流
+              </span>
+            </div>
+          </div>
+
+          <table class="tbl" style="margin-top:14px">
+            <thead>
+              <tr>
+                <th>月</th><th class="num">発電量(kWh)</th>
+                <th class="num">自家消費(kWh)</th><th class="num">売電(kWh)</th>
+                <th class="num">削減額(円)</th><th class="num">売電収入(円)</th>
+                <th class="num">合計効果(円)</th>
+              </tr>
+            </thead>
+            <tbody id="sim-monthly-tbody"></tbody>
+            <tfoot>
+              <tr id="sim-total-row"></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="C_goto('s-irr')">← 戻る</button>
+        <button class="btn primary" onclick="C_goto('s-est')">次へ：概算見積 →</button>
+      </div>
+    </div>
+
+    <!-- ══ S7: 概算見積 ══ -->
+    <div id="s-est" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">💰</div>
+          <h3>概算見積</h3>
+        </div>
+        <div class="form-row c2" style="margin-bottom:12px">
+          <div class="field">
+            <label>見積方式</label>
+            <select id="estMethod" onchange="C_calcEst()">
+              <option value="kw">kWp単価方式</option>
+              <option value="detail">費目別積み上げ</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>kWp単価 <span class="unit">(円/kWp、税抜)</span></label>
+            <input type="number" id="unitPriceKw" value="200000" step="5000" oninput="C_calcEst()">
+          </div>
+        </div>
+
+        <div id="est-detail-section" style="display:none;margin-bottom:16px">
+          <table class="tbl" id="est-tbl">
+            <thead>
+              <tr>
+                <th>費目</th><th class="num">原価（円）</th>
+                <th class="num">販売（円）</th><th class="num">備考</th>
+              </tr>
+            </thead>
+            <tbody id="est-tbody"></tbody>
+          </table>
+        </div>
+
+        <div style="background:var(--accent-light);border-radius:var(--r);padding:14px 18px">
+          <div class="form-row c4" style="margin-bottom:10px">
+            <div class="field">
+              <label>税抜合計（販売）</label>
+              <div class="rv" id="est-subtotal">—</div>
+            </div>
+            <div class="field">
+              <label>消費税（10%）</label>
+              <div class="rv" id="est-tax">—</div>
+            </div>
+            <div class="field">
+              <label>税込合計</label>
+              <div class="rv" id="est-total">—</div>
+            </div>
+            <div class="field">
+              <label>kWp単価（税込）</label>
+              <div class="rv" id="est-per-kw">—</div>
+            </div>
+          </div>
+          <div class="form-row c2" style="margin-bottom:0">
+            <div class="field">
+              <label>値引き <span class="unit">(円)</span></label>
+              <input type="number" id="estDiscount" value="0" oninput="C_calcEst()">
+            </div>
+            <div class="field">
+              <label>補助金 <span class="unit">(円)</span></label>
+              <input type="number" id="estSubsidy" value="0" oninput="C_calcEst()">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="C_goto('s-sim')">← 戻る</button>
+        <button class="btn primary" onclick="C_goto('s-cf');C_runCF()">次へ：CF・IRR →</button>
+      </div>
+    </div>
+
+    <!-- ══ S8: CF・IRR計算 ══ -->
+    <div id="s-cf" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📈</div>
+          <h3>キャッシュフロー・IRR計算（20年）</h3>
+        </div>
+        <div class="form-row c3" style="margin-bottom:12px">
+          <div class="field">
+            <label>計算期間 <span class="unit">(年)</span></label>
+            <input type="number" id="cfYears" value="20" min="10" max="30" oninput="C_runCF()">
+          </div>
+          <div class="field">
+            <label>発電劣化率 <span class="unit">(%/年)</span></label>
+            <input type="number" id="degradeRate" value="0.5" step="0.1" oninput="C_runCF()">
+          </div>
+          <div class="field">
+            <label>電気料金上昇率 <span class="unit">(%/年)</span></label>
+            <input type="number" id="elecEscalate" value="2.0" step="0.5" oninput="C_runCF()">
+          </div>
+          <div class="field">
+            <label>O&M費用 <span class="unit">(円/年)</span></label>
+            <input type="number" id="omCost" value="50000" step="10000" oninput="C_runCF()">
+          </div>
+          <div class="field">
+            <label>融資利用</label>
+            <select id="loanUse" onchange="C_toggleLoan()">
+              <option value="0">自己資金のみ</option>
+              <option value="1">融資あり</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="loan-section" style="display:none;margin-bottom:12px">
+          <div class="form-row c3">
+            <div class="field">
+              <label>融資額 <span class="unit">(円)</span></label>
+              <input type="number" id="loanAmt" value="0" step="100000" oninput="C_runCF()">
+            </div>
+            <div class="field">
+              <label>金利 <span class="unit">(%/年)</span></label>
+              <input type="number" id="loanRate" value="1.9" step="0.1" oninput="C_runCF()">
+            </div>
+            <div class="field">
+              <label>返済期間 <span class="unit">(年)</span></label>
+              <input type="number" id="loanTerm" value="10" min="3" max="20" oninput="C_runCF()">
+            </div>
+          </div>
+        </div>
+
+        <!-- 減価償却 -->
+        <div class="form-row c3" style="margin-bottom:12px">
+          <div class="field">
+            <label>償却方法</label>
+            <select id="deprMethod" onchange="C_runCF()">
+              <option value="straight">定額法（17年）</option>
+              <option value="declining">定率法</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>法人税率 <span class="unit">(%)</span></label>
+            <input type="number" id="taxRateCF" value="30" step="1" oninput="C_runCF()">
+          </div>
+        </div>
+
+        <div id="cf-result" style="display:none">
+          <div class="summary-bar" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+            <div class="summary-item">
+              <div class="lbl">IRR（税前）</div>
+              <div><span class="val" id="cf-irr">—</span><span class="unit"> %</span></div>
+            </div>
+            <div class="summary-item">
+              <div class="lbl">投資回収年数</div>
+              <div><span class="val" id="cf-payback">—</span><span class="unit"> 年</span></div>
+            </div>
+            <div class="summary-item">
+              <div class="lbl">20年累計効果</div>
+              <div><span class="val" id="cf-cumulative">—</span><span class="unit"> 万円</span></div>
+            </div>
+            <div class="summary-item">
+              <div class="lbl">実質負担額</div>
+              <div><span class="val" id="cf-netcost">—</span><span class="unit"> 万円</span></div>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:500">
+              累計キャッシュフロー（万円）
+            </div>
+            <canvas id="cf-chart" height="160"></canvas>
+          </div>
+          <table class="tbl" style="margin-top:14px">
+            <thead>
+              <tr>
+                <th>年</th><th class="num">発電量(kWh)</th>
+                <th class="num">経済効果(万円)</th><th class="num">O&M(万円)</th>
+                <th class="num">返済(万円)</th><th class="num">年間CF(万円)</th>
+                <th class="num">累計CF(万円)</th>
+              </tr>
+            </thead>
+            <tbody id="cf-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="C_goto('s-est')">← 戻る</button>
+        <button class="btn primary" onclick="C_goto('s-out')">次へ：提案書出力 →</button>
+      </div>
+    </div>
+
+    <!-- ══ S9: 提案書出力 ══ -->
+    <div id="s-out" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📄</div>
+          <h3>提案書出力</h3>
+        </div>
+        <div class="form-row c2" style="margin-bottom:16px">
+          <div class="field">
+            <label>提案書タイトル</label>
+            <input type="text" id="propTitle" value="太陽光発電システム導入提案書">
+          </div>
+          <div class="field">
+            <label>備考・特記事項</label>
+            <textarea id="propNote" rows="2" placeholder="補助金活用可能など"></textarea>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div style="border:1px solid var(--border);border-radius:var(--rl);padding:16px">
+            <div style="font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+              <span style="background:var(--accent);color:#fff;border-radius:4px;
+                    padding:2px 8px;font-size:11px">簡易</span>
+              提案パッケージ
+            </div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.8">
+              ✓ パネル設置図（簡易）<br>
+              ✓ 概算見積書<br>
+              ✓ 発電シミュレーション表<br>
+            </div>
+            <button class="btn primary block" onclick="C_printSimple()">
+              🖨 簡易提案書を印刷・PDF出力
+            </button>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:var(--rl);padding:16px">
+            <div style="font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+              <span style="background:var(--info);color:#fff;border-radius:4px;
+                    padding:2px 8px;font-size:11px">詳細</span>
+              提案パッケージ
+            </div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.8">
+              ✓ パネル設置図（詳細）<br>
+              ✓ 詳細見積書（原価・販売）<br>
+              ✓ 月別シミュレーション表<br>
+              ✓ CF計算書（20年・IRR・融資）
+            </div>
+            <button class="btn block" style="background:var(--info);color:#fff;border-color:var(--info)"
+                    onclick="C_printDetail()">
+              🖨 詳細提案書を印刷・PDF出力
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;padding:14px;background:var(--surface2);
+             border-radius:var(--r);font-size:12px;color:var(--text2)">
+          <strong>設計ツール（A）への連携：</strong>
+          保存した案件データを設計ツールで読み込むと、顧客情報・設備仕様・屋根設定・見積情報が自動入力されます。
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn primary lg" onclick="C_exportToA()">
+            → 設計ツール（A）へデータを連携して保存
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- === Settings Section === -->
+    <div id="s-settings" class="section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">⚙</div>
+          <h3>設定</h3>
+        </div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px">
+          パネル・PCS・価格情報などのマスタデータを管理します。<br>
+          ここで設定したデータは、提案書作成時に自動的に参照されます。
+        </div>
+
+        <!-- パターン選択 -->
+        <div style="background:var(--accent-light);border-radius:var(--rl);padding:12px;margin-bottom:16px;border-left:3px solid var(--accent)">
+          <div style="font-weight:600;margin-bottom:8px;font-size:13px">自家消費パターン設定</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn sm" style="font-size:11px;padding:6px 10px" onclick="C_applySelfPattern('typical')">📊 標準パターン</button>
+            <button class="btn sm" style="font-size:11px;padding:6px 10px" onclick="C_applySelfPattern('summer')">☀ 夏型（外出多）</button>
+            <button class="btn sm" style="font-size:11px;padding:6px 10px" onclick="C_applySelfPattern('winter')">❄ 冬型（在宅多）</button>
+            <button class="btn sm" style="font-size:11px;padding:6px 10px" onclick="C_applySelfPattern('uniform')">⚙ 均一</button>
+          </div>
+        </div>
+
+        <!-- 価格マスタ -->
+        <div style="background:var(--warn-light);border-radius:var(--rl);padding:12px;margin-bottom:16px;border-left:3px solid var(--warn)">
+          <div style="font-weight:600;margin-bottom:8px;font-size:13px">見積価格マスタ</div>
+          <div class="form-row c3">
+            <div class="field">
+              <label style="font-size:11px">パネル単価（円/枚）</label>
+              <input type="number" id="price-panel" value="25000">
+            </div>
+            <div class="field">
+              <label style="font-size:11px">PCS単価（円/台）</label>
+              <input type="number" id="price-pcs" value="150000">
+            </div>
+            <div class="field">
+              <label style="font-size:11px">工事費（円/kWp）</label>
+              <input type="number" id="price-construction" value="80000">
+            </div>
+          </div>
+        </div>
+
+        <!-- パネルマスタ -->
+        <div style="background:var(--surface2);border-radius:var(--rl);padding:12px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:600;font-size:13px">☀ パネルマスタ</div>
+            <button class="btn sm" onclick="C_addPanel()" style="font-size:11px;padding:4px 8px">+ 追加</button>
+          </div>
+          <div style="overflow-x:auto;max-height:200px;overflow-y:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead>
+                <tr style="background:rgba(255,255,255,0.05);position:sticky;top:0">
+                  <th style="padding:4px 6px;text-align:left">メーカー</th>
+                  <th style="padding:4px 6px;text-align:left">型番</th>
+                  <th style="padding:4px 6px;text-align:right">Wp</th>
+                  <th style="padding:4px 6px;text-align:right">操作</th>
+                </tr>
+              </thead>
+              <tbody id="panel-master-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PCSマスタ -->
+        <div style="background:var(--surface2);border-radius:var(--rl);padding:12px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:600;font-size:13px">⚡ PCSマスタ</div>
+            <button class="btn sm" onclick="C_addPcs()" style="font-size:11px;padding:4px 8px">+ 追加</button>
+          </div>
+          <div style="overflow-x:auto;max-height:200px;overflow-y:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead>
+                <tr style="background:rgba(255,255,255,0.05);position:sticky;top:0">
+                  <th style="padding:4px 6px;text-align:left">メーカー</th>
+                  <th style="padding:4px 6px;text-align:left">型番</th>
+                  <th style="padding:4px 6px;text-align:right">kW</th>
+                  <th style="padding:4px 6px;text-align:right">操作</th>
+                </tr>
+              </thead>
+              <tbody id="pcs-master-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- シミュレーション設定 -->
+        <div style="background:var(--info-light);border-radius:var(--rl);padding:12px;border-left:3px solid var(--info)">
+          <div style="font-weight:600;margin-bottom:8px;font-size:13px">シミュレーション設定</div>
+          <div class="form-row c3">
+            <div class="field">
+              <label style="font-size:11px">デフォルト損失係数（%）</label>
+              <input type="number" id="default-loss" value="15" min="0" max="100">
+            </div>
+            <div class="field">
+              <label style="font-size:11px">発電劣化率（%/年）</label>
+              <input type="number" id="default-degradation" value="0.5" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label style="font-size:11px">計算期間（年）</label>
+              <input type="number" id="cf-years" value="20" min="10" max="30">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+'use strict';
+// ════════════════════════════════════════════════
+// パネルDBおよびPCS DB
+// ════════════════════════════════════════════════
+const C_PANEL_DB = {
+  longi:[
+    {model:'LR7-54HVH-475M', wp:475, w:1800, h:1134, voc:40.18, vmp:33.16, isc:15.03, imp:14.33, tvoc:-0.200},
+    {model:'LR7-54HVH-480M', wp:480, w:1800, h:1134, voc:40.29, vmp:33.28, isc:15.13, imp:14.43, tvoc:-0.200},
+    {model:'LR7-54HVH-485M', wp:485, w:1800, h:1134, voc:40.40, vmp:33.40, isc:15.23, imp:14.53, tvoc:-0.200},
+    {model:'LR7-54HVH-490M', wp:490, w:1800, h:1134, voc:40.52, vmp:33.51, isc:15.33, imp:14.63, tvoc:-0.200},
+    {model:'LR5-54HTH-435M', wp:435, w:2094, h:1038, voc:47.00, vmp:39.60, isc:11.68, imp:10.86, tvoc:-0.270},
+  ],
+  jinko:[
+    {model:'JKM480N-60HL4-V',  wp:480, w:2056, h:1134, voc:41.10, vmp:34.80, isc:14.10, imp:13.80, tvoc:-0.180},
+    {model:'JKM490N-60HL4-V',  wp:490, w:2056, h:1134, voc:41.40, vmp:35.00, isc:14.25, imp:14.00, tvoc:-0.180},
+    {model:'JKM585N-72HL4-V',  wp:585, w:2465, h:1134, voc:49.80, vmp:42.00, isc:14.02, imp:13.92, tvoc:-0.180},
+  ],
+  canadian:[
+    {model:'CS6.2-54TM-505', wp:505, w:2108, h:1048, voc:42.70, vmp:35.60, isc:14.26, imp:14.18, tvoc:-0.270},
+    {model:'CS6.2-54TM-510', wp:510, w:2108, h:1048, voc:42.90, vmp:35.80, isc:14.34, imp:14.24, tvoc:-0.270},
+    {model:'CS6.2-54TM-520', wp:520, w:2108, h:1048, voc:43.30, vmp:36.10, isc:14.50, imp:14.40, tvoc:-0.270},
+  ],
+  huawei:[
+    {model:'SUN-415P-60L', wp:415, w:1722, h:1134, voc:37.90, vmp:31.80, isc:13.83, imp:13.05, tvoc:-0.290},
+  ],
+  yingli:[
+    {model:'YL595CF66i/2', wp:595, w:2274, h:1134, voc:50.60, vmp:42.50, isc:14.10, imp:14.00, tvoc:-0.280},
+    {model:'YL600CF66i/2', wp:600, w:2274, h:1134, voc:50.80, vmp:42.70, isc:14.20, imp:14.10, tvoc:-0.280},
+  ],
+  das:[
+    {model:'DAS-DH144NA-JP-585', wp:585, w:2465, h:1134, voc:49.90, vmp:42.10, isc:14.08, imp:13.90, tvoc:-0.260},
+  ],
+  other:[
+    {model:'カスタム', wp:485, w:1800, h:1134, voc:40.40, vmp:33.40, isc:15.23, imp:14.53, tvoc:-0.200},
+  ],
+};
+
+const C_PCS_DB = {
+  huawei:[
+    {model:'SUN2000-4.95KTL-JPL1', kw:4.95,  vmax:600,  mpptMin:90,  mpptMax:560,  imaxPerMppt:16, mppt:4},
+    {model:'SUN2000-20KTL-M3',     kw:20,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:14.5,mppt:6},
+    {model:'SUN2000-33KTL-NH',     kw:33.3,  vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:22, mppt:5},
+    {model:'SUN2000-40KTL-NH',     kw:40,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:22, mppt:5},
+    {model:'SUN2000-50KTL-JPM0',   kw:50,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:26, mppt:8},
+    {model:'SUN2000-50KTL-NHM3',   kw:50,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:30, mppt:8},
+    {model:'SUN2000-111KTL-NHM0',  kw:111.1, vmax:1500, mpptMin:200, mpptMax:1300, imaxPerMppt:26, mppt:12},
+    {model:'SUN2000-125KTL-JPH0',  kw:125,   vmax:1500, mpptMin:200, mpptMax:1300, imaxPerMppt:26, mppt:12},
+  ],
+  yasukawa:[
+    {model:'CEPT-P3AA2025B（標準型）',  kw:25, vmax:1000, mpptMin:200, mpptMax:900, imaxPerMppt:25, mppt:4},
+    {model:'CEPT-P3AB2025B（多機能型）',kw:25, vmax:1000, mpptMin:200, mpptMax:900, imaxPerMppt:25, mppt:4},
+  ],
+  omron:[
+    {model:'KPW-A55-2PJ4', kw:5.5, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2},
+    {model:'KPW-A55-2J4',  kw:5.5, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2},
+  ],
+  sungrow:[
+    {model:'SG49.5CX-JP（10年）', kw:49.5, vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:30, mppt:12},
+    {model:'SG100CX-JP（10年）',  kw:100,  vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:26, mppt:12},
+    {model:'SG125HX-JP（10年）',  kw:125,  vmax:1500, mpptMin:200, mpptMax:1300, imaxPerMppt:26, mppt:16},
+  ],
+  solaredge:[
+    {model:'SE17.5K-JPI（12年）', kw:17.5, vmax:1000, mpptMin:200, mpptMax:850, imaxPerMppt:30, mppt:2},
+    {model:'SE33.3K-JPI（12年）', kw:33.3, vmax:1000, mpptMin:200, mpptMax:850, imaxPerMppt:30, mppt:2},
+  ],
+  panasonic:[
+    {model:'VBPC255GM2', kw:5.5, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2},
+    {model:'VBPC244GM2', kw:4.4, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2},
+  ],
+};
+
+// ════════════════════════════════════════════════
+// スキーム定義
+// ════════════════════════════════════════════════
+const C_SCHEMES = {
+  low_surplus:{
+    label:'低圧 × 余剰売電',
+    volt:'low', type:'surplus',
+    desc:'余剰電力をFIT単価で売電します。電気代削減＋売電収入の両方が収益になります。10kW以上は全量自家消費またはFIT余剰売電が選択できます。',
+    badge:'低圧・余剰売電',
+  },
+  low_self:{
+    label:'低圧 × 自家消費',
+    volt:'low', type:'self',
+    desc:'発電した電力を自家消費し、余剰分は系統へ逆潮流します（FIT申請なし）。電気代削減が主な収益です。',
+    badge:'低圧・自家消費',
+  },
+  high_self:{
+    label:'高圧 × 自家消費',
+    volt:'high', type:'self',
+    desc:'高圧受電設備を通じて自家消費します。絶縁トランス・保護継電器が必要です。大規模工場・倉庫向け。',
+    badge:'高圧・自家消費',
+  },
+  high_ppa:{
+    label:'高圧 × PPA',
+    volt:'high', type:'ppa',
+    desc:'第三者所有モデル（PPA）です。初期費用ゼロで太陽光を導入し、発電量に応じてPPA単価を支払います。検定付メーターが必要です。',
+    badge:'高圧・PPA',
+  },
+};
+
+// ════════════════════════════════════════════════
+// 状態管理
+// ════════════════════════════════════════════════
+const C_STATE = {
+  scheme: null,
+  faces: [],       // 屋根面データ
+  irrData: {},     // NEDO日射量 {faceId: [月別]}
+  simResult: null,
+  cfResult: null,
+  estResult: null,
+};
+
+// ════════════════════════════════════════════════
+// ナビゲーション
+// ════════════════════════════════════════════════
+function C_goto(secId) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const sec = document.getElementById(secId);
+  if (sec) sec.classList.add('active');
+  const titles = {
+    's-project':'案件・顧客情報','s-scheme':'スキーム選択',
+    's-roof':'屋根・パネル設定','s-pcs':'PCS選定',
+    's-irr':'日射量取得','s-sim':'発電シミュレーション',
+    's-est':'概算見積','s-cf':'CF・IRR計算','s-out':'提案書出力','s-settings':'設定',
+  };
+  document.getElementById('top-title').textContent = titles[secId] || '';
+
+  // 設定ページ表示時の処理
+  if (secId === 's-settings') {
+    C_renderSettingsPage();
+    C_loadPriceMaster();
+  }
+
+  document.querySelectorAll('.nav-item').forEach(ni => {
+    if (ni.getAttribute('onclick') && ni.getAttribute('onclick').includes(secId)) {
+      ni.classList.add('active');
+    }
+  });
+}
+
+// ════════════════════════════════════════════════
+// 基本計算
+// ════════════════════════════════════════════════
+function C_calcBasic() {
+  const ep  = parseFloat(document.getElementById('elecPrice').value) || 30;
+  const rl  = parseFloat(document.getElementById('renewLevy').value) || 1.4;
+  const fa  = parseFloat(document.getElementById('fuelAdj').value)   || 5.5;
+  document.getElementById('totalElecPrice').value = (ep + rl + fa).toFixed(1);
+}
+
+function C_autoDetectVoltage() {
+  const kw = parseFloat(document.getElementById('approxKW').value) || 0;
+  const sel = document.getElementById('voltageType');
+  sel.value = kw >= 50 ? 'high' : 'low';
+  C_updateSchemeOptions();
+}
+
+function C_updateSchemeOptions() {
+  const volt = document.getElementById('voltageType').value;
+  const tabs = document.getElementById('scheme-tabs');
+  tabs.innerHTML = '';
+  Object.entries(C_SCHEMES).forEach(([key, sch]) => {
+    if (sch.volt !== volt) return;
+    const btn = document.createElement('div');
+    btn.className = 'scheme-tab' + (C_STATE.scheme === key ? ' active' : '');
+    btn.textContent = sch.label;
+    btn.onclick = () => C_selectScheme(key);
+    tabs.appendChild(btn);
+  });
+}
+
+function C_selectScheme(key) {
+  C_STATE.scheme = key;
+  const sch = C_SCHEMES[key];
+  document.querySelectorAll('.scheme-tab').forEach(t => {
+    t.classList.toggle('active', t.textContent === sch.label);
+  });
+  document.getElementById('scheme-desc').textContent = sch.desc;
+  document.getElementById('scheme-badge').textContent = sch.badge;
+  document.getElementById('fit-card').style.display  = sch.type === 'surplus' ? '' : 'none';
+  document.getElementById('ppa-card').style.display  = sch.type === 'ppa'     ? '' : 'none';
+  C_autosave();
+}
+
+// ════════════════════════════════════════════════
+// 屋根面管理
+// ════════════════════════════════════════════════
+const C_ROOF_PRESETS = {
+  kirizuma:   [{name:'南面',az:180,tilt:30},{name:'北面',az:0,tilt:30}],
+  katanagare: [{name:'主面',az:180,tilt:20}],
+  yosemune:   [{name:'南面',az:180,tilt:30},{name:'北面',az:0,tilt:30},
+               {name:'東面',az:90, tilt:30},{name:'西面',az:270,tilt:30}],
+  rikuya:     [{name:'屋上面',az:180,tilt:10}],
+  custom:     [{name:'面1',az:180,tilt:30}],
+};
+
+function C_generateRoofFaces() {
+  const type = document.getElementById('roofType').value;
+  if (type === 'ground') return;
+  const presets = C_ROOF_PRESETS[type] || [{name:'面1',az:180,tilt:30}];
+  const ridge   = parseFloat(document.getElementById('ridgeAzimuth').value) || 180;
+
+  C_STATE.faces = presets.map((p, i) => ({
+    id:   i,
+    name: p.name,
+    L:    10,
+    W:    8,
+    az:   C_calcFaceAz(p.az, ridge),
+    tilt: p.tilt,
+    roofMat:  'slate',
+    pitch:    '4/10',
+    panels:   0,
+    irrMonthly: Array(12).fill(null),
+  }));
+
+  document.getElementById('add-face-btn').style.display =
+    type === 'custom' ? 'inline-flex' : 'none';
+
+  C_renderFaces();
+}
+
+function C_calcFaceAz(preset, ridge) {
+  // 切妻の南面はrIdge基準で計算
+  const offset = preset - 180;
+  return ((ridge + offset) + 360) % 360;
+}
+
+function C_updateFaceAzimuths() {
+  const ridge = parseFloat(document.getElementById('ridgeAzimuth').value) || 180;
+  const type  = document.getElementById('roofType').value;
+  const presets = C_ROOF_PRESETS[type] || [];
+  C_STATE.faces.forEach((face, i) => {
+    if (presets[i]) face.az = C_calcFaceAz(presets[i].az, ridge);
+  });
+  C_renderFaces();
+}
+
+function C_addFace() {
+  C_STATE.faces.push({
+    id: Date.now(), name:`面${C_STATE.faces.length+1}`,
+    L:10, W:8, az:180, tilt:30,
+    roofMat:'slate', pitch:'4/10',
+    panels:0, irrMonthly:Array(12).fill(null),
+  });
+  C_renderFaces();
+}
+
+const C_ROOF_MATS = [
+  {val:'kawara_j', label:'和瓦'},
+  {val:'kawara_y', label:'洋瓦（スパニッシュ）'},
+  {val:'slate',    label:'化粧スレート（コロニアル）'},
+  {val:'metal_yoko', label:'金属屋根（横葺）'},
+  {val:'metal_tate', label:'金属屋根（縦葺・嵌合）'},
+  {val:'metal_ori',  label:'折板（タイトフレーム）'},
+  {val:'asphalt',    label:'アスファルトシングル'},
+];
+
+function C_renderFaces() {
+  const el = document.getElementById('roof-faces-list');
+  el.innerHTML = C_STATE.faces.map((f, i) => `
+    <div class="roof-face" id="face-${f.id}">
+      <div class="roof-face-head">
+        <span style="width:28px;height:28px;border-radius:6px;background:var(--accent-light);
+              display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent2)">
+          ${i+1}
+        </span>
+        <input type="text" value="${f.name}" style="font-weight:600;border:none;background:transparent;
+               font-size:13px;width:120px;padding:0" onchange="C_STATE.faces[${i}].name=this.value">
+        ${C_STATE.faces.length > 1
+          ? `<button class="roof-face-del" onclick="C_removeFace(${i})">✕</button>` : ''}
+      </div>
+      <div class="form-row c4">
+        <div class="field">
+          <label>長辺 <span class="unit">(m)</span></label>
+          <input type="number" value="${f.L}" step="0.1" min="1"
+                 onchange="C_STATE.faces[${i}].L=+this.value;C_calcAll()">
+        </div>
+        <div class="field">
+          <label>短辺 <span class="unit">(m)</span></label>
+          <input type="number" value="${f.W}" step="0.1" min="1"
+                 onchange="C_STATE.faces[${i}].W=+this.value;C_calcAll()">
+        </div>
+        <div class="field">
+          <label>方位角 <span class="unit">(° 南=180)</span></label>
+          <input type="number" value="${f.az}" min="0" max="360"
+                 onchange="C_STATE.faces[${i}].az=+this.value">
+        </div>
+        <div class="field">
+          <label>傾斜角 <span class="unit">(°)</span></label>
+          <input type="number" value="${f.tilt}" min="0" max="90"
+                 onchange="C_STATE.faces[${i}].tilt=+this.value">
+        </div>
+        <div class="field">
+          <label>屋根材</label>
+          <select onchange="C_STATE.faces[${i}].roofMat=this.value">
+            ${C_ROOF_MATS.map(m=>`<option value="${m.val}"${f.roofMat===m.val?' selected':''}>${m.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>勾配</label>
+          <select onchange="C_STATE.faces[${i}].pitch=this.value">
+            ${['1/10','2/10','2.5/10','3/10','3.5/10','4/10','4.5/10','5/10','6/10','7/10','8/10']
+              .map(p=>`<option${f.pitch===p?' selected':''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>離隔モード</label>
+          <select id="clr-mode-${i}" onchange="C_calcAll()">
+            <option value="pct10">辺長10%（上限2m）</option>
+            <option value="fixed">固定値入力</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>固定離隔 <span class="unit">(m)</span></label>
+          <input type="number" id="clr-val-${i}" value="0.5" step="0.1" min="0"
+                 onchange="C_calcAll()">
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:var(--accent2);font-weight:500"
+           id="face-result-${i}">
+        — 配置未計算
+      </div>
+    </div>`).join('');
+  C_calcAll();
+}
+
+function C_removeFace(i) {
+  C_STATE.faces.splice(i, 1);
+  C_renderFaces();
+}
+
+// ════════════════════════════════════════════════
+// パネル配置計算
+// ════════════════════════════════════════════════
+function C_calcAll() {
+  const wp    = parseFloat(document.getElementById('panelWp').value) || 485;
+  const pW    = parseFloat(document.getElementById('panelW').value)  / 1000 || 1.134;
+  const pH    = parseFloat(document.getElementById('panelH').value)  / 1000 || 1.800;
+  const gapV  = parseFloat(document.getElementById('gapV').value)    / 1000 || 0.02;
+  const gapH  = parseFloat(document.getElementById('gapH').value)    / 1000 || 0.02;
+  const orient= document.getElementById('panelOrient').value;
+
+  let totalPanels = 0, totalKW = 0, totalArea = 0;
+
+  C_STATE.faces.forEach((f, i) => {
+    const pw = orient === 'portrait' ? pW : pH;
+    const ph = orient === 'portrait' ? pH : pW;
+    const clrMode = document.getElementById(`clr-mode-${i}`)?.value || 'pct10';
+    let cL, cW;
+    if (clrMode === 'fixed') {
+      const v = parseFloat(document.getElementById(`clr-val-${i}`)?.value) || 0.5;
+      cL = cW = v;
+    } else {
+      cL = Math.min(f.L * 0.1, 2);
+      cW = Math.min(f.W * 0.1, 2);
+    }
+    const netL = f.L - cL * 2;
+    const netW = f.W - cW * 2;
+    const cols = netL > 0 ? Math.floor((netL + gapH) / (pw + gapH)) : 0;
+    const rows = netW > 0 ? Math.floor((netW + gapV) / (ph + gapV)) : 0;
+    const cnt  = Math.max(0, cols * rows);
+
+    f.panels = cnt;
+    f.cols   = cols;
+    f.rows   = rows;
+    totalPanels += cnt;
+    totalKW     += cnt * wp / 1000;
+    totalArea   += f.L * f.W;
+
+    const el = document.getElementById(`face-result-${i}`);
+    if (el) el.textContent =
+      `${cols}列 × ${rows}段 = ${cnt}枚　${(cnt*wp/1000).toFixed(2)} kWp`;
+  });
+
+  const kw = totalKW;
+  document.getElementById('totalPanels').textContent = `${totalPanels} 枚`;
+  document.getElementById('totalKW').textContent     = `${kw.toFixed(2)} kWp`;
+  document.getElementById('totalArea').textContent   = `${totalArea.toFixed(1)} ㎡`;
+
+  // 受電種別自動判定
+  const volt = kw >= 50 ? '高圧' : '低圧';
+  document.getElementById('finalVoltage').textContent = volt;
+
+  // サマリー更新
+  document.getElementById('sum-kw').textContent = kw.toFixed(2);
+
+  // PCS計算も更新
+  C_calcString();
+  C_calcEst();
+
+  // 日射量入力欄の住所を同期
+  const addr = document.getElementById('address').value;
+  if (addr && !document.getElementById('irrAddress').value) {
+    document.getElementById('irrAddress').value = addr;
+  }
+}
+
+// ════════════════════════════════════════════════
+// パネルモデルドロップダウン
+// ════════════════════════════════════════════════
+function C_buildPanelModels() {
+  const maker  = document.getElementById('panelMaker').value;
+  const models = C_PANEL_DB[maker] || C_PANEL_DB.other;
+  const sel    = document.getElementById('panelModel');
+  sel.innerHTML = models.map(m => `<option value="${m.model}">${m.model}</option>`).join('');
+  C_applyPanel();
+}
+
+function C_applyPanel() {
+  const maker  = document.getElementById('panelMaker').value;
+  const model  = document.getElementById('panelModel').value;
+  const p      = (C_PANEL_DB[maker] || C_PANEL_DB.other).find(x => x.model === model);
+  if (!p) return;
+  document.getElementById('panelWp').value   = p.wp;
+  document.getElementById('panelW').value    = p.w;
+  document.getElementById('panelH').value    = p.h;
+  document.getElementById('panelVoc').value  = p.voc;
+  document.getElementById('panelVmp').value  = p.vmp;
+  document.getElementById('panelIsc').value  = p.isc;
+  document.getElementById('panelImp').value  = p.imp;
+  document.getElementById('panelTvoc').value = p.tvoc;
+  C_calcAll();
+}
+
+// ════════════════════════════════════════════════
+// PCSモデルドロップダウン
+// ════════════════════════════════════════════════
+function C_buildPcsModels() {
+  const maker  = document.getElementById('pcsMaker').value;
+  const models = C_PCS_DB[maker] || [];
+  const sel    = document.getElementById('pcsModel');
+  sel.innerHTML = models.map(m => `<option value="${m.model}">${m.model}</option>`).join('');
+  C_applyPcs();
+}
+
+function C_applyPcs() {
+  const maker = document.getElementById('pcsMaker').value;
+  const model = document.getElementById('pcsModel').value;
+  const p     = (C_PCS_DB[maker] || []).find(x => x.model === model);
+  if (!p) return;
+  document.getElementById('pcsKw').value          = p.kw;
+  document.getElementById('pcsVmax').value        = p.vmax;
+  document.getElementById('pcsMpptRange').value   = `${p.mpptMin}-${p.mpptMax}`;
+  document.getElementById('pcsImaxPerMppt').value = p.imaxPerMppt;
+  document.getElementById('pcsMpptCount').value   = p.mppt;
+  C_calcString();
+}
+
+// ════════════════════════════════════════════════
+// ストリング計算
+// ════════════════════════════════════════════════
+function C_calcString() {
+  const voc    = parseFloat(document.getElementById('panelVoc').value)      || 40.4;
+  const vmp    = parseFloat(document.getElementById('panelVmp').value)      || 33.4;
+  const tvoc   = parseFloat(document.getElementById('panelTvoc').value)     || -0.200;
+  const tLow   = parseFloat(document.getElementById('tLow').value)          || -15;
+  const tHigh  = parseFloat(document.getElementById('tHigh').value)         || 70;
+  const vmax   = parseFloat(document.getElementById('pcsVmax').value)       || 1000;
+  const rangeStr = document.getElementById('pcsMpptRange').value || '200-1000';
+  const [mpptMin, mpptMax] = rangeStr.split('-').map(Number);
+  const imax   = parseFloat(document.getElementById('pcsImaxPerMppt').value) || 30;
+  const mppt   = parseInt(document.getElementById('pcsMpptCount').value)    || 8;
+  const pcsKw  = parseFloat(document.getElementById('pcsKw').value)         || 50;
+  const imp    = parseFloat(document.getElementById('panelImp').value)      || 14.53;
+  const totalPanels = C_STATE.faces.reduce((s,f) => s + (f.panels||0), 0);
+  const wp     = parseFloat(document.getElementById('panelWp').value)       || 485;
+
+  const vocLow  = voc * (1 + tvoc/100 * (tLow  - 25));
+  const vocHigh = voc * (1 + tvoc/100 * (tHigh - 25));
+  const vmpHigh = vmp * (1 + tvoc/100 * (tHigh - 25));
+
+  const maxS   = Math.floor(vmax / vocLow);
+  const minS   = Math.ceil((mpptMin || 200) / vmpHigh);
+  const optS   = Math.min(maxS, Math.floor((mpptMax||1000) / vmp));
+  const maxPar = Math.floor(imax / imp);
+
+  document.getElementById('strOpt').textContent = `${optS} 枚`;
+  document.getElementById('strPar').textContent = `${maxPar} 並列`;
+
+  const totalDcWp = totalPanels * wp;
+  const panelsPerUnit = optS * maxPar * Math.floor(mppt / maxPar);
+  const units = panelsPerUnit > 0 ? Math.ceil(totalPanels / panelsPerUnit) : 1;
+  const totalPcsKw = units * pcsKw;
+  const dcacRatio = totalPcsKw > 0 ? (totalDcWp / 1000 / totalPcsKw).toFixed(3) : 0;
+
+  document.getElementById('pcsUnits').textContent = `${units} 台`;
+  document.getElementById('dcacRatio').textContent = `${dcacRatio}`;
+
+  const detail = [];
+  detail.push(`パネル総容量: ${totalDcWp}W (${totalPanels}枚 x ${wp}W)`);
+  detail.push(`PCS総容量: ${totalPcsKw}kW (${units}台 x ${pcsKw}kW)`);
+  detail.push(`推奨: 直列${optS}枚 x 並列${maxPar} = ${optS * maxPar}パネル/MPPT`);
+  document.getElementById('str-detail').innerHTML = detail.map(d => '• ' + d).join('<br>');
+
+  const check = document.getElementById('str-check');
+
+  // 5条件詳細判定
+  const checks = [];
+
+  // ① 低温時Voc検証
+  const vocLowTotal = vocLow * optS;
+  const check1 = {
+    label: '① 低温時Voc',
+    ok: vocLowTotal <= vmax,
+    msg: vocLowTotal <= vmax ?
+      `${vocLowTotal.toFixed(0)}V <= ${vmax}V (OK)` :
+      `${vocLowTotal.toFixed(0)}V > ${vmax}V (超過)`,
+    fix: vocLowTotal > vmax ?
+      `直列数を${Math.floor(vmax / vocLow)}枚以下に減らしてください` : ''
+  };
+  checks.push(check1);
+
+  // ② MPPT最小電圧チェック
+  const vmpMin = vmp * (1 + tvoc/100 * (tLow - 25));
+  const minSRequired = Math.ceil(mpptMin / vmpMin);
+  const check2 = {
+    label: '② MPPT最小',
+    ok: optS >= minSRequired,
+    msg: optS >= minSRequired ?
+      `直列${optS}枚 >= ${minSRequired}枚 (OK)` :
+      `直列${optS}枚 < ${minSRequired}枚 (不足)`,
+    fix: optS < minSRequired ?
+      `直列数を${minSRequired}枚以上に増やしてください (${mpptMin}V対応)` : ''
+  };
+  checks.push(check2);
+
+  // ③ MPPT最大電圧チェック
+  const vocHighTotal = vocHigh * optS;
+  const maxSAllowed = Math.floor(mpptMax / vocHigh);
+  const check3 = {
+    label: '③ MPPT最大',
+    ok: vocHighTotal <= mpptMax,
+    msg: vocHighTotal <= mpptMax ?
+      `${vocHighTotal.toFixed(0)}V <= ${mpptMax}V (OK)` :
+      `${vocHighTotal.toFixed(0)}V > ${mpptMax}V (超過)`,
+    fix: vocHighTotal > mpptMax ?
+      `直列数を${maxSAllowed}枚以下に制限してください` : ''
+  };
+  checks.push(check3);
+
+  // ④ 入力電流チェック
+  const inputCurrent = imp * maxPar;
+  const maxParAllowed = Math.floor(imax / imp);
+  const check4 = {
+    label: '④ 入力電流',
+    ok: inputCurrent <= imax,
+    msg: inputCurrent <= imax ?
+      `${inputCurrent.toFixed(1)}A <= ${imax}A (OK)` :
+      `${inputCurrent.toFixed(1)}A > ${imax}A (超過)`,
+    fix: inputCurrent > imax ?
+      `並列数を${maxParAllowed}本以下に制限してください` : ''
+  };
+  checks.push(check4);
+
+  // ⑤ DC/AC比判定と推奨PCS
+  const check5 = {
+    label: '⑤ DC/AC比',
+    ok: dcacRatio >= 0.8 && dcacRatio <= 2.0,
+    msg: dcacRatio < 0.8 ?
+      `${dcacRatio} (過少積載 < 0.8)` :
+      dcacRatio <= 1.0 ?
+      `${dcacRatio} (余裕あり)` :
+      dcacRatio <= 1.5 ?
+      `${dcacRatio} (推奨範囲)` :
+      dcacRatio <= 2.0 ?
+      `${dcacRatio} (やや過積載)` :
+      `${dcacRatio} (過積載 > 2.0)`,
+    fix: ''
+  };
+
+  // DC/AC比が悪い場合、推奨PCS候補を探す
+  if (dcacRatio < 0.8 || dcacRatio > 2.0) {
+    let targetRatio = 1.3;
+    let bestPcs = null;
+    let bestDiff = Infinity;
+
+    const makers = Object.keys(C_PCS_DB);
+    for (const maker of makers) {
+      const models = C_PCS_DB[maker] || [];
+      for (const pcs of models) {
+        const testRatio = (totalDcWp / 1000 / pcs.kw).toFixed(3);
+        const diff = Math.abs(testRatio - targetRatio);
+        if (diff < bestDiff && testRatio >= 0.8 && testRatio <= 2.0) {
+          bestDiff = diff;
+          bestPcs = { maker, model: pcs.model, kw: pcs.kw, ratio: testRatio };
+        }
+      }
+    }
+
+    if (bestPcs) {
+      check5.fix = `推奨: ${bestPcs.maker} ${bestPcs.model} (${bestPcs.kw}kW, DC/AC比${bestPcs.ratio})`;
+    }
+  }
+  checks.push(check5);
+
+  // 詳細判定表示
+  let html = '<div style="font-size:12px;line-height:1.6">';
+  for (const c of checks) {
+    const color = c.ok ? '#4ecd' : '#d32f2f';
+    const status = c.ok ? 'OK' : 'NG';
+    html += `<div style="margin:4px 0;padding:6px;background:${c.ok ? 'rgba(78,205,196,0.1)' : 'rgba(211,47,47,0.1)'};border-left:3px solid ${color};"><strong>[${status}] ${c.label}</strong> ${c.msg}`;
+    if (c.fix) html += `<br><span style="color:#666;font-size:11px;">→ ${c.fix}</span>`;
+    html += '</div>';
+  }
+  html += '</div>';
+  check.innerHTML = html;
+
+  // PCS自動候補テーブル生成
+  const tbody = document.getElementById('pcs-candidates-body');
+  if (!tbody || totalPanels === 0) return;
+
+  const rows = [];
+  const makers = Object.keys(C_PCS_DB);
+  for (const maker of makers) {
+    const models = C_PCS_DB[maker] || [];
+    for (const pcs of models) {
+      const panelsPerPcs = optS * maxPar * Math.floor(pcs.mppt / maxPar);
+      const unitsNeeded = panelsPerPcs > 0 ? Math.ceil(totalPanels / panelsPerPcs) : 999;
+      const ratio = (totalDcWp / 1000 / (unitsNeeded * pcs.kw)).toFixed(3);
+      const voltOk = (vocLow * optS) <= pcs.vmax;
+      let badge, badgeColor;
+      if (!voltOk)          { badge = 'VOLT'; badgeColor = '#e74c3c'; }
+      else if (ratio < 0.8) { badge = 'LOW';  badgeColor = '#e74c3c'; }
+      else if (ratio > 2.0) { badge = 'HIGH'; badgeColor = '#e74c3c'; }
+      else if (ratio > 1.5) { badge = 'WARN'; badgeColor = '#f0b429'; }
+      else                  { badge = 'OK';   badgeColor = '#27ae60'; }
+      const isOk = voltOk && ratio >= 0.8 && ratio <= 2.0;
+      rows.push({maker, pcs, unitsNeeded, ratio, isOk, badge});
+    }
+  }
+  rows.sort((a,b) => (a.isOk ? 0 : 1) - (b.isOk ? 0 : 1) || a.unitsNeeded - b.unitsNeeded);
+
+  tbody.innerHTML = rows.slice(0, 10).map(r => `
+    <tr style="border-bottom:1px solid var(--border);${r.isOk ? 'background:rgba(78,205,196,0.1)' : ''}">
+      <td style="padding:6px 8px;font-size:11px">${r.maker}</td>
+      <td style="padding:6px 8px;font-size:10px">${r.pcs.model}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:11px">${r.pcs.kw}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:11px">${optS}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:11px">${maxPar}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:11px;font-weight:600">${r.unitsNeeded}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:11px">${r.ratio}</td>
+      <td style="padding:6px 8px;text-align:center"><span style="background:${r.isOk ? '#4ecd' : '#ccc'};color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;display:inline-block">${r.badge}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ════════════════════════════════════════════════
+// 日射量取得（NEDO API・面別）
+// ════════════════════════════════════════════════
+async function C_fetchAllIrr() {
+  const addr = document.getElementById('irrAddress').value.trim();
+  if (!addr) { alert('住所を入力してください'); return; }
+
+  document.getElementById('loading-irr').style.display = 'flex';
+
+  try {
+    // ① Nominatim で緯度経度取得
+    const geo = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`,
+      {headers:{'Accept-Language':'ja'}}
+    ).then(r => r.json());
+
+    if (!geo.length) throw new Error('住所の緯度経度が取得できませんでした');
+    const lat = parseFloat(geo[0].lat);
+    const lon = parseFloat(geo[0].lon);
+
+    // ② stations_lite.json で最寄り観測所コードを特定（56KB高速）
+    const BASE = './data';
+    let nearestCode, minDist = Infinity;
+    const lite = await fetch(`${BASE}/stations_lite.json`).then(r => r.json());
+    function haversine(la1, lo1, la2, lo2) {
+      const R = 6371, dLa = (la2-la1)*Math.PI/180, dLo = (lo2-lo1)*Math.PI/180;
+      const a = Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    for (const st of lite.stations) {
+      const d = haversine(lat, lon, st.la, st.lo);
+      if (d < minDist) { minDist = d; nearestCode = st.c; }
+    }
+
+    // ③ MONSOLA11m フルデータベースから該当観測所データを取得
+    const nearest = await fetch(`${BASE}/stations/${nearestCode}.json`).then(r => r.json());
+    if (!nearest || !nearest.c) throw new Error('観測所データが見つかりません');
+
+    // ④ 方位・傾斜インデックス定義（MONSOLA11m仕様）
+    const AZ_LIST   = [0,15,30,45,60,75,90,105,120,135,150,165,180];
+    const TILT_LIST  = [10,20,30,40,50,60,70,80,90];
+    function nearestIdx(arr, val) {
+      return arr.reduce((bi,v,i) => Math.abs(v-val) < Math.abs(arr[bi]-val) ? i : bi, 0);
+    }
+
+    // ⑤ 各屋根面の月別傾斜面日射量を取得
+    // MONSOLA11m: az_i=0→南(180°), az_i=12→北(0°)
+    // face.az: 0=北,90=東,180=南,270=西
+    await Promise.all(C_STATE.faces.map(async (face, i) => {
+      const azNorm = ((face.az % 360) + 360) % 360;
+      // MONSOLA方位に変換: face.azを反転して0-180に正規化
+      // face.az=0°(北) → monsola=180°, face.az=180°(南) → monsola=0°
+      let monsolaAz = (180 - azNorm + 360) % 360;
+      if (monsolaAz > 180) monsolaAz = 360 - monsolaAz;
+      const az_i    = nearestIdx(AZ_LIST, monsolaAz);
+      const tilt_i  = nearestIdx(TILT_LIST, Math.max(10, Math.min(90, face.tilt)));
+      face.irrMonthly = Array.from({length: 12}, (_, m) => {
+        const idx = az_i * 9 * 12 + tilt_i * 12 + m;
+        return (nearest.i[idx] || 350) / 100;
+      });
+    }));
+
+    C_renderIrrFaces();
+    console.log(`✓ 最寄り観測所: ${nearest.n} (${minDist.toFixed(1)}km)`);
+
+  } catch(e) {
+    alert('日射量取得エラー: ' + e.message);
+  } finally {
+    document.getElementById('loading-irr').style.display = 'none';
+  }
+}
+
+function C_renderIrrFaces() {
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const el = document.getElementById('irr-faces-list');
+  el.innerHTML = C_STATE.faces.map((f, fi) => `
+    <div style="margin-bottom:12px;border:1px solid var(--border);border-radius:var(--r);padding:12px">
+      <div style="font-weight:600;font-size:12px;margin-bottom:8px;color:var(--accent2)">
+        ${f.name}（方位:${f.az}° 傾斜:${f.tilt}°）
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">
+        ${f.irrMonthly.map((v, mi) => `
+          <div>
+            <div style="font-size:10px;color:var(--text3);text-align:center">${months[mi]}</div>
+            <input type="number" value="${(v||3.5).toFixed(2)}" step="0.01" min="0"
+                   style="text-align:center;font-size:12px;padding:4px 2px"
+                   onchange="C_STATE.faces[${fi}].irrMonthly[${mi}]=+this.value">
+          </div>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">
+        年間平均: ${(f.irrMonthly.reduce((a,b)=>a+b,0)/12).toFixed(2)} kWh/m²/日
+      </div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════
+// 月別自家消費率入力
+// ════════════════════════════════════════════════
+let C_selfRates = Array(12).fill(80);
+
+function C_initSelfRates() {
+  const months = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+  document.getElementById('monthly-self-rate').innerHTML = months.map((m, i) => `
+    <div>
+      <div style="font-size:10px;color:var(--text3);text-align:center">${m}月</div>
+      <input type="number" id="sr-${i}" value="${C_selfRates[i]}" min="0" max="100" step="1"
+             style="text-align:center;font-size:12px;padding:4px 2px"
+             onchange="C_selfRates[${i}]=+this.value;C_runSim()">
+    </div>`).join('');
+}
+
+function C_fillSelfRate() {
+  const bulk = parseFloat(document.getElementById('selfRate').value) || 80;
+  C_selfRates = Array(12).fill(bulk);
+  C_selfRates.forEach((v, i) => {
+    const el = document.getElementById(`sr-${i}`);
+    if (el) el.value = v;
+  });
+  C_runSim();
+}
+
+function C_applySelfPattern(pattern) {
+  // 季節パターンを適用
+  const patterns = {
+    typical: [80,80,70,60,50,40,40,40,60,70,80,80],  // 一般的な在宅パターン
+    summer: [60,60,50,40,30,20,20,20,40,50,60,70],   // 夏場に少ない（外出）
+    winter: [90,90,85,70,60,50,50,50,70,80,85,90],   // 冬に多い（在宅時間長）
+    uniform: [70,70,70,70,70,70,70,70,70,70,70,70],  // 均一
+  };
+
+  if (!patterns[pattern]) pattern = 'typical';
+  C_selfRates = [...patterns[pattern]];
+
+  C_selfRates.forEach((v, i) => {
+    const el = document.getElementById(`sr-${i}`);
+    if (el) el.value = v;
+  });
+  C_runSim();
+}
+
+// ════════════════════════════════════════════════
+// 発電シミュレーション
+// ════════════════════════════════════════════════
+const C_DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
+const C_MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+function C_runSim() {
+  const lossRate   = (parseFloat(document.getElementById('lossRate').value) || 15) / 100;
+  const perf       = 1 - lossRate;
+  document.getElementById('perfRatio').value = (perf * 100).toFixed(1);
+
+  const sch  = C_STATE.scheme ? C_SCHEMES[C_STATE.scheme] : null;
+  const ep   = parseFloat(document.getElementById('totalElecPrice').value) || 31.9;
+  const sell = sch?.type === 'surplus'
+    ? parseFloat(document.getElementById('sellPrice').value) || 16
+    : sch?.type === 'ppa'
+    ? parseFloat(document.getElementById('ppaPrice').value) || 18
+    : 0;
+  const monthlyUsage = parseFloat(document.getElementById('monthlyUsage').value) || 3000;
+
+  let annualGen = 0, annualSelf = 0, annualSellKwh = 0, annualBenefit = 0;
+  const monthly = C_MONTHS.map((mo, mi) => {
+    // 全面の発電量合計
+    let gen = 0;
+    C_STATE.faces.forEach(f => {
+      const irr  = (f.irrMonthly && f.irrMonthly[mi]) ? f.irrMonthly[mi] : 3.5;
+      const area  = (parseFloat(document.getElementById('panelW').value)/1000) *
+                    (parseFloat(document.getElementById('panelH').value)/1000) *
+                    (f.panels || 0);
+      gen += irr * area * C_DAYS[mi] * perf;
+    });
+
+    const sr   = C_selfRates[mi] / 100;
+    const self = Math.min(monthlyUsage, gen) * sr;
+    const sellKwh = Math.max(0, gen - self);
+
+    let benefit = self * ep;
+    if (sch?.type === 'surplus' || sch?.type === 'ppa') benefit += sellKwh * sell;
+
+    annualGen     += gen;
+    annualSelf    += self;
+    annualSellKwh += sellKwh;
+    annualBenefit += benefit;
+
+    return {mo, gen, self, sellKwh, benefit};
+  });
+
+  C_STATE.simResult = {monthly, annualGen, annualSelf, annualSellKwh, annualBenefit};
+
+  // UI更新
+  document.getElementById('sim-result').style.display = '';
+  document.getElementById('sim-annual-gen').textContent  = Math.round(annualGen).toLocaleString();
+  document.getElementById('sim-annual-self').textContent = Math.round(annualSelf).toLocaleString();
+  document.getElementById('sim-annual-sell').textContent = Math.round(annualSellKwh).toLocaleString();
+  document.getElementById('sim-annual-benefit').textContent = (annualBenefit/10000).toFixed(1);
+  document.getElementById('sim-co2').textContent = (annualGen * 0.000432).toFixed(1);
+
+  // サマリー更新
+  document.getElementById('sum-gen').textContent  = Math.round(annualGen).toLocaleString();
+  document.getElementById('sum-save').textContent = (annualBenefit/10000).toFixed(1);
+
+  // 月別テーブル
+  const tbody = document.getElementById('sim-monthly-tbody');
+  tbody.innerHTML = monthly.map(m => `
+    <tr>
+      <td>${m.mo}</td>
+      <td class="num">${Math.round(m.gen).toLocaleString()}</td>
+      <td class="num">${Math.round(m.self).toLocaleString()}</td>
+      <td class="num">${Math.round(m.sellKwh).toLocaleString()}</td>
+      <td class="num">${Math.round(m.self*ep).toLocaleString()}</td>
+      <td class="num">${(sch?.type==='surplus'||sch?.type==='ppa')?Math.round(m.sellKwh*sell).toLocaleString():'—'}</td>
+      <td class="num">${Math.round(m.benefit).toLocaleString()}</td>
+    </tr>`).join('');
+
+  document.getElementById('sim-total-row').innerHTML = `
+    <td>合計</td>
+    <td class="num">${Math.round(annualGen).toLocaleString()}</td>
+    <td class="num">${Math.round(annualSelf).toLocaleString()}</td>
+    <td class="num">${Math.round(annualSellKwh).toLocaleString()}</td>
+    <td class="num">—</td><td class="num">—</td>
+    <td class="num">${Math.round(annualBenefit).toLocaleString()}</td>`;
+
+  // 縦棒グラフ
+  C_drawSimChart(monthly);
+  C_calcEst();
+}
+
+function C_drawSimChart(monthly) {
+  const canvas = document.getElementById('sim-chart');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 600, H = 180;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,W,H);
+
+  const pad = {top:16, bottom:32, left:8, right:8};
+  const maxGen = Math.max(...monthly.map(m=>m.gen), 1);
+  const bw = (W-pad.left-pad.right)/12*0.6;
+  const gap = (W-pad.left-pad.right)/12;
+  const barH = H-pad.top-pad.bottom;
+
+  monthly.forEach((m, i) => {
+    const x   = pad.left + gap*i + gap*0.2;
+    const pct = m.gen/maxGen;
+    const bh  = barH*pct;
+    const by  = pad.top+barH-bh;
+    const sPct= Math.min(1, m.self/m.gen);
+
+    // 逆潮流（薄緑）
+    ctx.fillStyle = '#7dcf97';
+    ctx.fillRect(x, by, bw, bh);
+    // 自家消費（濃緑）
+    ctx.fillStyle = '#2d5a3d';
+    ctx.fillRect(x, by+bh*(1-sPct), bw, bh*sPct);
+
+    // 月ラベル
+    ctx.fillStyle = '#5a5a56';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText((i+1)+'月', x+bw/2, H-pad.bottom+14);
+  });
+}
+
+// ════════════════════════════════════════════════
+// 概算見積計算
+// ════════════════════════════════════════════════
+function C_calcEst() {
+  const kw     = C_STATE.faces.reduce((s,f)=>s+(f.panels||0),0) *
+                 (parseFloat(document.getElementById('panelWp').value)||485) / 1000;
+  const method = document.getElementById('estMethod').value;
+  const uPrice = parseFloat(document.getElementById('unitPriceKw').value) || 200000;
+  const disc   = parseFloat(document.getElementById('estDiscount').value) || 0;
+  const subsidy= parseFloat(document.getElementById('estSubsidy').value)  || 0;
+
+  let subtotal = kw * uPrice;
+  if (method === 'detail') {
+    // 費目別（シンプルデフォルト）
+    const rows = [
+      {name:'太陽電池モジュール', price: Math.round(kw*1000/485) * 10185},
+      {name:'パワーコンディショナ', price: Math.round(kw/50)*434600},
+      {name:'架台・基礎工事', price: Math.round(kw*8000)},
+      {name:'電気工事費', price: Math.round(kw*25000)},
+      {name:'設置工事費', price: Math.round(kw*15000)},
+      {name:'諸経費', price: Math.round(kw*5000)},
+    ];
+    subtotal = rows.reduce((s,r)=>s+r.price,0);
+  }
+
+  const afterDisc  = subtotal - disc;
+  const tax        = Math.round(afterDisc * 0.1);
+  const total      = afterDisc + tax;
+  const netTotal   = total - subsidy;
+  const perKw      = kw > 0 ? Math.round(total/kw) : 0;
+
+  C_STATE.estResult = {subtotal, disc, afterDisc, tax, total, netTotal, subsidy, kw, perKw};
+
+  document.getElementById('est-subtotal').textContent = C_fmt(afterDisc)+'円';
+  document.getElementById('est-tax').textContent      = C_fmt(tax)+'円';
+  document.getElementById('est-total').textContent    = C_fmt(total)+'円';
+  document.getElementById('est-per-kw').textContent   = C_fmt(perKw)+'円/kWp';
+
+  // 投資回収更新
+  const benefit = C_STATE.simResult?.annualBenefit || 0;
+  const pb = benefit > 0 ? (netTotal/benefit).toFixed(1) : '—';
+  document.getElementById('sum-pb').textContent = pb;
+}
+
+// ════════════════════════════════════════════════
+// CF・IRR計算
+// ════════════════════════════════════════════════
+function C_runCF() {
+  if (!C_STATE.simResult || !C_STATE.estResult) return;
+
+  const years    = parseInt(document.getElementById('cfYears').value) || 20;
+  const degrade  = (parseFloat(document.getElementById('degradeRate').value) || 0.5) / 100;
+  const elecEsc  = (parseFloat(document.getElementById('elecEscalate').value) || 2.0) / 100;
+  const omCost   = parseFloat(document.getElementById('omCost').value) || 50000;
+  const loanUse  = document.getElementById('loanUse').value === '1';
+  const loanAmt  = loanUse ? (parseFloat(document.getElementById('loanAmt').value)||0) : 0;
+  const loanRate = (parseFloat(document.getElementById('loanRate').value)||1.9)/100;
+  const loanTerm = parseInt(document.getElementById('loanTerm').value)||10;
+  const taxRate  = (parseFloat(document.getElementById('taxRateCF').value)||30)/100;
+  const netCost  = C_STATE.estResult.netTotal;
+  const initCash = -(netCost - loanAmt);
+
+  // 年間返済額（元利均等）
+  const annualRepay = loanAmt > 0 && loanRate > 0
+    ? loanAmt * loanRate / (1 - Math.pow(1+loanRate, -loanTerm))
+    : 0;
+
+  const baseGen    = C_STATE.simResult.annualGen;
+  const baseBenefit= C_STATE.simResult.annualBenefit;
+
+  let cumCF = initCash;
+  let payback = null;
+  const rows = [];
+  let irr = null;
+  const cashFlows = [initCash];
+
+  for (let y = 1; y <= years; y++) {
+    const gen     = baseGen     * Math.pow(1-degrade, y-1);
+    const benefit = baseBenefit * Math.pow(1-degrade, y-1) * Math.pow(1+elecEsc, y-1);
+    const repay   = y <= loanTerm ? annualRepay : 0;
+    const cf      = benefit - omCost - repay;
+    cumCF += cf;
+    cashFlows.push(cf);
+    if (payback === null && cumCF >= 0) payback = y;
+    rows.push({y, gen, benefit, omCost, repay, cf, cumCF});
+  }
+
+  // IRR計算（ニュートン法）
+  irr = C_calcIRR(cashFlows);
+
+  C_STATE.cfResult = {rows, payback, irr, cumCF};
+
+  document.getElementById('cf-result').style.display = '';
+  document.getElementById('cf-irr').textContent      = irr != null ? irr.toFixed(2) : '—';
+  document.getElementById('cf-payback').textContent  = payback || '—';
+  document.getElementById('cf-cumulative').textContent = (cumCF/10000).toFixed(0);
+  document.getElementById('cf-netcost').textContent   = ((netCost-loanAmt)/10000).toFixed(0);
+
+  if (payback) document.getElementById('sum-pb').textContent = payback.toFixed(0);
+
+  // テーブル
+  document.getElementById('cf-tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.y}年目</td>
+      <td class="num">${Math.round(r.gen).toLocaleString()}</td>
+      <td class="num">${(r.benefit/10000).toFixed(1)}</td>
+      <td class="num">${(r.omCost/10000).toFixed(1)}</td>
+      <td class="num">${r.repay>0?(r.repay/10000).toFixed(1):'—'}</td>
+      <td class="num">${(r.cf/10000).toFixed(1)}</td>
+      <td class="num" style="color:${r.cumCF>=0?'var(--accent)':'var(--danger)'}">
+        ${(r.cumCF/10000).toFixed(1)}
+      </td>
+    </tr>`).join('');
+
+  // CFグラフ
+  C_drawCFChart(rows);
+}
+
+function C_calcIRR(cfs) {
+  // ニュートン法でIRRを計算
+  let r = 0.1;
+  for (let iter = 0; iter < 200; iter++) {
+    let npv  = 0, dnpv = 0;
+    cfs.forEach((cf, t) => {
+      npv  += cf / Math.pow(1+r, t);
+      dnpv -= t * cf / Math.pow(1+r, t+1);
+    });
+    if (Math.abs(dnpv) < 1e-10) break;
+    const r1 = r - npv/dnpv;
+    if (Math.abs(r1-r) < 1e-8) { r = r1; break; }
+    r = r1;
+    if (r < -0.99 || r > 10) return null;
+  }
+  return r * 100;
+}
+
+function C_drawCFChart(rows) {
+  const canvas = document.getElementById('cf-chart');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 600, H = 160;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,W,H);
+
+  const vals  = rows.map(r=>r.cumCF/10000);
+  const minV  = Math.min(...vals, 0);
+  const maxV  = Math.max(...vals, 0);
+  const range = maxV - minV || 1;
+  const pad   = {top:10, bottom:24, left:8, right:8};
+  const cW    = W-pad.left-pad.right;
+  const cH    = H-pad.top-pad.bottom;
+  const n     = rows.length;
+
+  // ゼロライン
+  const zeroY = pad.top + cH*(1-(-minV)/range);
+  ctx.strokeStyle='#ccc9be'; ctx.lineWidth=0.5; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(pad.left, zeroY); ctx.lineTo(W-pad.right, zeroY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 折れ線
+  ctx.strokeStyle='#2d5a3d'; ctx.lineWidth=2;
+  ctx.beginPath();
+  rows.forEach((r, i) => {
+    const x = pad.left + (i/(n-1))*cW;
+    const y = pad.top  + cH*(1-(r.cumCF/10000-minV)/range);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // 投資回収ポイント
+  rows.forEach((r, i) => {
+    if (C_STATE.cfResult?.payback === r.y) {
+      const x = pad.left + (i/(n-1))*cW;
+      ctx.fillStyle='#c17d1a'; ctx.beginPath();
+      ctx.arc(x, zeroY, 5, 0, Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+// ════════════════════════════════════════════════
+// ローン表示切替
+// ════════════════════════════════════════════════
+function C_toggleLoan() {
+  const use = document.getElementById('loanUse').value === '1';
+  document.getElementById('loan-section').style.display = use ? '' : 'none';
+  C_runCF();
+}
+
+// ════════════════════════════════════════════════
+// 印刷出力
+// ════════════════════════════════════════════════
+function C_printSimple() {
+  window.print();
+}
+function C_printDetail() {
+  window.print();
+}
+
+// ════════════════════════════════════════════════
+// データ保存・連携
+// ════════════════════════════════════════════════
+function C_autosave() {
+  // 軽量な自動保存（入力値のみ）
+  try {
+    const quick = {
+      clientName: document.getElementById('clientName').value,
+      address:    document.getElementById('address').value,
+    };
+    localStorage.setItem('SOLAR_LEAD_QUICK', JSON.stringify(quick));
+  } catch(e) {}
+}
+
+function C_save() {
+  try {
+    const data = C_buildLeadData();
+    localStorage.setItem('SOLAR_LEAD', JSON.stringify(data));
+    alert('保存しました');
+  } catch(e) { alert('保存エラー: '+e.message); }
+}
+
+function C_load() {
+  try {
+    const raw = localStorage.getItem('SOLAR_LEAD');
+    if (!raw) { alert('保存データがありません'); return; }
+    const d = JSON.parse(raw);
+    C_restoreLeadData(d);
+    alert('読み込みました');
+  } catch(e) { alert('読込エラー: '+e.message); }
+}
+
+function C_buildLeadData() {
+  const gv = id => { try { return document.getElementById(id)?.value||''; } catch{return '';} };
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    // 顧客情報
+    clientName:   gv('clientName'),
+    salesName:    gv('salesName'),
+    address:      gv('address'),
+    propDate:     gv('propDate'),
+    clientTel:    gv('clientTel'),
+    clientEmail:  gv('clientEmail'),
+    // 電力
+    powerCo:      gv('powerCo'),
+    monthlyUsage: gv('monthlyUsage'),
+    elecPrice:    gv('elecPrice'),
+    renewLevy:    gv('renewLevy'),
+    fuelAdj:      gv('fuelAdj'),
+    // スキーム
+    scheme:       C_STATE.scheme,
+    voltageType:  gv('voltageType'),
+    sellPrice:    gv('sellPrice'),
+    ppaPrice:     gv('ppaPrice'),
+    ppaTerm:      gv('ppaTerm'),
+    // 設備
+    approxKW:     gv('approxKW'),
+    roofType:     gv('roofType'),
+    ridgeAzimuth: gv('ridgeAzimuth'),
+    faces:        C_STATE.faces,
+    panelMaker:   gv('panelMaker'),
+    panelModel:   gv('panelModel'),
+    panelWp:      gv('panelWp'),
+    panelW:       gv('panelW'),
+    panelH:       gv('panelH'),
+    panelVoc:     gv('panelVoc'),
+    panelVmp:     gv('panelVmp'),
+    panelIsc:     gv('panelIsc'),
+    panelImp:     gv('panelImp'),
+    panelTvoc:    gv('panelTvoc'),
+    panelOrient:  gv('panelOrient'),
+    pcsMaker:     gv('pcsMaker'),
+    pcsModel:     gv('pcsModel'),
+    pcsKw:        gv('pcsKw'),
+    pcsVmax:      gv('pcsVmax'),
+    // シミュレーション
+    lossRate:     gv('lossRate'),
+    selfRate:     gv('selfRate'),
+    selfRates:    C_selfRates,
+    // 見積
+    unitPriceKw:  gv('unitPriceKw'),
+    estDiscount:  gv('estDiscount'),
+    estSubsidy:   gv('estSubsidy'),
+    // CF
+    cfYears:      gv('cfYears'),
+    degradeRate:  gv('degradeRate'),
+    elecEscalate: gv('elecEscalate'),
+    omCost:       gv('omCost'),
+    // 結果
+    simResult:  C_STATE.simResult,
+    cfResult:   C_STATE.cfResult,
+    estResult:  C_STATE.estResult,
+  };
+}
+
+function C_restoreLeadData(d) {
+  const sv = (id, val) => { const el=document.getElementById(id); if(el&&val!=null) el.value=val; };
+  sv('clientName',   d.clientName);
+  sv('salesName',    d.salesName);
+  sv('address',      d.address);
+  sv('propDate',     d.propDate);
+  sv('clientTel',    d.clientTel);
+  sv('clientEmail',  d.clientEmail);
+  sv('powerCo',      d.powerCo);
+  sv('monthlyUsage', d.monthlyUsage);
+  sv('elecPrice',    d.elecPrice);
+  sv('renewLevy',    d.renewLevy);
+  sv('fuelAdj',      d.fuelAdj);
+  sv('voltageType',  d.voltageType);
+  sv('sellPrice',    d.sellPrice);
+  sv('ppaPrice',     d.ppaPrice);
+  sv('panelMaker',   d.panelMaker);
+  sv('panelWp',      d.panelWp);
+  sv('panelVoc',     d.panelVoc);
+  sv('panelVmp',     d.panelVmp);
+  sv('panelIsc',     d.panelIsc);
+  sv('panelImp',     d.panelImp);
+  sv('panelTvoc',    d.panelTvoc);
+  sv('pcsMaker',     d.pcsMaker);
+  sv('pcsKw',        d.pcsKw);
+  sv('lossRate',     d.lossRate);
+  sv('selfRate',     d.selfRate);
+  sv('unitPriceKw',  d.unitPriceKw);
+  sv('estDiscount',  d.estDiscount);
+  sv('estSubsidy',   d.estSubsidy);
+  if (d.scheme) C_selectScheme(d.scheme);
+  if (d.faces)  { C_STATE.faces = d.faces; C_renderFaces(); }
+  if (d.selfRates) { C_selfRates = d.selfRates; C_initSelfRates(); }
+  if (d.simResult) C_STATE.simResult = d.simResult;
+  if (d.cfResult)  C_STATE.cfResult  = d.cfResult;
+  if (d.estResult) C_STATE.estResult = d.estResult;
+  C_buildPanelModels();
+  C_buildPcsModels();
+  C_calcBasic();
+  C_calcAll();
+}
+
+function C_exportToA() {
+  const data = C_buildLeadData();
+  localStorage.setItem('SOLAR_LEAD', JSON.stringify(data));
+  alert('設計ツール（A）用のデータを保存しました。\n設計ツールを開いて「C連携読込」ボタンを押してください。');
+}
+
+// ════════════════════════════════════════════════
+// ユーティリティ
+// ════════════════════════════════════════════════
+function C_fmt(v) {
+  return Math.round(v).toLocaleString('ja-JP');
+}
+
+// ════════════════════════════════════════════════
+// 設定ページ関数
+// ════════════════════════════════════════════════
+function C_renderSettingsPage() {
+  C_renderPanelMaster();
+  C_renderPcsMaster();
+}
+
+function C_renderPanelMaster() {
+  const tbody = document.getElementById('panel-master-tbody');
+  if (!tbody) return;
+  const rows = Object.entries(C_PANEL_DB).flatMap(([maker, panels]) =>
+    panels.map(p => ({ maker, ...p }))
+  );
+  tbody.innerHTML = rows.map((p, i) => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+      <td style="padding:5px 8px">${p.maker}</td>
+      <td style="padding:5px 8px">${p.model}</td>
+      <td style="padding:5px 8px;text-align:right">${p.wp}</td>
+      <td style="padding:5px 8px;text-align:right">${p.voc}</td>
+      <td style="padding:5px 8px;text-align:right">${p.vmp}</td>
+      <td style="padding:5px 8px;text-align:right">${p.imp}</td>
+      <td style="padding:5px 8px;text-align:right">${p.w}</td>
+      <td style="padding:5px 8px;text-align:right">${p.h}</td>
+      <td style="padding:5px 8px;text-align:center">
+        <button onclick="C_deletePanel('${p.maker}','${p.model}')"
+          style="font-size:10px;padding:2px 6px;background:rgba(231,76,60,0.2);border:1px solid #e74c3c;color:#e74c3c;border-radius:3px;cursor:pointer">削除</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function C_renderPcsMaster() {
+  const tbody = document.getElementById('pcs-master-tbody');
+  if (!tbody) return;
+  const rows = Object.entries(C_PCS_DB).flatMap(([maker, pcsList]) =>
+    pcsList.map(p => ({ maker, ...p }))
+  );
+  tbody.innerHTML = rows.map(p => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+      <td style="padding:5px 8px">${p.maker}</td>
+      <td style="padding:5px 8px">${p.model}</td>
+      <td style="padding:5px 8px;text-align:right">${p.kw}</td>
+      <td style="padding:5px 8px;text-align:right">${p.vmax}</td>
+      <td style="padding:5px 8px;text-align:right">${p.mpptMin || 200}</td>
+      <td style="padding:5px 8px;text-align:right">${p.mpptMax || 1000}</td>
+      <td style="padding:5px 8px;text-align:right">${p.imaxPerMppt || 26}</td>
+      <td style="padding:5px 8px;text-align:right">${p.mppt}</td>
+      <td style="padding:5px 8px;text-align:center">
+        <button onclick="C_deletePcs('${p.maker}','${p.model}')"
+          style="font-size:10px;padding:2px 6px;background:rgba(231,76,60,0.2);border:1px solid #e74c3c;color:#e74c3c;border-radius:3px;cursor:pointer">削除</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function C_addPanel() {
+  const maker = prompt('メーカー名');
+  if (!maker) return;
+  const model = prompt('型番');
+  if (!model) return;
+  const wp  = parseFloat(prompt('定格出力(Wp)', '485')) || 485;
+  const voc = parseFloat(prompt('Voc(V)', '40.4')) || 40.4;
+  const vmp = parseFloat(prompt('Vmp(V)', '33.4')) || 33.4;
+  const imp = parseFloat(prompt('Imp(A)', '14.5')) || 14.5;
+  const isc = parseFloat(prompt('Isc(A)', '15.2')) || 15.2;
+  const w   = parseFloat(prompt('幅(mm)', '1800')) || 1800;
+  const h   = parseFloat(prompt('高さ(mm)', '1134')) || 1134;
+  const tvoc = parseFloat(prompt('Tvoc(%)', '-0.2')) || -0.2;
+  if (!C_PANEL_DB[maker]) C_PANEL_DB[maker] = [];
+  C_PANEL_DB[maker].push({ model, wp, voc, vmp, imp, isc, w, h, tvoc });
+  C_renderPanelMaster();
+  C_buildPanelModels && C_buildPanelModels();
+}
+
+function C_deletePanel(maker, model) {
+  if (!confirm('削除しますか？')) return;
+  if (C_PANEL_DB[maker]) {
+    C_PANEL_DB[maker] = C_PANEL_DB[maker].filter(p => p.model !== model);
+    if (!C_PANEL_DB[maker].length) delete C_PANEL_DB[maker];
+  }
+  C_renderPanelMaster();
+  C_buildPanelModels && C_buildPanelModels();
+}
+
+function C_addPcs() {
+  const maker = prompt('メーカー名');
+  if (!maker) return;
+  const model   = prompt('型番');
+  if (!model) return;
+  const kw = parseFloat(prompt('定格kW', '20')) || 20;
+  const vmax = parseFloat(prompt('Vmax(V)', '1000')) || 1000;
+  if (!C_PCS_DB[maker]) C_PCS_DB[maker] = [];
+  C_PCS_DB[maker].push({ model, kw, vmax, mppt: 4 });
+  C_renderPcsMaster();
+  C_buildPcsModels && C_buildPcsModels();
+}
+
+function C_deletePcs(maker, model) {
+  if (!confirm('削除しますか？')) return;
+  if (C_PCS_DB[maker]) {
+    C_PCS_DB[maker] = C_PCS_DB[maker].filter(p => p.model !== model);
+    if (!C_PCS_DB[maker].length) delete C_PCS_DB[maker];
+  }
+  C_renderPcsMaster();
+  C_buildPcsModels && C_buildPcsModels();
+}
+
+function C_loadPriceMaster() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('solarhack_prices') || '{}');
+    const fields = ['price-panel', 'price-pcs', 'price-construction', 'default-loss', 'default-degradation', 'cf-years'];
+    fields.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && saved[id]) el.value = saved[id];
+    });
+  } catch(e) {}
+}
+
+function C_savePriceMaster() {
+  const data = {};
+  ['price-panel', 'price-pcs', 'price-construction', 'default-loss', 'default-degradation', 'cf-years'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  localStorage.setItem('solarhack_prices', JSON.stringify(data));
+}
+
+// ════════════════════════════════════════════════
+// 初期化
+// ════════════════════════════════════════════════
+(function C_init() {
+  // 日付
+  const today = new Date();
+  document.getElementById('propDate').value =
+    `${today.getFullYear()}.${today.getMonth()+1}.${today.getDate()}`;
+
+  // ドロップダウン初期化
+  C_buildPanelModels();
+  C_buildPcsModels();
+
+  // スキームタブ初期化
+  C_updateSchemeOptions();
+
+  // 屋根面初期化
+  C_generateRoofFaces();
+
+  // 月別自家消費率
+  C_initSelfRates();
+
+  // 住所の自動復元（localStorage）
+  const savedAddr = localStorage.getItem('solarhack_address');
+  if (savedAddr) {
+    document.getElementById('irrAddress').value = savedAddr;
+  }
+
+  // 住所変更時に localStorage に保存
+  document.getElementById('irrAddress').addEventListener('change', function() {
+    if (this.value.trim()) {
+      localStorage.setItem('solarhack_address', this.value.trim());
+    }
+  });
+
+  // 基本計算
+  C_calcBasic();
+
+  // アドレスバーのirrAddressに住所をコピー
+  document.getElementById('address').addEventListener('change', function() {
+    if (!document.getElementById('irrAddress').value) {
+      document.getElementById('irrAddress').value = this.value;
+    }
+  });
+
+  // 価格マスタの変更検知
+  ['price-panel', 'price-pcs', 'price-construction', 'default-loss', 'default-degradation', 'cf-years'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', C_savePriceMaster);
+  });
+
+  // localStorage から復元
+  try {
+    const quick = JSON.parse(localStorage.getItem('SOLAR_LEAD_QUICK') || '{}');
+    if (quick.clientName) document.getElementById('clientName').value = quick.clientName;
+    if (quick.address)    document.getElementById('address').value    = quick.address;
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>
