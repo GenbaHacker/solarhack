@@ -2113,9 +2113,9 @@ function V2_syncTotals() {
   const total = v2RoofFaces.reduce((s,f)=>s+f.count, 0);
   const tp = document.getElementById('totalPanels');
   if (tp) {
-    tp.value = total;
     // TASK 116: Mode detection — readonly when faces exist, editable when zero
     const hasDesign = v2RoofFaces.length > 0;
+    if (hasDesign) tp.value = total;  // Only write in design mode; quick mode preserves user input
     tp.readOnly = hasDesign;
 
     // Update label
