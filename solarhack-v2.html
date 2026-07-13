@@ -1490,7 +1490,7 @@ function C_calcString_MultiModel(pcs, el) {
   document.getElementById('design-result')?.classList.add('hidden');
 }
 
-// TASK 122-B: Test scenario injection — FIXED to use shared V2_buildFace (FIX 1)
+// TASK 122-C: Test scenario injection — FIXED to set PCS via same user path (C_applyPcs)
 function V2_loadTestScenario(name) {
   console.log(`\n=== V2_loadTestScenario('${name}') ===\n`);
 
@@ -1500,61 +1500,78 @@ function V2_loadTestScenario(name) {
   V2_SPEC = { pcsUnits: null };
 
   if (name === 'lowv') {
+    // Face: choshu 415W × 24 panels
     const f1 = V2_buildFace('choshu', 'CS-415K54H', [[0,0],[10,0],[10,10]], 15, 180, 24);
     if (!f1) { console.log(`✗ lowv: V2_buildFace returned null`); return; }
     v2RoofFaces.push(f1);
-    V2_layoutFace(f1);  // FIX: was missing
+    V2_layoutFace(f1);
+
+    // Set PCS via user path: maker → C_buildPcsModels → model → C_applyPcs
     sv('pcsMaker', 'kostal');
+    C_buildPcsModels();
     sv('pcsModel', 'VBPC244GM2');
-    sv('voltage-class', 'low');
-    C_calcString();
+    C_applyPcs();
+    // C_applyPcs calls V2_calcEstimate internally
+
     if (!V2_SPEC.pcsUnits || !V2_EST) {
       console.log(`✗ lowv: pcsUnits=${V2_SPEC.pcsUnits}, V2_EST=${V2_EST?.cost || 'null'}`);
       return;
     }
     console.log(`✓ lowv: f[0].panelModel=${v2RoofFaces[0].panelModel} voc=${v2RoofFaces[0].panelVoc} / pcsUnits=${V2_SPEC.pcsUnits}`);
   } else if (name === 'boundary') {
+    // Face: choshu 415W × 100 panels, stresses DC/AC ratio
     const f1 = V2_buildFace('choshu', 'CS-415K54H', [[0,0],[20,0],[20,20]], 15, 180, 100);
     if (!f1) { console.log(`✗ boundary: V2_buildFace returned null`); return; }
     v2RoofFaces.push(f1);
     V2_layoutFace(f1);
+
     sv('pcsMaker', 'huawei');
+    C_buildPcsModels();
     sv('pcsModel', 'SUN2000-50KTL-JPM0');
-    sv('voltage-class', 'high');
-    C_calcString();
+    C_applyPcs();
+
     if (!V2_SPEC.pcsUnits || !V2_EST) {
       console.log(`✗ boundary: pcsUnits=${V2_SPEC.pcsUnits}, V2_EST=${V2_EST?.cost || 'null'}`);
       return;
     }
     console.log(`✓ boundary: f[0].panelModel=${v2RoofFaces[0].panelModel} / pcsUnits=${V2_SPEC.pcsUnits} / DC/AC escalation`);
   } else if (name === 'hicurrent') {
+    // Face: jinko 585W × 32 panels, stresses per-MPPT current
     const f1 = V2_buildFace('jinko', 'JKM585N-72HL4-V', [[0,0],[15,0],[15,15]], 10, 180, 32);
     if (!f1) { console.log(`✗ hicurrent: V2_buildFace returned null`); return; }
     v2RoofFaces.push(f1);
     V2_layoutFace(f1);
+
     sv('pcsMaker', 'huawei');
+    C_buildPcsModels();
     sv('pcsModel', 'SUN2000-50KTL-JPM0');
-    sv('voltage-class', 'high');
-    C_calcString();
+    C_applyPcs();
+
     if (!V2_SPEC.pcsUnits || !V2_EST) {
       console.log(`✗ hicurrent: pcsUnits=${V2_SPEC.pcsUnits}, V2_EST=${V2_EST?.cost || 'null'}`);
       return;
     }
     console.log(`✓ hicurrent: f[0].panelModel=${v2RoofFaces[0].panelModel} imp=${v2RoofFaces[0].panelImp} / pcsUnits=${V2_SPEC.pcsUnits} / current stress`);
   } else if (name === 'multi') {
+    // Quick mode: 980 panels, stresses pcsUnits
     sv('panelMaker', 'choshu');
+    C_buildPanelModels();
     sv('panelModel', 'CS-415K54H');
-    sv('pcsMaker', 'huawei');
-    sv('pcsModel', 'SUN2000-50KTL-JPM0');
-    sv('voltage-class', 'high');
+    C_applyPanel();
     sv('totalPanels', '980');
-    C_calcString();
+
+    sv('pcsMaker', 'huawei');
+    C_buildPcsModels();
+    sv('pcsModel', 'SUN2000-50KTL-JPM0');
+    C_applyPcs();
+
     if (!V2_SPEC.pcsUnits || !V2_EST) {
       console.log(`✗ multi: pcsUnits=${V2_SPEC.pcsUnits}, V2_EST=${V2_EST?.cost || 'null'}`);
       return;
     }
     console.log(`✓ multi: panels=980 / pcsUnits=${V2_SPEC.pcsUnits} (should be ≥2) / max(ΣMPPT, DC/AC) binding`);
   } else if (name === 'mixed') {
+    // Multi-model: choshu × 28 + jinko × 14
     const f1 = V2_buildFace('choshu', 'CS-415K54H', [[0,0],[10,0],[10,10]], 10, 180, 28);
     const f2 = V2_buildFace('jinko', 'JKM585N-72HL4-V', [[15,0],[25,0],[25,10]], 10, 180, 14);
     if (!f1 || !f2) { console.log(`✗ mixed: V2_buildFace returned null for f1=${f1} f2=${f2}`); return; }
@@ -1562,11 +1579,12 @@ function V2_loadTestScenario(name) {
     v2RoofFaces.push(f2);
     V2_layoutFace(f1);
     V2_layoutFace(f2);
+
     sv('pcsMaker', 'huawei');
+    C_buildPcsModels();
     sv('pcsModel', 'SUN2000-50KTL-JPM0');
-    sv('voltage-class', 'high');
-    C_calcString();
-    V2_calcEstimate();
+    C_applyPcs();
+
     if (!V2_SPEC.pcsUnits || !V2_EST || !V2_EST.panelCost) {
       console.log(`✗ mixed: pcsUnits=${V2_SPEC.pcsUnits}, panelCost=${V2_EST?.panelCost || 'null'}, cost=${V2_EST?.cost || 'null'}`);
       return;
