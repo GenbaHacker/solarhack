@@ -697,7 +697,8 @@ input[type="range"] { accent-color:#ff7c2a; }
       </div>
 
       <!-- 詳細計算ボタン -->
-      <button class="btn primary" onclick="V2_runDetailCalc()" style="width:100%;margin-bottom:16px">詳細計算実行</button>
+      <button class="btn primary" onclick="V2_runDetailCalc()" style="width:100%;margin-bottom:8px">詳細計算実行</button>
+      <button class="btn" onclick="V2_handoffToDenkiHack()" style="width:100%;margin-bottom:16px;background:#1e3a5f;border-color:#3a5a7f">🔧 DenkiHackで詳細設計を開く</button>
 
       <!-- 計算結果 -->
       <div id="detail-result" style="display:none">
@@ -705,8 +706,9 @@ input[type="range"] { accent-color:#ff7c2a; }
         <div style="background:rgba(255,127,42,0.1);border:1px solid #ff7c2a;border-radius:4px;padding:12px;margin-bottom:16px">
           <div style="font-size:13px;line-height:1.8">
             <div>概算原価（内諾ベース）: <strong id="detail-base-cost">¥—</strong></div>
-            <div>実査原価（詳細計算）: <strong id="detail-calc-cost">¥—</strong></div>
-            <div id="detail-diff-line" style="font-weight:600">差分: <strong id="detail-diff-amount">¥0</strong> <span id="detail-diff-note"></span></div>
+            <div>実査原価A（<span id="detail-calc-source">簡易</span>）: <strong id="detail-calc-cost">¥—</strong></div>
+            <div id="detail-calc-b-line" style="display:none">実査原価B（<span id="detail-calc-b-source">DenkiHack実査</span>）: <strong id="detail-calc-cost-b">¥—</strong> <span id="detail-calc-b-badge" style="font-size:11px;background:rgba(33,150,243,0.2);padding:2px 6px;border-radius:3px;color:#2196f3;margin-left:4px;display:inline-block"></span></div>
+            <div id="detail-diff-line" style="font-weight:600;margin-top:8px">差分: <strong id="detail-diff-amount">¥0</strong> <span id="detail-diff-note"></span></div>
           </div>
         </div>
 
@@ -3768,9 +3770,44 @@ function V2_renderDetailResults(denki) {
   // Render comparison block (TASK 126: Math.round all displayed amounts)
   document.getElementById('detail-base-cost').textContent = `¥${Math.round(baseCost || 0).toLocaleString()}`;
   document.getElementById('detail-calc-cost').textContent = `¥${Math.round(detailCost).toLocaleString()}`;
-  document.getElementById('detail-diff-amount').textContent = `¥${Math.round(Math.abs(diffAmount)).toLocaleString()}`;
+  document.getElementById('detail-calc-source').textContent = '簡易';
 
-  const diffNote = diffAmount >= 0
+  // TASK 127-C: Check for DenkiHack write-back result
+  let dh2shResult = null;
+  try {
+    const stored = localStorage.getItem('DH2SH_RESULT');
+    if (stored) {
+      dh2shResult = JSON.parse(stored);
+      const age = Date.now() - (dh2shResult.ts || 0);
+      if (age > 24 * 60 * 60 * 1000) {
+        dh2shResult = null;  // Stale (>24h)
+      }
+    }
+  } catch (e) {
+    // Invalid JSON, ignore
+  }
+
+  // Show DenkiHack result if available, otherwise use simple calc as diff base
+  let diffBase = baseCost;
+  if (dh2shResult) {
+    const dhCost = dh2shResult.total || 0;
+    document.getElementById('detail-calc-cost-b').textContent = `¥${Math.round(dhCost).toLocaleString()}`;
+    const badgeEl = document.getElementById('detail-calc-b-badge');
+    const badgeDate = new Date(dh2shResult.ts).toLocaleString('ja-JP', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    });
+    badgeEl.textContent = `DenkiHack実査 ${badgeDate}`;
+    document.getElementById('detail-calc-b-line').style.display = 'block';
+    diffBase = dhCost;  // Use DenkiHack cost for diff
+  } else {
+    document.getElementById('detail-calc-b-line').style.display = 'none';
+  }
+
+  const diffAmount2 = baseCost - diffBase;
+  document.getElementById('detail-diff-amount').textContent = `¥${Math.round(Math.abs(diffAmount2)).toLocaleString()}`;
+
+  const diffNote = diffAmount2 >= 0
     ? `<span style="color:#00c896">交渉余地</span>`
     : `<span style="color:#ff4d6a">増額要協議</span>`;
   document.getElementById('detail-diff-note').innerHTML = diffNote;
@@ -3873,6 +3910,34 @@ function V2_clearSnapshot() {
   window.V2_NAITAKU_SNAPSHOT = null;
   document.getElementById('detail-snapshot-badge').style.display = 'none';
   alert('内諾固定が解除されました');
+}
+
+// TASK 127-B: Handoff to DenkiHack
+function V2_handoffToDenkiHack() {
+  if (!V2_EST || !V2_SPEC.stringTotal) {
+    alert('先に詳細見積タブを完成させてください');
+    return;
+  }
+
+  const isHigh = document.getElementById('voltage-class')?.value === 'high';
+  const handoff = {
+    ts: Date.now(),
+    customer: gv('clientName') || '—',
+    panels: V2_EST.panels,
+    panelMaker: V2_SPEC.panel?.maker || '—',
+    panelModel: V2_SPEC.panel?.model || '—',
+    wp: V2_SPEC.panel?.wp || 0,
+    pcsMaker: document.getElementById('pcsMaker')?.value || '—',
+    pcsModel: document.getElementById('pcsModel')?.value || '—',
+    pcsUnits: V2_SPEC.pcsUnits,
+    stringTotal: V2_SPEC.stringTotal,
+    voltage: isHigh ? 'high' : 'low',
+    dcKw: V2_EST.dcKwTotal,
+    naitakuCost: (window.V2_NAITAKU_SNAPSHOT?.cost ?? V2_EST.cost)
+  };
+
+  window.localStorage.setItem('SH2DH_HANDOFF', JSON.stringify(handoff));
+  window.open('denkihack.html');
 }
 
 // ===== マスタ管理 =====
