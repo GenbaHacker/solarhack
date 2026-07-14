@@ -712,13 +712,26 @@ input[type="range"] { accent-color:#ff7c2a; }
         <!-- BOM Table -->
         <div style="margin-bottom:16px">
           <h3 style="color:#ff7c2a;font-size:14px;margin-bottom:8px">部材費内訳（DenkiHack）</h3>
-          <div id="detail-bom-table" style="font-size:11px;overflow-x:auto"></div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;overflow-x:auto" id="detail-bom-table">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03)">
+                <th style="text-align:left;padding:6px;min-width:100px">品目</th>
+                <th style="text-align:left;padding:6px;min-width:150px">名称</th>
+                <th style="text-align:left;padding:6px;min-width:100px">型式</th>
+                <th style="text-align:center;padding:6px;width:40px">数量</th>
+                <th style="text-align:center;padding:6px;width:40px">単位</th>
+                <th style="text-align:right;padding:6px;width:80px">単価</th>
+                <th style="text-align:right;padding:6px;width:100px">金額</th>
+              </tr>
+            </thead>
+            <tbody id="detail-bom-tbody"></tbody>
+          </table>
         </div>
       </div>
 
       <!-- 内諾スナップショット -->
       <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-top:16px">
-        <button class="btn" onclick="V2_snaphotNaitaku()" style="width:100%;margin-bottom:8px">内諾時の概算を固定</button>
+        <button class="btn" onclick="V2_snapshotNaitaku()" style="width:100%;margin-bottom:8px">内諾時の概算を固定</button>
         <div id="detail-snapshot-badge" style="font-size:11px;color:#7a91b0;display:none">
           内諾固定: <span id="detail-snapshot-info"></span>
           <a href="#" onclick="V2_clearSnapshot();return false" style="margin-left:8px;color:#ff7c2a">解除</a>
@@ -3639,6 +3652,9 @@ function V2_updateDetailHeader() {
     document.getElementById('detail-pcs-model').textContent = '—';
     document.getElementById('detail-string-count').textContent = '—';
     document.getElementById('detail-voltage').textContent = '—';
+    // Still show fallback message even if no estimate
+    const hasDenkiHack = typeof window.DenkiHack_calc === 'function';
+    document.getElementById('detail-fallback-msg').style.display = hasDenkiHack ? 'none' : 'block';
     return;
   }
 
@@ -3655,7 +3671,10 @@ function V2_updateDetailHeader() {
 
   // Show fallback if DenkiHack not loaded
   const hasDenkiHack = typeof window.DenkiHack_calc === 'function';
-  document.getElementById('detail-fallback-msg').style.display = hasDenkiHack ? 'none' : 'block';
+  const fallbackMsg = document.getElementById('detail-fallback-msg');
+  if (fallbackMsg) {
+    fallbackMsg.style.display = hasDenkiHack ? 'none' : 'block';
+  }
 }
 
 function V2_runDetailCalc() {
@@ -3730,24 +3749,22 @@ function V2_renderDetailResults(denki) {
 }
 
 function V2_renderBomTable(denki) {
+  const tbody = document.getElementById('detail-bom-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';  // Clear existing rows
+
   if (!denki.items || denki.items.length === 0) {
-    return '<div style="color:#7a91b0">部材データなし</div>';
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:6px;color:#7a91b0;text-align:center">部材データなし</td></tr>';
+    return;
   }
 
-  let html = '<table style="width:100%;border-collapse:collapse;font-size:11px">';
-  html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03)">';
-  html += '<th style="text-align:left;padding:6px;min-width:100px">品目</th>';
-  html += '<th style="text-align:left;padding:6px;min-width:150px">名称</th>';
-  html += '<th style="text-align:left;padding:6px;min-width:100px">型式</th>';
-  html += '<th style="text-align:center;padding:6px;width:40px">数量</th>';
-  html += '<th style="text-align:center;padding:6px;width:40px">単位</th>';
-  html += '<th style="text-align:right;padding:6px;width:80px">単価</th>';
-  html += '<th style="text-align:right;padding:6px;width:100px">金額</th>';
-  html += '</tr>';
-
+  // Item rows
   for (const item of denki.items) {
     const spec = item.spec ? ` <small style="color:#7a91b0">${item.spec}</small>` : '';
-    html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+    tr.innerHTML = `
       <td style="padding:6px">${item.category || '—'}</td>
       <td style="padding:6px">${item.name || '—'}</td>
       <td style="padding:6px">${item.model || '—'}${spec}</td>
@@ -3755,21 +3772,23 @@ function V2_renderBomTable(denki) {
       <td style="padding:6px;text-align:center">${item.unit || '—'}</td>
       <td style="padding:6px;text-align:right">¥${(item.unitPrice || 0).toLocaleString()}</td>
       <td style="padding:6px;text-align:right">¥${(item.amount || 0).toLocaleString()}</td>
-    </tr>`;
+    `;
+    tbody.appendChild(tr);
   }
 
   // Summary rows
   if (denki.summary) {
     for (const [label, value] of Object.entries(denki.summary)) {
-      html += `<tr style="border-top:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03)">
+      const tr = document.createElement('tr');
+      tr.style.borderTop = '1px solid rgba(255,255,255,0.1)';
+      tr.style.background = 'rgba(255,255,255,0.03)';
+      tr.innerHTML = `
         <td colspan="6" style="padding:6px;text-align:right;font-weight:600">${label}</td>
         <td style="padding:6px;text-align:right;font-weight:600">¥${(value || 0).toLocaleString()}</td>
-      </tr>`;
+      `;
+      tbody.appendChild(tr);
     }
   }
-
-  html += '</table>';
-  return html;
 }
 
 function V2_snapshotNaitaku() {
@@ -3778,21 +3797,23 @@ function V2_snapshotNaitaku() {
     return;
   }
 
-  // Store snapshot
+  // Store snapshot with JST local date
+  const now = new Date();
+  const jstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000))
+    .toISOString().split('T')[0];
+
   window.V2_NAITAKU_SNAPSHOT = {
-    date: new Date().toISOString().split('T')[0],
+    date: jstDate,
     cost: V2_EST.cost,
     subTotal: V2_EST.subTotal,
     netPrice: V2_EST.netPrice
   };
 
-  // Update badge
+  // Update badge (no alert; badge confirms the action)
   const badgeEl = document.getElementById('detail-snapshot-badge');
   const infoEl = document.getElementById('detail-snapshot-info');
   infoEl.textContent = `${window.V2_NAITAKU_SNAPSHOT.date} ¥${(window.V2_NAITAKU_SNAPSHOT.cost || 0).toLocaleString()}`;
   badgeEl.style.display = 'block';
-
-  alert('内諾時の概算が固定されました');
 }
 
 function V2_clearSnapshot() {
