@@ -1,0 +1,2305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>太陽光部材選定システム</title>
+<style>
+:root {
+  --bg:#f5f4f0;--surface:#fff;--surface2:#f9f8f5;--border:#e2e0d8;--border2:#ccc9be;
+  --text:#1a1a18;--text2:#5a5a56;--text3:#8a8a84;
+  --accent:#2d5a3d;--accent-light:#e8f0ea;--accent2:#1e3d2a;
+  --warn:#c17d1a;--warn-light:#fdf3e3;--danger:#b03a2e;--danger-light:#fdecea;
+  --info:#1a4d7a;--info-light:#e8f0f8;
+  --r:8px;--rl:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+/* ── shell ── */
+.app-shell{display:flex;min-height:100vh}
+.sidebar{width:220px;min-width:220px;background:var(--accent2);color:#fff;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.12)}
+.sidebar-logo h1{font-size:13px;font-weight:600;letter-spacing:.05em;color:rgba(255,255,255,.95);line-height:1.4}
+.sidebar-logo p{font-size:10px;color:rgba(255,255,255,.45);margin-top:2px}
+.nav-section{padding:10px 0 2px}
+.nav-section-title{font-size:10px;font-weight:600;color:rgba(255,255,255,.35);padding:0 16px 4px;letter-spacing:.08em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;font-size:12px;color:rgba(255,255,255,.7);transition:all .15s;border-left:2px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav-item.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:#7dcf97}
+.nav-item .ico{width:14px;text-align:center;font-size:12px}
+.main{flex:1;overflow:auto}
+.top-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.top-bar h2{font-size:15px;font-weight:600}
+.spacer{flex:1}
+.spec-toggle{display:flex;border:1px solid var(--border2);border-radius:var(--r);overflow:hidden}
+.spec-toggle button{flex:1;padding:6px 14px;border:none;background:transparent;font-size:12px;cursor:pointer;color:var(--text2);font-family:inherit;transition:all .15s;white-space:nowrap}
+.spec-toggle button.active{background:var(--accent);color:#fff;font-weight:500}
+.spec-toggle button:not(:last-child){border-right:1px solid var(--border2)}
+.spec-badge{font-size:11px;padding:3px 10px;border-radius:12px;font-weight:500}
+.spec-badge.general{background:var(--info-light);color:var(--info)}
+.spec-badge.public{background:var(--warn-light);color:var(--warn)}
+.content{padding:20px 24px;max-width:1120px}
+/* ── save bar ── */
+.save-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.save-bar span{font-size:12px;color:var(--text3)}
+/* ── cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:18px;margin-bottom:14px}
+.card-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.card-header h3{font-size:14px;font-weight:600}
+.card-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--accent-light);flex-shrink:0}
+/* ── form ── */
+.form-row{display:grid;gap:12px;margin-bottom:12px}
+.form-row.c2{grid-template-columns:1fr 1fr}
+.form-row.c3{grid-template-columns:1fr 1fr 1fr}
+.form-row.c4{grid-template-columns:1fr 1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;font-weight:500;color:var(--text2)}
+.field label .unit{font-weight:400;color:var(--text3)}
+input[type=text],input[type=number],select,textarea{width:100%;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--surface);color:var(--text);transition:border-color .15s;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.hint{font-size:10px;color:var(--text3)}
+.rv{font-size:15px;font-weight:600;color:var(--accent);padding:6px 10px;background:var(--accent-light);border-radius:var(--r);min-height:34px;display:flex;align-items:center}
+.rv.warn{color:var(--warn);background:var(--warn-light)}
+.rv.danger{color:var(--danger);background:var(--danger-light)}
+/* ── buttons ── */
+.btn{padding:7px 14px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);transition:all .15s}
+.btn:hover{background:var(--surface2)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:var(--accent2)}
+.btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn.sm{padding:5px 10px;font-size:11px}
+/* ── summary ── */
+.summary-bar{background:var(--accent);color:#fff;border-radius:var(--rl);padding:14px 20px;margin-bottom:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.sum-stat .val{font-size:20px;font-weight:700;line-height:1}
+.sum-stat .lbl{font-size:10px;opacity:.7;margin-top:2px}
+/* ── table ── */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:7px 10px;background:var(--surface2);font-weight:600;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--surface2)}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+/* ── tags ── */
+.tag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.tag.dc{background:#fff3cd;color:#856404}
+.tag.ac{background:#d1ecf1;color:#0c5460}
+.tag.eq{background:var(--accent-light);color:var(--accent)}
+.tag.gnd{background:#f8d7da;color:#721c24}
+.tag.hv{background:#e2d9f3;color:#4a1990}
+/* ── info/warn boxes ── */
+.info-box{background:var(--info-light);border-left:3px solid var(--info);border-radius:0 var(--r) var(--r) 0;padding:8px 12px;font-size:12px;color:var(--info);margin-bottom:12px}
+.warn-box{background:var(--warn-light);border-left:3px solid var(--warn);border-radius:0 var(--r) var(--r) 0;padding:8px 12px;font-size:12px;color:var(--warn);margin-bottom:12px}
+hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
+/* ── section panels ── */
+.section-panel{display:none}
+.section-panel.active{display:block}
+
+/* ════════════════════════════════════════════
+   WIRING DIAGRAM UI
+════════════════════════════════════════════ */
+.wiring-diagram{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rl);padding:20px;margin-bottom:14px;overflow-x:auto}
+.wd-flow{display:flex;align-items:center;gap:0;min-width:900px;position:relative}
+/* device boxes */
+.wd-device{flex-shrink:0;background:var(--surface);border:2px solid var(--border2);border-radius:10px;padding:10px 14px;text-align:center;position:relative;min-width:90px}
+.wd-device.panel-dev{border-color:#2d5a3d;background:#f0f7f2}
+.wd-device.pcs-dev{border-color:#1a4d7a;background:#eef4fb}
+.wd-device.jb-dev{border-color:#856404;background:#fffbf0}
+.wd-device.tr-dev{border-color:#4a1990;background:#f3f0fc}
+.wd-device.breaker-dev{border-color:#b03a2e;background:#fdf0ef}
+.wd-device.grid-dev{border-color:#5a5a56;background:#f5f5f3}
+.wd-device .dev-icon{font-size:22px;line-height:1}
+.wd-device .dev-name{font-size:10px;font-weight:600;margin-top:4px;color:var(--text2)}
+.wd-device .dev-spec{font-size:9px;color:var(--text3);margin-top:2px;line-height:1.3}
+/* segment between devices */
+.wd-segment{flex:1;min-width:120px;display:flex;flex-direction:column;align-items:stretch;gap:0;position:relative}
+.wd-line-area{display:flex;align-items:center;padding:6px 0}
+.wd-line{flex:1;height:3px;position:relative}
+.wd-line.dc-line{background:linear-gradient(90deg,#856404,#c17d1a);border-radius:2px}
+.wd-line.ac-line{background:linear-gradient(90deg,#1a4d7a,#4a7cc7);border-radius:2px}
+.wd-line.hv-line{background:linear-gradient(90deg,#4a1990,#7a4db0);border-radius:2px}
+.wd-arrow{width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;flex-shrink:0}
+.wd-arrow.dc{border-left:10px solid #c17d1a}
+.wd-arrow.ac{border-left:10px solid #4a7cc7}
+.wd-arrow.hv{border-left:10px solid #7a4db0}
+.wd-inputs{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin:0 4px}
+.wd-inputs-title{font-size:10px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.wd-input-row{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin-bottom:6px;font-size:11px}
+.wd-input-row:last-child{margin-bottom:0}
+.wd-input-row label{color:var(--text2);white-space:nowrap}
+.wd-input-row input,.wd-input-row select{padding:4px 7px;font-size:12px;border:1px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-family:inherit}
+.wd-input-row input{width:80px}
+.wd-volt-drop{font-size:10px;text-align:center;padding:3px 6px;border-radius:4px;margin-top:4px;font-weight:500}
+.wd-volt-drop.ok{background:#e8f5e9;color:#2e7d32}
+.wd-volt-drop.warn{background:var(--warn-light);color:var(--warn)}
+.wd-volt-drop.ng{background:var(--danger-light);color:var(--danger)}
+/* DC run rows */
+.dc-runs-container{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px;margin-bottom:14px}
+.dc-runs-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.dc-runs-header h4{font-size:13px;font-weight:600}
+.dc-run-row{display:grid;grid-template-columns:auto 1fr 1fr 1fr 1fr auto;gap:8px;align-items:center;padding:8px;background:var(--surface2);border-radius:var(--r);margin-bottom:6px;font-size:12px}
+.dc-run-row .run-label{font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap}
+.dc-run-row input,.dc-run-row select{padding:5px 8px;font-size:12px;border:1px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-family:inherit;width:100%}
+.dc-run-row .drop-cell{text-align:center}
+
+/* ── save modal overlay ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--rl);padding:24px;width:440px;max-width:95vw;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:14px}
+.save-slot{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;font-size:12px}
+.save-slot .slot-name{flex:1;font-weight:500}
+.save-slot .slot-date{color:var(--text3);font-size:10px}
+
+/* ── price / estimate ── */
+.price-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.price-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;text-align:center}
+.price-card .pc-val{font-size:18px;font-weight:700;color:var(--accent);line-height:1;font-variant-numeric:tabular-nums}
+.price-card .pc-lbl{font-size:10px;color:var(--text3);margin-top:3px}
+.price-card.highlight{background:var(--accent);border-color:var(--accent)}
+.price-card.highlight .pc-val{color:#fff}
+.price-card.highlight .pc-lbl{color:rgba(255,255,255,.7)}
+.margin-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;background:var(--surface2);border-radius:var(--r);margin-bottom:14px;font-size:12px}
+.margin-ctrl label{color:var(--text2);white-space:nowrap}
+.margin-ctrl input{width:70px;padding:5px 8px;border:1px solid var(--border2);border-radius:5px;font-size:13px;font-family:inherit}
+.margin-ctrl select{padding:5px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-family:inherit}
+.est-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.est-tbl th{background:var(--surface2);padding:6px 8px;font-weight:600;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap;text-align:left}
+.est-tbl th.num{text-align:right}
+.est-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.est-tbl tr:hover td{background:var(--surface2)}
+.est-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.est-tbl input[type=number]{width:70px;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;text-align:right;font-family:inherit}
+.est-tbl .maker-sel{font-size:10px;padding:3px 5px;border:1px solid var(--border2);border-radius:4px;font-family:inherit}
+.cat-margin-row td { padding:7px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.cat-margin-row input[type=number]{ width:70px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;font-size:12px;text-align:right;font-family:inherit;background:var(--surface) }
+.cat-margin-row input:focus{ outline:none;border-color:var(--accent) }
+.cat-color-dot{ display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px }
+.grand-total-row-cat{ background:var(--accent);color:#fff;font-weight:700 }
+.grand-total-row-cat td{ color:#fff!important;padding:8px 10px }
+.grand-total-row{background:var(--accent);color:#fff;font-weight:700;font-size:12px}
+.grand-total-row td{color:#fff !important}
+.inquiry-row{background:#fffbf0}
+.csv-area{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;font-family:monospace;font-size:11px;color:var(--text2);width:100%;min-height:120px;resize:vertical}
+
+/* ── Print styles ── */
+@media print{
+  .sidebar,.top-bar,.btn,.margin-ctrl,.nav-section,.spec-toggle,.spec-badge{display:none!important}
+  .section-panel{display:block!important}
+  body{background:#fff}
+  .content{padding:0;max-width:100%}
+  .summary-bar{background:#2d5a3d!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .price-card.highlight{background:#2d5a3d!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .grand-total-row{background:#2d5a3d!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .card{break-inside:avoid;box-shadow:none;border:1px solid #ccc}
+  @page{size:A4;margin:15mm}
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+<!-- ═══ SIDEBAR ═══ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h1>太陽光<br>部材選定システム</h1>
+    <p>高圧自家消費 対応版 v2</p>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">基本情報</div>
+    <div class="nav-item active" onclick="gotoSection('base')"><span class="ico">📋</span>案件・基本条件</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">機器選定</div>
+    <div class="nav-item" onclick="gotoSection('panel')"><span class="ico">⬛</span>パネル選定</div>
+    <div class="nav-item" onclick="gotoSection('pcs')"><span class="ico">🔲</span>パワコン選定</div>
+    <div class="nav-item" onclick="gotoSection('frame')"><span class="ico">🔧</span>架台選定</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">配線設計</div>
+    <div class="nav-item" onclick="gotoSection('wiring')"><span class="ico">⚡</span>配線経路・ケーブル選定</div>
+    <div class="nav-item" onclick="gotoSection('breaker')"><span class="ico">🔌</span>ブレーカー・盤類</div>
+    <div class="nav-item" onclick="gotoSection('hv')"><span class="ico">⚙</span>高圧継電器・変圧器</div>
+    <div class="nav-item" onclick="gotoSection('earth')"><span class="ico">⏚</span>接地工事</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">付帯設備</div>
+    <div class="nav-item" onclick="gotoSection('comm')"><span class="ico">📡</span>通信線・モニタリング</div>
+    <div class="nav-item" onclick="gotoSection('cabinet')"><span class="ico">🗄</span>キャビネット仕様</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">見積・価格</div>
+    <div class="nav-item" onclick="gotoSection('estimate')"><span class="ico">💴</span>見積・金額計算</div>
+    <div class="nav-item" onclick="gotoSection('inquiry')"><span class="ico">📬</span>電材商社 見積依頼</div>
+    <div class="nav-item" onclick="gotoSection('pricemaster')"><span class="ico">📊</span>単価マスタ管理</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">出力</div>
+    <div class="nav-item" onclick="gotoSection('bom')"><span class="ico">📄</span>部材リスト（BOM）</div>
+  </div>
+</nav>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main">
+  <div class="top-bar">
+    <h2 id="page-title">案件・基本条件</h2>
+    <div class="spacer"></div>
+    <div class="spec-toggle">
+      <button id="btn-gen" class="active" onclick="setSpec('general')">一般仕様</button>
+      <button id="btn-pub" onclick="setSpec('public')">営繕仕様（公共）</button>
+    </div>
+    <span class="spec-badge general" id="spec-label">一般仕様</span>
+    <button class="btn sm" onclick="openSaveModal()">💾 保存</button>
+    <button class="btn sm" onclick="openLoadModal()">📂 読込</button>
+  </div>
+
+  <div class="content">
+    <!-- summary -->
+    <div class="summary-bar">
+      <div class="sum-stat"><div class="val" id="sum-kw">—</div><div class="lbl">システム容量 (kW)</div></div>
+      <div class="sum-stat"><div class="val" id="sum-panels">—</div><div class="lbl">パネル枚数</div></div>
+      <div class="sum-stat"><div class="val" id="sum-pcs">—</div><div class="lbl">パワコン台数</div></div>
+      <div class="sum-stat"><div class="val" id="sum-spec">一般</div><div class="lbl">仕様区分</div></div>
+    </div>
+
+    <!-- ══════════ BASE ══════════ -->
+    <div class="section-panel active" id="panel-base">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">📋</div><h3>案件基本情報</h3></div>
+        <div class="form-row c3">
+          <div class="field"><label>案件名</label><input type="text" id="proj-name" placeholder="○○工場 太陽光発電設備" oninput="autosave()"></div>
+          <div class="field"><label>設置場所</label><input type="text" id="proj-loc" placeholder="広島県○○市" oninput="autosave()"></div>
+          <div class="field"><label>計画容量 <span class="unit">(kW DC)</span></label><input type="number" id="proj-kw" placeholder="500" oninput="calcAll()"></div>
+        </div>
+        <div class="form-row c3">
+          <div class="field"><label>系統連系電圧</label>
+            <select id="grid-voltage" onchange="autosave()">
+              <option value="6600">6,600V（高圧）</option>
+              <option value="22000">22,000V（特別高圧）</option>
+            </select>
+          </div>
+          <div class="field"><label>受電形態</label>
+            <select id="recv-type" onchange="autosave()">
+              <option value="consumer">自家消費（余剰売電なし）</option>
+              <option value="surplus">自家消費＋余剰売電</option>
+            </select>
+          </div>
+          <div class="field"><label>設計担当者</label><input type="text" id="designer" placeholder="氏名" oninput="autosave()"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🏗</div><h3>設置形態・屋根種別</h3></div>
+        <div class="form-row c3">
+          <div class="field"><label>設置形態</label>
+            <select id="install-type" onchange="toggleRoof(); autosave()">
+              <option value="trap">屋根置き ― 折版屋根</option>
+              <option value="slate">屋根置き ― スレート屋根</option>
+              <option value="flat">陸屋根</option>
+              <option value="ground">地上設置</option>
+            </select>
+          </div>
+          <div class="field" id="fld-wp" style="display:none"><label>防水工法</label>
+            <select id="waterproof" onchange="autosave()">
+              <option>アスファルト防水</option>
+              <option>シート防水（塩ビ）</option>
+              <option>シート防水（ゴム）</option>
+              <option>ウレタン塗膜防水</option>
+              <option>改質アスファルト（トーチ工法）</option>
+            </select>
+          </div>
+          <div class="field"><label>傾斜角 <span class="unit">(°)</span></label><input type="number" id="tilt" value="10" min="0" max="60" oninput="autosave()"></div>
+        </div>
+        <div class="form-row c3">
+          <div class="field"><label>方位角 <span class="unit">(° 真南=0)</span></label><input type="number" id="azimuth" value="0" oninput="autosave()"></div>
+          <div class="field"><label>耐積雪荷重 <span class="unit">(cm)</span></label><input type="number" id="snow" value="30" oninput="autosave()"></div>
+          <div class="field"><label>基礎風速 <span class="unit">(m/s)</span></label><input type="number" id="wind" value="34" oninput="autosave()"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ PANEL ══════════ -->
+    <div class="section-panel" id="panel-panel">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">⬛</div><h3>パネル選定</h3></div>
+        <div class="form-row c3">
+          <div class="field"><label>メーカー</label>
+            <select id="panel-maker" onchange="buildPanelModels()">
+              <option value="longi">LONGi Solar（隆基緑能）</option>
+              <option value="canadian">Canadian Solar</option>
+              <option value="hanwha">Hanwha Q CELLS</option>
+              <option value="jinko">Jinko Solar</option>
+              <option value="trina">Trina Solar</option>
+              <option value="rec">REC Group</option>
+              <option value="panasonic">Panasonic（HIT）</option>
+              <option value="sharp">Sharp</option>
+              <option value="kyocera">Kyocera</option>
+              <option value="other">その他（手入力）</option>
+            </select>
+          </div>
+          <div class="field"><label>型番</label>
+            <select id="panel-model" onchange="applyPanelModel()"></select>
+          </div>
+          <div class="field"><label>出力 <span class="unit">(Wp)</span></label><input type="number" id="p-wp" oninput="calcAll()"></div>
+        </div>
+        <div class="form-row c4">
+          <div class="field"><label>Voc <span class="unit">(V)</span></label><input type="number" id="p-voc" step="0.1" oninput="calcAll()"></div>
+          <div class="field"><label>Vmp <span class="unit">(V)</span></label><input type="number" id="p-vmp" step="0.1" oninput="calcAll()"></div>
+          <div class="field"><label>Isc <span class="unit">(A)</span></label><input type="number" id="p-isc" step="0.01" oninput="calcAll()"></div>
+          <div class="field"><label>Imp <span class="unit">(A)</span></label><input type="number" id="p-imp" step="0.01" oninput="calcAll()"></div>
+        </div>
+        <div class="form-row c4">
+          <div class="field"><label>Voc温度係数 <span class="unit">(%/℃)</span></label><input type="number" id="p-tvoc" step="0.01" oninput="calcAll()"></div>
+          <div class="field"><label>Pmax温度係数 <span class="unit">(%/℃)</span></label><input type="number" id="p-tp" step="0.01" oninput="calcAll()"></div>
+          <div class="field"><label>寸法 W <span class="unit">(mm)</span></label><input type="number" id="p-w" oninput="autosave()"></div>
+          <div class="field"><label>寸法 H <span class="unit">(mm)</span></label><input type="number" id="p-h" oninput="autosave()"></div>
+        </div>
+        <hr class="div">
+        <div class="form-row c3">
+          <div class="field"><label>直列枚数</label><input type="number" id="str-series" value="22" oninput="calcString()"></div>
+          <div class="field"><label>最低気温 <span class="unit">(℃)</span></label><input type="number" id="t-min" value="-10" oninput="calcString()"></div>
+          <div class="field"><label>PCS最大入力電圧 <span class="unit">(V)</span></label><input type="number" id="pcs-vmax-ref" value="1500" oninput="calcString()"></div>
+        </div>
+        <div class="form-row c4">
+          <div class="field"><label>低温時最大電圧</label><div class="rv" id="rv-vmax-str">—</div></div>
+          <div class="field"><label>動作電圧（Vmp×直列）</label><div class="rv" id="rv-vmp-str">—</div></div>
+          <div class="field"><label>短絡電流</label><div class="rv" id="rv-isc-str">—</div></div>
+          <div class="field"><label>PCS電圧チェック</label><div class="rv" id="rv-vmax-check">—</div></div>
+        </div>
+        <hr class="div">
+        <div class="form-row c3">
+          <div class="field"><label>必要枚数（自動）</label><div class="rv" id="rv-panel-n">—</div></div>
+          <div class="field"><label>合計容量（自動）</label><div class="rv" id="rv-panel-kwp">—</div></div>
+          <div class="field"><label>パネル寸法確認</label><div class="rv" id="rv-panel-dim">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ PCS ══════════ -->
+    <div class="section-panel" id="panel-pcs">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🔲</div><h3>パワーコンディショナー選定</h3></div>
+        <div class="form-row c3">
+          <div class="field"><label>メーカー</label>
+            <select id="pcs-maker" onchange="buildPcsModels()">
+              <option value="huawei">HUAWEI</option>
+              <option value="yasukawa">安川電機</option>
+              <option value="sungrow">Sungrow（サングロウ）</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div class="field"><label>機種</label>
+            <select id="pcs-model" onchange="applyPcsModel()"></select>
+          </div>
+          <div class="field"><label>設置台数</label><input type="number" id="pcs-count" value="5" min="1" oninput="calcAll()"></div>
+        </div>
+        <div class="form-row c4">
+          <div class="field"><label>定格出力 <span class="unit">(kW)</span></label><input type="number" id="pcs-kw" oninput="calcAll()"></div>
+          <div class="field"><label>最大入力電圧 <span class="unit">(V)</span></label><input type="number" id="pcs-vmax" oninput="calcAll()"></div>
+          <div class="field"><label>MPPTチャンネル数</label><input type="number" id="pcs-mppt" oninput="calcAll()"></div>
+          <div class="field"><label>出力電圧 <span class="unit">(V)</span></label><input type="number" id="pcs-vout" oninput="calcAll()"></div>
+        </div>
+        <div class="form-row c3">
+          <div class="field"><label>合計出力（自動）</label><div class="rv" id="rv-pcs-total">—</div></div>
+          <div class="field"><label>過負荷率 DC/AC</label><div class="rv" id="rv-overload">—</div></div>
+          <div class="field"><label>設置形態</label>
+            <select id="pcs-inst" onchange="autosave()">
+              <option>屋内設置</option><option>屋外設置</option>
+            </select>
+          </div>
+        </div>
+        <div class="warn-box" id="overload-warn" style="display:none">⚠ 過負荷率が1.5を超えています。台数または容量を見直してください。</div>
+      </div>
+    </div>
+
+    <!-- ══════════ FRAME ══════════ -->
+    <div class="section-panel" id="panel-frame">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🔧</div><h3>架台選定</h3></div>
+        <div class="info-box">JIS C 8955（太陽電池アレイ用支持物の設計用荷重算出方法）に準拠。</div>
+        <div class="form-row c3">
+          <div class="field"><label>架台タイプ</label>
+            <select id="frame-type" onchange="autosave()">
+              <option>折版 ― 嵌合クランプ固定</option>
+              <option>折版 ― ボルト直付け</option>
+              <option>スレート ― フック金具</option>
+              <option>スレート ― ボルト貫通</option>
+              <option>陸屋根 ― アンカー固定</option>
+              <option>陸屋根 ― ウエイト式</option>
+              <option>地上 ― 基礎（コンクリート）</option>
+              <option>地上 ― 螺旋杭</option>
+            </select>
+          </div>
+          <div class="field"><label>材質</label>
+            <select id="frame-mat" onchange="autosave()">
+              <option value="al6063">アルミ合金 A6063</option>
+              <option value="al6061">アルミ合金 A6061</option>
+              <option value="hdzn">溶融亜鉛メッキ鋼</option>
+              <option value="sus304">SUS304（営繕向け）</option>
+            </select>
+          </div>
+          <div class="field"><label>固定荷重 <span class="unit">(kg/m²)</span></label><input type="number" id="load-dead" value="14" oninput="calcFrame()"></div>
+        </div>
+        <div class="form-row c3">
+          <div class="field"><label>積雪荷重換算（自動）</label><div class="rv" id="rv-snow">—</div></div>
+          <div class="field"><label>風圧荷重 参考（自動）</label><div class="rv" id="rv-wind">—</div></div>
+          <div class="field"><label>設計荷重合計（自動）</label><div class="rv" id="rv-total-load">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ WIRING ══════════ -->
+    <div class="section-panel" id="panel-wiring">
+
+      <!-- 視覚的配線図 -->
+      <div class="wiring-diagram">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:12px">⚡ 配線経路ダイアグラム — 各区間の長さと仕様を入力してください</div>
+        <div class="wd-flow">
+
+          <!-- パネルアレイ -->
+          <div class="wd-device panel-dev">
+            <div class="dev-icon">⬛</div>
+            <div class="dev-name">PVパネル</div>
+            <div class="dev-spec" id="wd-panel-spec">—</div>
+          </div>
+
+          <!-- ① ストリング区間 -->
+          <div class="wd-segment">
+            <div class="wd-line-area">
+              <div class="wd-line dc-line"></div>
+              <div class="wd-arrow dc"></div>
+            </div>
+            <div class="wd-inputs">
+              <div class="wd-inputs-title">
+                <span class="tag dc">DC①</span> ストリングケーブル
+              </div>
+              <div class="wd-input-row">
+                <label>片道長 (m)</label>
+                <input type="number" id="dc1-len" value="30" min="1" oninput="calcWiring()">
+              </div>
+              <div class="wd-input-row">
+                <label>ケーブル</label>
+                <select id="dc1-type" onchange="calcWiring()" style="width:120px">
+                  <option value="PV-1F-4">PV-1F 4mm²</option>
+                  <option value="PV-1F-6">PV-1F 6mm²</option>
+                  <option value="CV-5.5">CV 5.5mm²</option>
+                  <option value="CV-8">CV 8mm²</option>
+                </select>
+              </div>
+              <div class="wd-volt-drop ok" id="wd-dc1-drop">—</div>
+            </div>
+          </div>
+
+          <!-- 接続箱 -->
+          <div class="wd-device jb-dev">
+            <div class="dev-icon">📦</div>
+            <div class="dev-name">接続箱</div>
+            <div class="dev-spec" id="wd-jb-spec">—</div>
+          </div>
+
+          <!-- ② 主DC区間 -->
+          <div class="wd-segment">
+            <div class="wd-line-area">
+              <div class="wd-line dc-line"></div>
+              <div class="wd-arrow dc"></div>
+            </div>
+            <div class="wd-inputs">
+              <div class="wd-inputs-title">
+                <span class="tag dc">DC②</span> 主DCケーブル
+              </div>
+              <div class="wd-input-row">
+                <label>片道長 (m)</label>
+                <input type="number" id="dc2-len" value="20" min="1" oninput="calcWiring()">
+              </div>
+              <div class="wd-input-row">
+                <label>ケーブル</label>
+                <select id="dc2-type" onchange="calcWiring()" style="width:120px">
+                  <option value="CV-38">CV 38mm²</option>
+                  <option value="CV-60">CV 60mm²</option>
+                  <option value="CV-100">CV 100mm²</option>
+                  <option value="CV-150">CV 150mm²</option>
+                </select>
+              </div>
+              <div class="wd-volt-drop ok" id="wd-dc2-drop">—</div>
+            </div>
+          </div>
+
+          <!-- パワコン -->
+          <div class="wd-device pcs-dev">
+            <div class="dev-icon">🔲</div>
+            <div class="dev-name">パワコン</div>
+            <div class="dev-spec" id="wd-pcs-spec">—</div>
+          </div>
+
+          <!-- ③ AC低圧区間 -->
+          <div class="wd-segment">
+            <div class="wd-line-area">
+              <div class="wd-line ac-line"></div>
+              <div class="wd-arrow ac"></div>
+            </div>
+            <div class="wd-inputs">
+              <div class="wd-inputs-title">
+                <span class="tag ac">AC③</span> AC幹線（低圧）
+              </div>
+              <div class="wd-input-row">
+                <label>片道長 (m)</label>
+                <input type="number" id="ac3-len" value="30" min="1" oninput="calcWiring()">
+              </div>
+              <div class="wd-input-row">
+                <label>ケーブル</label>
+                <select id="ac3-type" onchange="calcWiring()" style="width:120px">
+                  <option value="CV-60">CV 3C 60mm²</option>
+                  <option value="CV-100">CV 3C 100mm²</option>
+                  <option value="CV-150">CV 3C 150mm²</option>
+                  <option value="CVT-60">CVT 60mm²</option>
+                  <option value="CVT-100">CVT 100mm²</option>
+                </select>
+              </div>
+              <div class="wd-volt-drop ok" id="wd-ac3-drop">—</div>
+            </div>
+          </div>
+
+          <!-- 低圧盤/昇圧器 -->
+          <div class="wd-device breaker-dev">
+            <div class="dev-icon">🔌</div>
+            <div class="dev-name">低圧盤</div>
+            <div class="dev-spec">MCCB・ELB</div>
+          </div>
+
+          <!-- ④ 高圧区間 -->
+          <div class="wd-segment">
+            <div class="wd-line-area">
+              <div class="wd-line hv-line"></div>
+              <div class="wd-arrow hv"></div>
+            </div>
+            <div class="wd-inputs">
+              <div class="wd-inputs-title">
+                <span class="tag hv">HV④</span> 高圧連系
+              </div>
+              <div class="wd-input-row">
+                <label>片道長 (m)</label>
+                <input type="number" id="hv4-len" value="20" min="1" oninput="calcWiring()">
+              </div>
+              <div class="wd-input-row">
+                <label>ケーブル</label>
+                <select id="hv4-type" onchange="calcWiring()" style="width:120px">
+                  <option value="CN-CV-60">CN-CV 60mm²</option>
+                  <option value="CN-CV-100">CN-CV 100mm²</option>
+                  <option value="OF-100">OF 100mm²</option>
+                </select>
+              </div>
+              <div class="wd-volt-drop ok" id="wd-hv4-drop">6.6kV</div>
+            </div>
+          </div>
+
+          <!-- 系統/変圧器 -->
+          <div class="wd-device grid-dev">
+            <div class="dev-icon">⚙</div>
+            <div class="dev-name">変圧器・系統</div>
+            <div class="dev-spec">6.6kV連系</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DC配線 複数ルート -->
+      <div class="dc-runs-container">
+        <div class="dc-runs-header">
+          <h4>DCケーブル 敷設ルート</h4>
+          <span style="font-size:11px;color:var(--text3)">（屋根の形状に応じて複数ルートを設定）</span>
+          <button class="btn sm" onclick="addDcRun()" style="margin-left:auto">＋ ルート追加</button>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr 100px 80px 80px 60px;gap:6px;padding:0 8px 6px;font-size:10px;font-weight:600;color:var(--text3)">
+          <span>No.</span><span>区間名称</span><span>ケーブル種別</span><span>保護管</span><span>片道長(m)</span><span>本数</span><span>降下率</span><span></span>
+        </div>
+        <div id="dc-runs"></div>
+      </div>
+
+      <!-- AC保護管自動選定 -->
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🔩</div><h3>保護管 自動選定</h3></div>
+        <div class="info-box" id="pipe-spec-note">一般仕様：PF管（耐UV）。営繕仕様：金属製電線管（C管・E管）。</div>
+        <table class="tbl">
+          <thead><tr><th>区間</th><th>ケーブル種別</th><th>管内条数</th><th>推奨保護管</th><th>管内充填率</th><th>延長</th></tr></thead>
+          <tbody id="pipe-summary-body">
+            <tr><td colspan="6" style="text-align:center;color:var(--text3)">配線情報を入力すると自動計算されます</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════ BREAKER ══════════ -->
+    <div class="section-panel" id="panel-breaker">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🔌</div><h3>ブレーカー・盤類選定</h3></div>
+        <div class="info-box">電技解釈 第14条（過電流遮断器）・第33条（地絡遮断器）。定格は計算電流の1.25倍以上。</div>
+        <div class="form-row c3">
+          <div class="field"><label>DC主ブレーカー（自動）</label><div class="rv" id="rv-dc-mcb">—</div></div>
+          <div class="field"><label>ACメインブレーカー（自動）</label><div class="rv" id="rv-ac-mcb">—</div></div>
+          <div class="field"><label>漏電遮断器 ELB（自動）</label><div class="rv" id="rv-elb">—</div></div>
+        </div>
+        <div class="form-row c3">
+          <div class="field"><label>接続箱 入力回路数（自動）</label><div class="rv" id="rv-jb-in">—</div></div>
+          <div class="field"><label>推奨接続箱サイズ（自動）</label><div class="rv" id="rv-jb-sz">—</div></div>
+          <div class="field"><label>接続箱仕様</label>
+            <select id="jb-spec" onchange="autosave()">
+              <option value="FRP">屋外・FRP製（一般仕様）</option>
+              <option value="SUS">屋外・SUS304製（営繕仕様）</option>
+            </select>
+          </div>
+        </div>
+        <hr class="div">
+        <div class="form-row c2">
+          <div class="field"><label>低圧盤仕様</label>
+            <select id="lv-spec" onchange="autosave()">
+              <option value="indoor">屋内盤・標準</option>
+              <option value="outdoor-std">屋外盤・鋼板塗装</option>
+              <option value="outdoor-FRP">屋外盤・FRP（一般仕様）</option>
+              <option value="outdoor-SUS">屋外盤・SUS304（営繕仕様）</option>
+            </select>
+          </div>
+          <div class="field"><label>DCヒューズ/保護方式</label>
+            <select id="dc-fuse" onchange="autosave()">
+              <option>ストリングヒューズ 15A</option>
+              <option>ストリングヒューズ 20A</option>
+              <option>逆流防止ダイオード</option>
+              <option>なし（パワコン内蔵保護）</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ HV ══════════ -->
+    <div class="section-panel" id="panel-hv">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">⚙</div><h3>高圧用継電器・変圧器</h3></div>
+        <div class="info-box">電技解釈 第36条・JEAG 9701準拠。</div>
+        <div class="form-row c3">
+          <div class="field"><label>変圧器形式</label>
+            <select id="tr-type" onchange="autosave()">
+              <option>屋内型モールド変圧器</option>
+              <option>屋外型油入変圧器</option>
+              <option>パッドマウント変圧器</option>
+            </select>
+          </div>
+          <div class="field"><label>変圧器容量（自動）<span class="unit">(kVA)</span></label><div class="rv" id="rv-tr-kva">—</div></div>
+          <div class="field"><label>台数</label><input type="number" id="tr-count" value="1" min="1" oninput="calcHV()"></div>
+        </div>
+        <hr class="div">
+        <h4 style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">保護継電器一覧（JEAG 9701準拠）</h4>
+        <table class="tbl">
+          <thead><tr><th>継電器</th><th>記号</th><th>整定値目安</th><th>一般仕様</th><th>営繕仕様</th></tr></thead>
+          <tbody>
+            <tr><td>過電圧継電器</td><td>OVR</td><td>115% 整定</td><td>✓</td><td>✓</td></tr>
+            <tr><td>不足電圧継電器</td><td>UVR</td><td>85% 整定</td><td>✓</td><td>✓</td></tr>
+            <tr><td>周波数上昇継電器</td><td>OFR</td><td>+0.2Hz</td><td>✓</td><td>✓</td></tr>
+            <tr><td>周波数低下継電器</td><td>UFR</td><td>−0.2Hz</td><td>✓</td><td>✓</td></tr>
+            <tr><td>単独運転検出（能動）</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
+            <tr><td>逆電力継電器</td><td>RPR</td><td>逆潮流なし案件</td><td>△</td><td>✓</td></tr>
+            <tr><td>地絡方向継電器</td><td>DGR</td><td>—</td><td>—</td><td>✓</td></tr>
+          </tbody>
+        </table>
+        <hr class="div">
+        <div class="form-row c3">
+          <div class="field"><label>キュービクル形式</label>
+            <select id="cub-type" onchange="autosave()">
+              <option>JIS認定品（標準）</option>
+              <option>JIS認定品（公共用途）</option>
+              <option>特注品</option>
+            </select>
+          </div>
+          <div class="field"><label>外箱材質</label>
+            <select id="cub-mat" onchange="autosave()">
+              <option>溶融亜鉛メッキ鋼板</option>
+              <option>SUS304（営繕向け）</option>
+              <option>鋼板塗装仕上げ</option>
+            </select>
+          </div>
+          <div class="field"><label>設置場所</label>
+            <select id="cub-loc" onchange="autosave()">
+              <option>屋外設置</option><option>屋内設置</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ EARTH ══════════ -->
+    <div class="section-panel" id="panel-earth">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">⏚</div><h3>接地工事</h3></div>
+        <div class="info-box">電技解釈 第17条・第19条。高圧設備はA種・C種接地が必要。</div>
+        <table class="tbl" style="margin-bottom:14px">
+          <thead><tr><th>種別</th><th>対象設備</th><th>抵抗値</th><th>一般 電線</th><th>営繕 電線</th></tr></thead>
+          <tbody>
+            <tr><td>A種</td><td>高圧変圧器外箱・高圧機器</td><td>10Ω以下</td><td>IV 14mm²以上</td><td>IV 22mm²以上</td></tr>
+            <tr><td>C種</td><td>300V超低圧機器（PCS等）</td><td>10Ω以下</td><td>IV 5.5mm²以上</td><td>IV 14mm²以上</td></tr>
+            <tr><td>D種</td><td>300V以下機器・架台</td><td>100Ω以下</td><td>IV 2.0mm²以上</td><td>IV 5.5mm²以上</td></tr>
+          </tbody>
+        </table>
+        <div class="form-row c3">
+          <div class="field"><label>A種 電線長 <span class="unit">(m)</span></label><input type="number" id="ea-len" value="10" oninput="calcEarth()"></div>
+          <div class="field"><label>C種 電線長 <span class="unit">(m)</span></label><input type="number" id="ec-len" value="30" oninput="calcEarth()"></div>
+          <div class="field"><label>D種 電線長 <span class="unit">(m)</span></label><input type="number" id="ed-len" value="100" oninput="calcEarth()"></div>
+        </div>
+        <div class="form-row c3">
+          <div class="field"><label>A種 仕様（自動）</label><div class="rv" id="rv-ea">—</div></div>
+          <div class="field"><label>C種 仕様（自動）</label><div class="rv" id="rv-ec">—</div></div>
+          <div class="field"><label>D種 仕様（自動）</label><div class="rv" id="rv-ed">—</div></div>
+        </div>
+        <hr class="div">
+        <div class="form-row c3">
+          <div class="field"><label>接地棒仕様</label>
+            <select id="earth-rod" onchange="autosave()">
+              <option>銅覆鋼 φ14×1500mm</option>
+              <option>銅覆鋼 φ14×1500mm（連結2本）</option>
+              <option>銅覆鋼 φ22×1500mm</option>
+            </select>
+          </div>
+          <div class="field"><label>メッシュ接地（営繕）</label>
+            <select id="earth-mesh" onchange="autosave()">
+              <option value="none">なし（一般仕様）</option>
+              <option value="yes">あり（営繕仕様）</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ COMM ══════════ -->
+    <div class="section-panel" id="panel-comm">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">📡</div><h3>通信線・モニタリング設備</h3></div>
+        <div class="form-row c3">
+          <div class="field"><label>監視方式</label>
+            <select id="mon-type" onchange="autosave()">
+              <option>クラウド監視（スマートロガー）</option>
+              <option>ローカル監視（表示装置）</option>
+              <option>クラウド＋ローカル</option>
+              <option>SCADA連携</option>
+            </select>
+          </div>
+          <div class="field"><label>通信方式</label>
+            <select id="comm-type" onchange="autosave()">
+              <option>LAN（有線）</option>
+              <option>Wi-Fi</option>
+              <option>4G LTE</option>
+              <option>RS-485</option>
+            </select>
+          </div>
+          <div class="field"><label>通信線種別</label>
+            <select id="comm-cable" onchange="autosave()">
+              <option>LANケーブル Cat.6</option>
+              <option>LANケーブル Cat.6A（営繕）</option>
+              <option>CVVSケーブル 0.75mm²（RS-485）</option>
+              <option>なし（無線のみ）</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row c3">
+          <div class="field"><label>通信線延長 <span class="unit">(m)</span></label><input type="number" id="comm-len" value="50" oninput="autosave()"></div>
+          <div class="field"><label>通信線保護管</label>
+            <select id="comm-pipe" onchange="autosave()">
+              <option>PF管 φ16</option><option>PF管 φ22</option>
+              <option>金属管 φ19（営繕）</option>
+            </select>
+          </div>
+          <div class="field"><label>データロガー台数</label><input type="number" id="logger-n" value="1" oninput="autosave()"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ CABINET ══════════ -->
+    <div class="section-panel" id="panel-cabinet">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🗄</div><h3>キャビネット・保護管 仕様まとめ</h3></div>
+        <table class="tbl">
+          <thead><tr><th>部位</th><th>一般仕様</th><th>営繕仕様（公共）</th><th>現在の選定</th></tr></thead>
+          <tbody>
+            <tr><td>接続箱</td><td>FRP製 屋外</td><td>SUS304製 屋外</td><td id="cab-jb">—</td></tr>
+            <tr><td>低圧盤</td><td>鋼板塗装</td><td>SUS304</td><td id="cab-lv">—</td></tr>
+            <tr><td>高圧キュービクル</td><td>溶融亜鉛メッキ鋼板</td><td>SUS304</td><td id="cab-hv">—</td></tr>
+            <tr><td>DCケーブル保護管</td><td>PF管（耐UV）</td><td>金属製電線管（C管）</td><td id="cab-dc">—</td></tr>
+            <tr><td>ACケーブル保護管</td><td>PF管 or HIVP管</td><td>金属製電線管</td><td id="cab-ac">—</td></tr>
+            <tr><td>通信線保護管</td><td>PF管 φ16</td><td>金属管 φ19以上</td><td id="cab-comm">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════ ESTIMATE ══════════ -->
+    <div class="section-panel" id="panel-estimate">
+      <!-- 金額サマリ -->
+      <div class="price-summary">
+        <div class="price-card"><div class="pc-val" id="ps-list">—</div><div class="pc-lbl">定価合計（税抜）</div></div>
+        <div class="price-card"><div class="pc-val" id="ps-buy">—</div><div class="pc-lbl">仕入合計（税抜）</div></div>
+        <div class="price-card"><div class="pc-val" id="ps-margin-pct">—</div><div class="pc-lbl">粗利率</div></div>
+        <div class="price-card highlight"><div class="pc-val" id="ps-sell">—</div><div class="pc-lbl">売価合計（税抜）</div></div>
+      </div>
+
+      <!-- カテゴリ別 掛率・利益率設定 -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header" style="margin-bottom:10px;padding-bottom:8px">
+          <div class="card-icon">⚙</div>
+          <h3>掛率・利益率 カテゴリ別設定</h3>
+          <span style="font-size:11px;color:var(--text3);margin-left:8px">品目ごとに個別修正も可能</span>
+          <button class="btn sm primary" style="margin-left:auto" onclick="applyAllCatMargins()">全カテゴリ反映</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="est-tbl" id="cat-margin-table">
+            <thead>
+              <tr>
+                <th style="width:100px">分類</th>
+                <th class="num" style="width:100px">仕入掛率 (%)</th>
+                <th class="num" style="width:110px">利益率 (%)</th>
+                <th class="num" style="width:90px">仕入小計</th>
+                <th class="num" style="width:90px">売価小計</th>
+                <th class="num" style="width:80px">粗利</th>
+                <th class="num" style="width:70px">粗利率</th>
+              </tr>
+            </thead>
+            <tbody id="cat-margin-body"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text3)">一括変更：</span>
+          <label style="font-size:11px;color:var(--text2)">掛率</label>
+          <input type="number" id="bulk-kakuritsu" value="60" min="1" max="100" step="1" style="width:60px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;font-size:12px">
+          <span style="font-size:11px">%</span>
+          <label style="font-size:11px;color:var(--text2);margin-left:8px">利益率</label>
+          <input type="number" id="bulk-margin" value="25" min="0" max="99" step="0.5" style="width:60px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;font-size:12px">
+          <span style="font-size:11px">%</span>
+          <button class="btn sm" onclick="applyBulkToAllCats()">全カテゴリに一括適用</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+          <div class="card-icon">💴</div><h3 style="font-size:14px;font-weight:600">見積明細</h3>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn sm" onclick="printEstimate()">🖨 印刷（見積書）</button>
+            <button class="btn sm" onclick="exportEstimateCsv()">📥 CSV出力</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="est-tbl" id="est-table">
+            <thead>
+              <tr>
+                <th style="width:28px">#</th>
+                <th>分類</th>
+                <th>品目</th>
+                <th>型番・仕様</th>
+                <th>メーカー</th>
+                <th class="num">数量</th>
+                <th>単位</th>
+                <th class="num">定価(円)</th>
+                <th class="num">掛率(%)</th>
+                <th class="num">仕入単価</th>
+                <th class="num">仕入合計</th>
+                <th class="num">利益率(%)</th>
+                <th class="num">売価単価</th>
+                <th class="num">売価合計</th>
+                <th style="width:60px">要見積</th>
+              </tr>
+            </thead>
+            <tbody id="est-body">
+              <tr><td colspan="15" style="text-align:center;color:var(--text3);padding:20px">BOMを生成すると自動反映されます</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ INQUIRY ══════════ -->
+    <div class="section-panel" id="panel-inquiry">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📬</div><h3>電材商社 見積依頼リスト</h3>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn sm" onclick="printInquiry()">🖨 印刷（依頼書）</button>
+            <button class="btn sm" onclick="exportInquiryCsv()">📥 CSV出力</button>
+          </div>
+        </div>
+        <div class="margin-ctrl" style="margin-bottom:12px">
+          <label>宛先（商社名）</label>
+          <input type="text" id="inq-to" placeholder="○○電機商会 御中" style="width:200px">
+          <label style="margin-left:12px">案件名</label>
+          <input type="text" id="inq-proj" placeholder="自動入力" style="width:220px">
+          <label style="margin-left:12px">希望納期</label>
+          <input type="text" id="inq-date" placeholder="例：2026/05/01" style="width:130px">
+        </div>
+        <div class="info-box">「要見積」にチェックした品目のみ下記に表示されます。定価・数量・仕様を商社に送付し、返価を「仕入単価」欄に転記してください。</div>
+        <div style="overflow-x:auto">
+          <table class="est-tbl" id="inq-table">
+            <thead>
+              <tr>
+                <th>#</th><th>分類</th><th>品目</th><th>型番・仕様</th>
+                <th>メーカー</th><th class="num">数量</th><th>単位</th>
+                <th class="num">定価参考</th><th>備考・代替品</th>
+              </tr>
+            </thead>
+            <tbody id="inq-body">
+              <tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">見積明細で「要見積」をチェックすると表示されます</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ PRICE MASTER ══════════ -->
+    <div class="section-panel" id="panel-pricemaster">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📊</div><h3>単価マスタ管理</h3>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn sm primary" onclick="importPriceCsv()">📤 CSVインポート</button>
+            <button class="btn sm" onclick="exportPriceCsv()">📥 CSVテンプレ出力</button>
+          </div>
+        </div>
+        <div class="info-box">CSVフォーマット：<code>品番,品名,メーカー,単位,定価(税抜),備考</code> の順で入力してください。インポートすると下記マスタに追加・上書きされます。</div>
+
+        <div class="margin-ctrl">
+          <label>CSVデータを貼り付け：</label>
+        </div>
+        <textarea class="csv-area" id="csv-input" placeholder="品番,品名,メーカー,単位,定価,備考&#10;例）NEG-FBC2220,フリーボックスC-22×20,ネグロス,m,320,PF管用&#10;PAN-MSB-6,ブレーカー EX-100EA 100A,パナソニック,個,8500,&#10;..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;margin-bottom:16px">
+          <button class="btn primary" onclick="doCsvImport()">インポート実行</button>
+          <button class="btn" onclick="document.getElementById('csv-input').value=''">クリア</button>
+        </div>
+
+        <h4 style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">登録済み単価マスタ（内蔵＋インポート分）</h4>
+        <div style="overflow-x:auto">
+          <table class="est-tbl" id="master-table">
+            <thead><tr><th>品番</th><th>品名</th><th>メーカー</th><th>単位</th><th class="num">定価(税抜)</th><th>備考</th><th></th></tr></thead>
+            <tbody id="master-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ BOM ══════════ -->
+    <div class="section-panel" id="panel-bom">
+      <div class="card">
+        <div class="card-header"><div class="card-icon">📄</div><h3>部材リスト（BOM）</h3>
+          <button class="btn sm" onclick="window.print()" style="margin-left:auto">🖨 印刷</button>
+        </div>
+        <table class="tbl" id="bom-table">
+          <thead><tr><th>#</th><th>分類</th><th>品目</th><th>型番・仕様</th><th class="num">数量</th><th>単位</th><th>備考</th></tr></thead>
+          <tbody id="bom-body">
+            <tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">各セクションを入力するとBOMに反映されます</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- ═══ SAVE MODAL ═══ -->
+<div class="modal-bg" id="modal-save">
+  <div class="modal">
+    <h3>💾 案件データを保存</h3>
+    <div class="field" style="margin-bottom:12px">
+      <label>保存名（案件名が自動入力されます）</label>
+      <input type="text" id="save-name" placeholder="保存名を入力">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn primary" onclick="doSave()">保存</button>
+      <button class="btn" onclick="closeModals()">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LOAD MODAL ═══ -->
+<div class="modal-bg" id="modal-load">
+  <div class="modal">
+    <h3>📂 保存済みデータを読み込む</h3>
+    <div id="load-slots" style="margin-bottom:14px"></div>
+    <button class="btn" onclick="closeModals()">閉じる</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  PANEL CATALOG
+// ═══════════════════════════════════════════════
+const PANEL_DB = {
+  longi: [
+    { model:'Hi-MO 7 LR5-72HIH-485M', wp:485, voc:49.9, vmp:41.75, isc:12.30, imp:11.62, tvoc:-0.27, tp:-0.30, w:2256, h:1133 },
+    { model:'Hi-MO 7 LR5-72HIH-500M', wp:500, voc:50.5, vmp:42.4,  isc:12.50, imp:11.80, tvoc:-0.27, tp:-0.30, w:2256, h:1133 },
+    { model:'Hi-MO 6 LR5-54HTH-430M', wp:430, voc:47.0, vmp:39.6,  isc:11.68, imp:10.86, tvoc:-0.27, tp:-0.35, w:2094, h:1038 },
+    { model:'Hi-MO X6 LR5-72HTH-580M', wp:580, voc:55.6, vmp:47.8, isc:13.27, imp:12.13, tvoc:-0.25, tp:-0.29, w:2384, h:1303 },
+  ],
+  canadian: [
+    { model:'HiKu7 CS7N-660MS', wp:660, voc:56.3, vmp:47.2, isc:14.94, imp:13.99, tvoc:-0.26, tp:-0.35, w:2384, h:1303 },
+    { model:'HiKu7 CS7N-595MS', wp:595, voc:52.5, vmp:44.4, isc:14.36, imp:13.41, tvoc:-0.27, tp:-0.35, w:2182, h:1303 },
+    { model:'BiHiKu7 CS7N-625MB-AG', wp:625, voc:54.1, vmp:45.8, isc:14.56, imp:13.63, tvoc:-0.27, tp:-0.35, w:2384, h:1303 },
+  ],
+  hanwha: [
+    { model:'Q.PEAK DUO ML-G11S 500', wp:500, voc:52.8, vmp:44.3, isc:12.08, imp:11.29, tvoc:-0.27, tp:-0.34, w:2278, h:1136 },
+    { model:'Q.PEAK DUO ML-G11S 480', wp:480, voc:51.9, vmp:43.6, isc:11.80, imp:11.01, tvoc:-0.27, tp:-0.34, w:2278, h:1136 },
+    { model:'Q.TRON M-G2+ 420', wp:420, voc:50.9, vmp:42.8, isc:10.50, imp:9.82, tvoc:-0.27, tp:-0.35, w:1722, h:1134 },
+  ],
+  jinko: [
+    { model:'Tiger Neo N-type 605J78C-IHV', wp:605, voc:53.5, vmp:45.2, isc:14.37, imp:13.40, tvoc:-0.25, tp:-0.30, w:2465, h:1134 },
+    { model:'Tiger Neo N-type 580J78C-IHV', wp:580, voc:52.8, vmp:44.6, isc:13.94, imp:13.00, tvoc:-0.25, tp:-0.30, w:2278, h:1134 },
+    { model:'Eagle G4 500 JKM500M-7RL4-V', wp:500, voc:50.1, vmp:42.3, isc:12.73, imp:11.83, tvoc:-0.28, tp:-0.35, w:2182, h:1029 },
+  ],
+  trina: [
+    { model:'Vertex DEG21C.20 680W', wp:680, voc:57.2, vmp:48.5, isc:15.17, imp:14.03, tvoc:-0.25, tp:-0.29, w:2384, h:1303 },
+    { model:'Vertex S DE09R.08M 420W', wp:420, voc:50.0, vmp:42.7, isc:10.72, imp:9.84, tvoc:-0.28, tp:-0.34, w:1762, h:1134 },
+    { model:'Vertex DEG20C.20 545W', wp:545, voc:51.1, vmp:43.2, isc:13.58, imp:12.61, tvoc:-0.27, tp:-0.34, w:2187, h:1102 },
+  ],
+  rec: [
+    { model:'REC Alpha Pure-R 420AA', wp:420, voc:53.3, vmp:44.9, isc:10.07, imp:9.36, tvoc:-0.24, tp:-0.26, w:1821, h:1016 },
+    { model:'REC TwinPeak 5S 405AA', wp:405, voc:48.9, vmp:41.5, isc:10.70, imp:9.76, tvoc:-0.27, tp:-0.34, w:1879, h:1016 },
+  ],
+  panasonic: [
+    { model:'HIT VBHN325SJ47', wp:325, voc:69.7, vmp:58.0, isc:6.07, imp:5.61, tvoc:-0.19, tp:-0.26, w:1590, h:1053 },
+    { model:'EverVolt EVPV410HK', wp:410, voc:72.9, vmp:62.0, isc:7.35, imp:6.61, tvoc:-0.21, tp:-0.27, w:1820, h:1046 },
+  ],
+  sharp: [
+    { model:'NU-AC330 330W', wp:330, voc:67.8, vmp:56.3, isc:6.31, imp:5.87, tvoc:-0.28, tp:-0.36, w:1722, h:1134 },
+    { model:'NU-BA350 350W', wp:350, voc:49.2, vmp:40.8, isc:9.14, imp:8.58, tvoc:-0.29, tp:-0.36, w:1722, h:1134 },
+  ],
+  kyocera: [
+    { model:'KD400AG-4BC2 400W', wp:400, voc:50.0, vmp:41.8, isc:10.24, imp:9.57, tvoc:-0.26, tp:-0.36, w:2008, h:1130 },
+    { model:'KD330AG-4BD2 330W', wp:330, voc:46.0, vmp:37.6, isc:9.24, imp:8.78, tvoc:-0.27, tp:-0.37, w:1665, h:1000 },
+  ],
+  other: [
+    { model:'カスタム入力', wp:480, voc:49.0, vmp:40.5, isc:12.0, imp:11.2, tvoc:-0.27, tp:-0.35, w:2100, h:1050 },
+  ]
+};
+
+// ═══════════════════════════════════════════════
+//  PCS CATALOG
+// ═══════════════════════════════════════════════
+const PCS_DB = {
+  huawei: [
+    { model:'SUN2000-111KTL-H2', kw:111, vmax:1500, vmppMin:200, vmppMax:1300, imax:13.5, mppt:12, vout:270 },
+    { model:'SUN2000-100KTL-H1', kw:100, vmax:1500, vmppMin:200, vmppMax:1300, imax:13.5, mppt:10, vout:270 },
+    { model:'SUN2000-50KTL-M3',  kw:50,  vmax:1100, vmppMin:200, vmppMax:1000, imax:14.5, mppt:6,  vout:270 },
+    { model:'SUN2000-30KTL-M3',  kw:30,  vmax:1100, vmppMin:200, vmppMax:1000, imax:14.5, mppt:4,  vout:220 },
+    { model:'SUN2000-10KTL-M1',  kw:10,  vmax:1000, vmppMin:140, vmppMax:850,  imax:13.5, mppt:2,  vout:220 },
+    { model:'SUN2000-4.95KTL',   kw:4.95,vmax:600,  vmppMin:90,  vmppMax:520,  imax:11.0, mppt:2,  vout:220 },
+  ],
+  yasukawa: [
+    { model:'VS-SM500-S',  kw:500, vmax:1000, vmppMin:420, vmppMax:850, imax:840, mppt:1, vout:440 },
+    { model:'VS-SM250-S',  kw:250, vmax:1000, vmppMin:420, vmppMax:850, imax:420, mppt:1, vout:440 },
+    { model:'VS-SM125-S',  kw:125, vmax:1000, vmppMin:370, vmppMax:850, imax:210, mppt:1, vout:440 },
+  ],
+  sungrow: [
+    { model:'SG110CX',  kw:110, vmax:1500, vmppMin:200, vmppMax:1300, imax:15.0, mppt:12, vout:270 },
+    { model:'SG110CX-V112', kw:110, vmax:1500, vmppMin:200, vmppMax:1300, imax:15.0, mppt:12, vout:270 },
+    { model:'SG50CX',   kw:50,  vmax:1500, vmppMin:200, vmppMax:1300, imax:15.0, mppt:6,  vout:270 },
+    { model:'SG30CX-P2',kw:30,  vmax:1100, vmppMin:200, vmppMax:1000, imax:15.0, mppt:3,  vout:270 },
+  ],
+  other: [
+    { model:'カスタム入力', kw:50, vmax:1100, vmppMin:200, vmppMax:1000, imax:14, mppt:4, vout:270 },
+  ]
+};
+
+// ═══════════════════════════════════════════════
+//  CABLE DATA
+// ═══════════════════════════════════════════════
+const CABLE = {
+  'PV-1F-4': { cs:4,   ia:40,  R:4.61, od:7.6  },
+  'PV-1F-6': { cs:6,   ia:52,  R:3.08, od:8.6  },
+  'CV-5.5':  { cs:5.5, ia:49,  R:3.33, od:9.0  },
+  'CV-8':    { cs:8,   ia:61,  R:2.30, od:10.5 },
+  'CV-38':   { cs:38,  ia:150, R:0.49, od:18.0 },
+  'CV-60':   { cs:60,  ia:200, R:0.31, od:22.0 },
+  'CV-100':  { cs:100, ia:280, R:0.188,od:26.0 },
+  'CV-150':  { cs:150, ia:345, R:0.124,od:30.0 },
+  'CVT-60':  { cs:60,  ia:210, R:0.31, od:11.5 },
+  'CVT-100': { cs:100, ia:290, R:0.188,od:13.5 },
+  'CN-CV-60': { cs:60, ia:230, R:0.31, od:23.0 },
+  'CN-CV-100':{ cs:100,ia:305, R:0.188,od:27.0 },
+  'OF-100':  { cs:100, ia:310, R:0.188,od:28.0 },
+};
+
+// ═══════════════════════════════════════════════
+//  DC RUNS (複数ルート)
+// ═══════════════════════════════════════════════
+let dcRuns = [];
+let dcRunId = 0;
+
+function addDcRun(data) {
+  const id = ++dcRunId;
+  dcRuns.push({ id, name: 'ルート'+id, cableKey:'PV-1F-4', pipeKey:'', len:30, num:4 });
+  renderDcRuns();
+}
+
+function removeDcRun(id) {
+  dcRuns = dcRuns.filter(r => r.id !== id);
+  renderDcRuns();
+  calcWiring();
+}
+
+function renderDcRuns() {
+  const c = document.getElementById('dc-runs');
+  c.innerHTML = '';
+  dcRuns.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'dc-run-row';
+    div.id = 'dc-run-' + r.id;
+    div.innerHTML = `
+      <span class="run-label" style="font-size:10px;color:var(--accent)">No.${r.id}</span>
+      <input type="text" value="${r.name}" onchange="updateRun(${r.id},'name',this.value)" placeholder="区間名称">
+      <select onchange="updateRun(${r.id},'cableKey',this.value)">
+        ${Object.keys(CABLE).map(k=>`<option value="${k}" ${k===r.cableKey?'selected':''}>${k}</option>`).join('')}
+      </select>
+      <select onchange="updateRun(${r.id},'pipeKey',this.value)">
+        <option value="auto">自動選定</option>
+        <option value="PF-22">PF22</option><option value="PF-28">PF28</option>
+        <option value="PF-36">PF36</option><option value="PF-42">PF42</option>
+        <option value="C-19">C19</option><option value="C-25">C25</option>
+        <option value="C-31">C31</option><option value="C-39">C39</option>
+      </select>
+      <input type="number" value="${r.len}" min="1" onchange="updateRun(${r.id},'len',+this.value)" style="text-align:right">
+      <input type="number" value="${r.num}" min="1" onchange="updateRun(${r.id},'num',+this.value)" style="text-align:right">
+      <div class="drop-cell"><span id="dc-run-drop-${r.id}" class="rv" style="font-size:11px;padding:4px 6px">—</span></div>
+      <button class="btn sm danger" onclick="removeDcRun(${r.id})">✕</button>
+    `;
+    c.appendChild(div);
+  });
+  calcWiring();
+}
+
+function updateRun(id, key, val) {
+  const r = dcRuns.find(x => x.id === id);
+  if (r) { r[key] = val; calcWiring(); }
+}
+
+// ═══════════════════════════════════════════════
+//  PIPE SELECTION
+// ═══════════════════════════════════════════════
+const PIPE_GEN = [ // PF管
+  {key:'PF-22',id:19.0},{key:'PF-28',id:24.0},{key:'PF-36',id:30.6},
+  {key:'PF-42',id:36.2},{key:'PF-54',id:47.4},{key:'PF-70',id:61.0},
+];
+const PIPE_PUB = [ // C管
+  {key:'C-19',id:16.3},{key:'C-25',id:21.3},{key:'C-31',id:27.0},
+  {key:'C-39',id:35.0},{key:'C-51',id:47.0},{key:'C-63',id:59.0},{key:'C-75',id:71.0},
+];
+function selectPipe(cableKey, numCables) {
+  const od = (CABLE[cableKey]||{od:10}).od;
+  const tot = numCables * Math.PI * (od/2)**2;
+  const list = currentSpec === 'public' ? PIPE_PUB : PIPE_GEN;
+  const typeLabel = currentSpec === 'public' ? 'C管' : 'PF管';
+  for (const p of list) {
+    const fill = tot / (Math.PI*(p.id/2)**2);
+    if (fill <= 0.32) return { key:p.key, label:`${typeLabel} ${p.key.split('-')[1]}`, fillPct:Math.round(fill*100) };
+  }
+  return { key:'—', label:`${typeLabel} サイズ超過`, fillPct:100 };
+}
+
+// ═══════════════════════════════════════════════
+//  STATE & SPEC
+// ═══════════════════════════════════════════════
+let currentSpec = 'general';
+
+function setSpec(s) {
+  currentSpec = s;
+  document.getElementById('btn-gen').classList.toggle('active', s==='general');
+  document.getElementById('btn-pub').classList.toggle('active', s==='public');
+  const lbl = document.getElementById('spec-label');
+  lbl.textContent = s==='general'?'一般仕様':'営繕仕様（公共）';
+  lbl.className = 'spec-badge ' + s;
+  document.getElementById('sum-spec').textContent = s==='general'?'一般':'営繕';
+  document.getElementById('pipe-spec-note').textContent = s==='general'
+    ? '一般仕様：PF管（耐UV）。営繕仕様：金属製電線管（C管・E管）。'
+    : '営繕仕様：原則 金属製電線管（C管・E管）を使用。露出部C管、隠蔽部E管。';
+  calcEarth(); calcWiring(); updateCabinet();
+}
+
+// ═══════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════
+const TITLES = {base:'案件・基本条件',panel:'パネル選定',pcs:'パワコン選定',frame:'架台選定',wiring:'配線経路・ケーブル選定',breaker:'ブレーカー・盤類',hv:'高圧継電器・変圧器',earth:'接地工事',comm:'通信線・モニタリング',cabinet:'キャビネット仕様',estimate:'見積・金額計算',inquiry:'電材商社 見積依頼',pricemaster:'単価マスタ管理',bom:'部材リスト（BOM）'};
+function gotoSection(id) {
+  document.querySelectorAll('.section-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('page-title').textContent = TITLES[id]||id;
+  if (id==='bom') generateBOM();
+  if (id==='cabinet') updateCabinet();
+  if (id==='estimate') { generateBOM(); buildEstimate(); }
+  if (id==='inquiry') buildInquiry();
+  if (id==='pricemaster') renderMaster();
+}
+
+// ═══════════════════════════════════════════════
+//  PANEL MODEL BUILDER
+// ═══════════════════════════════════════════════
+function buildPanelModels() {
+  const maker = document.getElementById('panel-maker').value;
+  const sel = document.getElementById('panel-model');
+  sel.innerHTML = '';
+  (PANEL_DB[maker]||PANEL_DB.other).forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.model; o.textContent = p.model; sel.appendChild(o);
+  });
+  applyPanelModel();
+}
+function applyPanelModel() {
+  const maker = document.getElementById('panel-maker').value;
+  const model = document.getElementById('panel-model').value;
+  const p = (PANEL_DB[maker]||[]).find(x=>x.model===model) || PANEL_DB.other[0];
+  if (!p) return;
+  ['wp','voc','vmp','isc','imp','tvoc','tp','w','h'].forEach(k=>{
+    document.getElementById('p-'+k).value = p[k];
+  });
+  calcAll();
+}
+
+// ═══════════════════════════════════════════════
+//  PCS MODEL BUILDER
+// ═══════════════════════════════════════════════
+function buildPcsModels() {
+  const maker = document.getElementById('pcs-maker').value;
+  const sel = document.getElementById('pcs-model');
+  sel.innerHTML = '';
+  (PCS_DB[maker]||PCS_DB.other).forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.model; o.textContent = `${p.model}（${p.kw}kW）`; sel.appendChild(o);
+  });
+  applyPcsModel();
+}
+function applyPcsModel() {
+  const maker = document.getElementById('pcs-maker').value;
+  const model = document.getElementById('pcs-model').value;
+  const p = (PCS_DB[maker]||[]).find(x=>x.model===model) || PCS_DB.other[0];
+  if (!p) return;
+  document.getElementById('pcs-kw').value   = p.kw;
+  document.getElementById('pcs-vmax').value = p.vmax;
+  document.getElementById('pcs-mppt').value = p.mppt;
+  document.getElementById('pcs-vout').value = p.vout;
+  document.getElementById('pcs-vmax-ref').value = p.vmax;
+  calcAll();
+}
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function V(id) { return parseFloat(document.getElementById(id)?.value)||0; }
+function setRV(id, text, cls='') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'rv' + (cls?' '+cls:'');
+}
+function nextBrRating(i) {
+  const r=[15,20,30,40,50,60,75,100,125,150,175,200,225,250,300,350,400,500,600,800,1000,1200,1600,2000];
+  return r.find(x=>x>=i)||Math.ceil(i/100)*100;
+}
+function toggleRoof() {
+  const t = document.getElementById('install-type').value;
+  document.getElementById('fld-wp').style.display = t==='flat'?'':'none';
+}
+
+// ═══════════════════════════════════════════════
+//  CALCULATIONS
+// ═══════════════════════════════════════════════
+function calcAll() {
+  calcString();
+  calcPanelCount();
+  calcPCS();
+  calcWiring();
+  calcBreaker();
+  calcHV();
+  calcFrame();
+  calcEarth();
+  updateWiringDeviceLabels();
+}
+
+function calcString() {
+  const voc=V('p-voc'), vmp=V('p-vmp'), isc=V('p-isc');
+  const tvoc=V('p-tvoc'), n=V('str-series'), tmin=V('t-min');
+  const pcsVmax=V('pcs-vmax-ref');
+  if (!voc||!n) return;
+  const dt = tmin-25;
+  const vocAdj = voc*(1+tvoc/100*dt);
+  const vmaxStr = vocAdj*n;
+  const vmpStr  = vmp*n;
+  const cls = vmaxStr>pcsVmax ? 'danger' : '';
+  setRV('rv-vmax-str', vmaxStr.toFixed(1)+' V', cls);
+  setRV('rv-vmp-str',  vmpStr.toFixed(1)+' V');
+  setRV('rv-isc-str',  isc.toFixed(2)+' A');
+  setRV('rv-vmax-check', vmaxStr>pcsVmax ? '⚠ '+pcsVmax+'V 超過' : '✓ '+pcsVmax+'V 以内', cls);
+}
+
+function calcPanelCount() {
+  const wp=V('p-wp'), pcsKw=V('pcs-kw'), pcsN=V('pcs-count');
+  const target = pcsKw*pcsN;
+  if (!wp||!target) return;
+  const n = Math.ceil(target*1000/wp);
+  const kwp = (n*wp/1000).toFixed(2);
+  setRV('rv-panel-n', n+' 枚');
+  setRV('rv-panel-kwp', kwp+' kWp');
+  const pw=V('p-w'), ph=V('p-h');
+  if (pw&&ph) setRV('rv-panel-dim', (pw/1000).toFixed(3)+'m × '+(ph/1000).toFixed(3)+'m');
+  document.getElementById('sum-panels').textContent = n;
+  document.getElementById('sum-kw').textContent = (pcsKw*pcsN).toFixed(0);
+}
+
+function calcPCS() {
+  const kw=V('pcs-kw'), n=V('pcs-count');
+  const total=kw*n;
+  setRV('rv-pcs-total', total.toFixed(1)+' kW');
+  document.getElementById('sum-pcs').textContent = n;
+  const kwpText = document.getElementById('rv-panel-kwp').textContent;
+  const kwp = parseFloat(kwpText)||total;
+  const ratio = total>0 ? kwp/total : 0;
+  const cls = ratio>1.5?'danger':ratio>1.35?'warn':'';
+  setRV('rv-overload', ratio.toFixed(2), cls);
+  document.getElementById('overload-warn').style.display = ratio>1.5?'':'none';
+}
+
+function calcWiring() {
+  const isc   = V('p-isc');
+  const vmpS  = V('str-series')*V('p-vmp');
+  const pcsKw = V('pcs-kw'), pcsN=V('pcs-count'), vout=V('pcs-vout');
+  const mppt  = V('pcs-mppt');
+  const strN  = mppt * pcsN; // total MPPT as proxy for string count
+
+  // ── DC① ──
+  const dc1 = CABLE[document.getElementById('dc1-type').value] || CABLE['PV-1F-4'];
+  const dc1len = V('dc1-len');
+  const dc1drop = vmpS>0 ? (2*dc1len*isc*dc1.R/1000)/vmpS*100 : 0;
+  setDropLabel('wd-dc1-drop', dc1drop, currentSpec==='public'?1.5:2.0);
+
+  // ── DC② ──
+  const dc2 = CABLE[document.getElementById('dc2-type').value] || CABLE['CV-38'];
+  const dc2len = V('dc2-len');
+  const totalDcI = strN * isc;
+  const dc2drop = vmpS>0 ? (2*dc2len*totalDcI*dc2.R/1000)/vmpS*100 : 0;
+  setDropLabel('wd-dc2-drop', dc2drop, currentSpec==='public'?1.5:2.0);
+
+  // ── AC③ ──
+  const ac3t = document.getElementById('ac3-type').value;
+  const ac3 = CABLE[ac3t.replace('CV-','CV-').replace('CVT-','CVT-')] || CABLE['CV-60'];
+  const ac3len = V('ac3-len');
+  const acI = vout>0 ? pcsKw*1000*pcsN/(Math.sqrt(3)*vout) : 0;
+  const ac3drop = vout>0 ? (2*ac3len*acI*ac3.R/1000)/vout*100 : 0;
+  setDropLabel('wd-ac3-drop', ac3drop, currentSpec==='public'?1.5:2.0);
+
+  // ── DC runs ──
+  dcRuns.forEach(r => {
+    const cd = CABLE[r.cableKey] || CABLE['PV-1F-4'];
+    const drop = vmpS>0 ? (2*r.len*isc*cd.R/1000)/vmpS*100 : 0;
+    const el = document.getElementById('dc-run-drop-'+r.id);
+    if (el) { el.textContent = drop.toFixed(2)+'%'; el.className='rv '+(drop>3?'danger':drop>2?'warn':''); el.style.fontSize='11px';el.style.padding='4px 6px'; }
+    // auto pipe
+    if (r.pipeKey==='auto') {
+      const res = selectPipe(r.cableKey, r.num);
+      r._pipe = res.label;
+    } else r._pipe = r.pipeKey;
+  });
+
+  updatePipeSummary(dc1, dc2, ac3, vout, pcsKw*pcsN, strN);
+}
+
+function setDropLabel(id, pct, limit) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const cls = pct>limit*1.5?'ng':pct>limit?'warn':'ok';
+  el.className = 'wd-volt-drop ' + cls;
+  el.textContent = 'ΔV ' + pct.toFixed(2) + '% ' + (pct>limit?'⚠':'✓');
+}
+
+function updatePipeSummary(dc1cd, dc2cd, ac3cd, vout, totalKw, strN) {
+  const rows = [
+    { seg:'DC① ストリング', ckey:document.getElementById('dc1-type').value, n:4, len:V('dc1-len') },
+    { seg:'DC② 主DCケーブル', ckey:document.getElementById('dc2-type').value, n:2, len:V('dc2-len') },
+    { seg:'AC③ 低圧幹線', ckey:document.getElementById('ac3-type').value.split(' ')[0], n:3, len:V('ac3-len') },
+    ...dcRuns.map(r=>({ seg:'DC '+r.name, ckey:r.cableKey, n:r.num, len:r.len })),
+  ];
+  const tbody = document.getElementById('pipe-summary-body');
+  tbody.innerHTML = '';
+  rows.forEach(row => {
+    const res = selectPipe(row.ckey, row.n);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${row.seg}</td><td><span style="font-size:11px">${row.ckey}</span></td>
+      <td class="num">${row.n}</td>
+      <td><strong>${res.label}</strong></td>
+      <td class="num" style="color:${res.fillPct>80?'var(--danger)':res.fillPct>60?'var(--warn)':'var(--text)'}">${res.fillPct}%</td>
+      <td class="num">${row.len}m</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function updateWiringDeviceLabels() {
+  const maker = document.getElementById('panel-maker').options[document.getElementById('panel-maker').selectedIndex]?.text||'';
+  const wp = V('p-wp');
+  document.getElementById('wd-panel-spec').textContent = wp>0?wp+'Wp':'—';
+  const pcsKw=V('pcs-kw'),pcsN=V('pcs-count');
+  document.getElementById('wd-pcs-spec').textContent = pcsKw>0?(pcsKw+'kW×'+pcsN):'—';
+  const mppt=V('pcs-mppt');
+  document.getElementById('wd-jb-spec').textContent = (mppt*pcsN)+'回路';
+}
+
+function calcBreaker() {
+  const isc=V('p-isc'), strN=V('pcs-mppt')*V('pcs-count');
+  const dcI=strN*isc;
+  setRV('rv-dc-mcb', nextBrRating(dcI*1.25)+' A MCCB-DC');
+  const pcsKw=V('pcs-kw'),pcsN=V('pcs-count'),vout=V('pcs-vout');
+  const acI=vout>0?pcsKw*1000*pcsN/(Math.sqrt(3)*vout):0;
+  setRV('rv-ac-mcb', nextBrRating(acI*1.25)+' A MCCB');
+  setRV('rv-elb', nextBrRating(acI*1.25)+' A ELB (漏電30mA)');
+  const jbIn=V('pcs-mppt')*V('pcs-count');
+  setRV('rv-jb-in', jbIn+' 回路');
+  setRV('rv-jb-sz', jbIn<=16?'16回路型':jbIn<=24?'24回路型':'32回路型以上');
+}
+
+function calcHV() {
+  const total=V('pcs-kw')*V('pcs-count');
+  const kva=Math.ceil(total*1.1/10)*10;
+  setRV('rv-tr-kva', kva+' kVA');
+}
+
+function calcFrame() {
+  const snow=V('snow'), wind=V('wind'), dead=V('load-dead');
+  const snowLoad=snow*20*0.5;
+  const windPa=Math.pow(wind,2)*0.6;
+  setRV('rv-snow', snowLoad.toFixed(0)+' kg/m²');
+  setRV('rv-wind', windPa.toFixed(0)+' Pa');
+  setRV('rv-total-load', (dead+snowLoad).toFixed(0)+' kg/m²');
+}
+
+function calcEarth() {
+  const pub=currentSpec==='public';
+  setRV('rv-ea', (pub?'IV 22mm²':'IV 14mm²')+' '+V('ea-len')+'m');
+  setRV('rv-ec', (pub?'IV 14mm²':'IV 5.5mm²')+' '+V('ec-len')+'m');
+  setRV('rv-ed', (pub?'IV 5.5mm²':'IV 2.0mm²')+' '+V('ed-len')+'m');
+}
+
+function updateCabinet() {
+  const pub=currentSpec==='public';
+  const jb=document.getElementById('jb-spec')?.value;
+  const lv=document.getElementById('lv-spec')?.value;
+  const cub=document.getElementById('cub-mat')?.options[document.getElementById('cub-mat').selectedIndex]?.text;
+  document.getElementById('cab-jb').textContent  = jb==='SUS'?'SUS304製 屋外型':'FRP製 屋外型';
+  document.getElementById('cab-lv').textContent  = lv?.includes('SUS')?'SUS304製':lv?.includes('FRP')?'FRP製':'鋼板塗装仕上';
+  document.getElementById('cab-hv').textContent  = cub||'—';
+  document.getElementById('cab-dc').textContent  = pub?'C管（金属可撓）':'PF管（耐UV仕様）';
+  document.getElementById('cab-ac').textContent  = pub?'C管（金属可撓）':'PF管 / HIVP管';
+  document.getElementById('cab-comm').textContent= pub?'金属管 φ19以上':'PF管 φ16';
+}
+
+// ═══════════════════════════════════════════════
+//  PRICE MASTER DATABASE
+// ═══════════════════════════════════════════════
+// 内蔵単価マスタ（定価・税抜）主要B材メーカー代表品番
+// 出典：各社定価表（参考値）実際の取引価格は商社確認要
+const BUILTIN_MASTER = [
+  // ── ネグロス電工 ──
+  {code:'NEG-FBC2220',  name:'フリーボックス FBC22×20',       maker:'ネグロス', unit:'m',   price:280,  note:'PF管用サドル付'},
+  {code:'NEG-FBC2816',  name:'フリーボックス FBC28×16',       maker:'ネグロス', unit:'m',   price:380,  note:''},
+  {code:'NEG-FBC3622',  name:'フリーボックス FBC36×22',       maker:'ネグロス', unit:'m',   price:520,  note:''},
+  {code:'NEG-C19',      name:'ねじなし電線管 C19',             maker:'ネグロス', unit:'本',  price:320,  note:'3.66m/本'},
+  {code:'NEG-C25',      name:'ねじなし電線管 C25',             maker:'ネグロス', unit:'本',  price:490,  note:'3.66m/本'},
+  {code:'NEG-C31',      name:'ねじなし電線管 C31',             maker:'ネグロス', unit:'本',  price:680,  note:'3.66m/本'},
+  {code:'NEG-C39',      name:'ねじなし電線管 C39',             maker:'ネグロス', unit:'本',  price:920,  note:'3.66m/本'},
+  {code:'NEG-WB3616',   name:'ウォルボックス WB3616',          maker:'ネグロス', unit:'個',  price:3200, note:'屋外用プラボックス'},
+  {code:'NEG-WB4020',   name:'ウォルボックス WB4020',          maker:'ネグロス', unit:'個',  price:4100, note:''},
+  {code:'NEG-SAD-22',   name:'サドル SAD-22（PF22用）',        maker:'ネグロス', unit:'個',  price:42,   note:''},
+  {code:'NEG-SAD-28',   name:'サドル SAD-28（PF28用）',        maker:'ネグロス', unit:'個',  price:55,   note:''},
+  {code:'NEG-SCO-19',   name:'サドル SCO-19（C19用）',         maker:'ネグロス', unit:'個',  price:88,   note:''},
+  // ── パナソニック ──
+  {code:'PAN-BQWB3222', name:'コスモパネル 30+2 225A',         maker:'パナソニック', unit:'面', price:38000, note:'主幹漏電3P30A'},
+  {code:'PAN-BBW3102',  name:'分電盤 スッキリパネル 100A 10+2',maker:'パナソニック', unit:'面', price:42000, note:''},
+  {code:'PAN-BWCP1152', name:'コンパクトアレスタ 内蔵型',       maker:'パナソニック', unit:'個', price:5800,  note:'避雷素子付'},
+  {code:'PAN-NF125-CP', name:'漏電ブレーカー NF125-CWU 125A',  maker:'パナソニック', unit:'個', price:28000, note:'3P3E'},
+  {code:'PAN-NF250-CP', name:'漏電ブレーカー NF250-CWU 250A',  maker:'パナソニック', unit:'個', price:52000, note:'3P3E'},
+  {code:'PAN-BKW3303',  name:'電力量計ボックス WP3303',         maker:'パナソニック', unit:'個', price:3200,  note:'屋外用'},
+  {code:'PAN-MSB-30',   name:'モジュラーブレーカー BJ 30A',     maker:'パナソニック', unit:'個', price:1200,  note:'2P2E'},
+  // ── 古河電工 ──
+  {code:'FUR-CV-2.0-2C', name:'CVケーブル 2.0mm² 2C',          maker:'古河電工', unit:'m',  price:185,   note:'600V'},
+  {code:'FUR-CV-5.5-2C', name:'CVケーブル 5.5mm² 2C',          maker:'古河電工', unit:'m',  price:380,   note:'600V'},
+  {code:'FUR-CV-14-3C',  name:'CVケーブル 14mm² 3C',           maker:'古河電工', unit:'m',  price:980,   note:'600V'},
+  {code:'FUR-CV-38-1C',  name:'CVケーブル 38mm² 1C',           maker:'古河電工', unit:'m',  price:1450,  note:''},
+  {code:'FUR-CV-60-3C',  name:'CVケーブル 60mm² 3C',           maker:'古河電工', unit:'m',  price:5800,  note:''},
+  {code:'FUR-CV-100-3C', name:'CVケーブル 100mm² 3C',          maker:'古河電工', unit:'m',  price:9200,  note:''},
+  {code:'FUR-CVT-60',    name:'CVTケーブル 60mm²',              maker:'古河電工', unit:'m',  price:3200,  note:'3心より合せ'},
+  {code:'FUR-CVT-100',   name:'CVTケーブル 100mm²',             maker:'古河電工', unit:'m',  price:5100,  note:''},
+  {code:'FUR-IV-2.0',    name:'IVケーブル 2.0mm²',              maker:'古河電工', unit:'m',  price:68,    note:'接地用'},
+  {code:'FUR-IV-5.5',    name:'IVケーブル 5.5mm²',              maker:'古河電工', unit:'m',  price:145,   note:''},
+  {code:'FUR-IV-14',     name:'IVケーブル 14mm²',               maker:'古河電工', unit:'m',  price:320,   note:'A種接地'},
+  {code:'FUR-IV-22',     name:'IVケーブル 22mm²',               maker:'古河電工', unit:'m',  price:480,   note:'A種接地 営繕'},
+  // ── 河村電器産業 ──
+  {code:'KAW-CL5020',    name:'電力量計ボックス CL-5020',        maker:'河村電器', unit:'個', price:2800,  note:'屋外用 スマートメータ対応'},
+  {code:'KAW-JSB3060',   name:'低圧接続箱 JSB-3060',            maker:'河村電器', unit:'個', price:18000, note:'60A 3P 屋外FRP'},
+  {code:'KAW-SDB-200',   name:'太陽電池接続箱 SDB-200',         maker:'河村電器', unit:'個', price:45000, note:'200V DC接続箱 4回路'},
+  {code:'KAW-SDB-400',   name:'太陽電池接続箱 SDB-400',         maker:'河村電器', unit:'個', price:68000, note:'400V DC接続箱 8回路'},
+  {code:'KAW-SDB-1500-8',name:'DC1500V接続箱 8回路',            maker:'河村電器', unit:'個', price:98000, note:'1500V対応 FRP屋外'},
+  {code:'KAW-SDB-1500-16',name:'DC1500V接続箱 16回路',          maker:'河村電器', unit:'個', price:145000,note:'1500V対応 FRP屋外'},
+  {code:'KAW-NX4400',    name:'制御盤 NX型 400×400',            maker:'河村電器', unit:'面', price:32000, note:'屋外用スチール'},
+  {code:'KAW-NX6060',    name:'制御盤 NX型 600×600',            maker:'河村電器', unit:'面', price:48000, note:''},
+  // ── 未来工業 ──
+  {code:'MIR-PFS-16',    name:'PF管 16サイズ（10m）',           maker:'未来工業', unit:'巻', price:520,   note:'耐UV'},
+  {code:'MIR-PFS-22',    name:'PF管 22サイズ（10m）',           maker:'未来工業', unit:'巻', price:780,   note:'耐UV'},
+  {code:'MIR-PFS-28',    name:'PF管 28サイズ（10m）',           maker:'未来工業', unit:'巻', price:1050,  note:'耐UV'},
+  {code:'MIR-PFS-36',    name:'PF管 36サイズ（10m）',           maker:'未来工業', unit:'巻', price:1680,  note:'耐UV'},
+  {code:'MIR-PFS-42',    name:'PF管 42サイズ（10m）',           maker:'未来工業', unit:'巻', price:2300,  note:'耐UV'},
+  {code:'MIR-PF-S16',    name:'PFサドル 16用 10個入',           maker:'未来工業', unit:'袋', price:380,   note:''},
+  {code:'MIR-PF-S22',    name:'PFサドル 22用 10個入',           maker:'未来工業', unit:'袋', price:420,   note:''},
+  {code:'MIR-WB6040',    name:'プラボックス WB6040',            maker:'未来工業', unit:'個', price:3800,  note:'屋外用 600×400'},
+  {code:'MIR-WB8060',    name:'プラボックス WB8060',            maker:'未来工業', unit:'個', price:6200,  note:'屋外用 800×600'},
+  {code:'MIR-MWB-S22',   name:'アウトレットボックス S22',       maker:'未来工業', unit:'個', price:480,   note:''},
+  {code:'MIR-ECO-1R',    name:'接地棒 銅覆鋼 φ14×1500',       maker:'未来工業', unit:'本', price:2200,  note:'D種接地'},
+  {code:'MIR-CD22',      name:'CD管 22サイズ（20m）',           maker:'未来工業', unit:'巻', price:1200,  note:'隠蔽配管'},
+];
+
+// 動的マスタ（ユーザーインポート分と内蔵分をマージ）
+let priceMaster = [...BUILTIN_MASTER];
+
+// ═══════════════════════════════════════════════
+//  CATEGORY MARGIN SETTINGS
+// ═══════════════════════════════════════════════
+// カテゴリ定義と色・デフォルト掛率・利益率
+const CAT_DEFS = [
+  { cat:'パネル',   color:'#2d5a3d', kakuritsu:65, marginPct:20 },
+  { cat:'パワコン', color:'#1a4d7a', kakuritsu:65, marginPct:20 },
+  { cat:'架台',     color:'#5a3a1a', kakuritsu:60, marginPct:25 },
+  { cat:'DC配線',   color:'#856404', kakuritsu:55, marginPct:28 },
+  { cat:'AC配線',   color:'#0c5460', kakuritsu:55, marginPct:28 },
+  { cat:'盤類',     color:'#b03a2e', kakuritsu:58, marginPct:25 },
+  { cat:'高圧',     color:'#4a1990', kakuritsu:60, marginPct:22 },
+  { cat:'接地',     color:'#721c24', kakuritsu:55, marginPct:28 },
+  { cat:'通信',     color:'#0c5460', kakuritsu:55, marginPct:28 },
+];
+
+// カテゴリ別設定の状態（キー: cat名）
+let catMargins = {};
+CAT_DEFS.forEach(d => {
+  catMargins[d.cat] = { kakuritsu: d.kakuritsu, marginPct: d.marginPct };
+});
+
+// 見積明細データ
+let estimateRows = [];
+
+// カテゴリ別設定テーブルを描画
+function renderCatMarginTable() {
+  const tbody = document.getElementById('cat-margin-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  // カテゴリ別集計を先に出す
+  const catTotals = calcCatTotals();
+
+  CAT_DEFS.forEach(d => {
+    const cm = catMargins[d.cat] || { kakuritsu:60, marginPct:25 };
+    const tot = catTotals[d.cat] || { buy:0, sell:0 };
+    const profit = tot.sell - tot.buy;
+    const profitPct = tot.sell > 0 ? (profit / tot.sell * 100).toFixed(1) : '—';
+    const tr = document.createElement('tr');
+    tr.className = 'cat-margin-row';
+    tr.innerHTML = `
+      <td><span class="cat-color-dot" style="background:${d.color}"></span><strong>${d.cat}</strong></td>
+      <td class="num">
+        <input type="number" value="${cm.kakuritsu}" min="1" max="100" step="1"
+          onchange="setCatMargin('${d.cat}','kakuritsu',+this.value)">
+      </td>
+      <td class="num">
+        <input type="number" value="${cm.marginPct}" min="0" max="99" step="0.5"
+          onchange="setCatMargin('${d.cat}','marginPct',+this.value)">
+      </td>
+      <td class="num" style="color:var(--info)">${tot.buy > 0 ? fmt(tot.buy) : '—'}</td>
+      <td class="num" style="color:var(--accent);font-weight:600">${tot.sell > 0 ? fmt(tot.sell) : '—'}</td>
+      <td class="num" style="color:${profit>0?'var(--accent)':'var(--danger)'}">${profit > 0 ? fmt(profit) : '—'}</td>
+      <td class="num" style="font-weight:600;color:${parseFloat(profitPct)>=20?'var(--accent)':'var(--warn)'}">${profitPct !== '—' ? profitPct+'%' : '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // 合計行
+  const allTot = Object.values(catTotals).reduce((s,t)=>({ buy:s.buy+t.buy, sell:s.sell+t.sell }),{buy:0,sell:0});
+  const allProfit = allTot.sell - allTot.buy;
+  const allProfitPct = allTot.sell > 0 ? (allProfit/allTot.sell*100).toFixed(1) : '—';
+  const tr = document.createElement('tr');
+  tr.className = 'grand-total-row-cat';
+  tr.innerHTML = `
+    <td>合 計</td><td></td><td></td>
+    <td class="num">${fmt(allTot.buy)}</td>
+    <td class="num">${fmt(allTot.sell)}</td>
+    <td class="num">${fmt(allProfit)}</td>
+    <td class="num">${allProfitPct}%</td>`;
+  tbody.appendChild(tr);
+}
+
+function setCatMargin(cat, key, val) {
+  if (!catMargins[cat]) catMargins[cat] = { kakuritsu:60, marginPct:25 };
+  catMargins[cat][key] = val;
+  // estimateRowsにも反映（個別上書きされていない行のみ）
+  estimateRows.forEach(r => {
+    if (r.cat === cat && !r.overridden) {
+      r[key] = val;
+    }
+  });
+  renderEstimate();
+  renderCatMarginTable();
+}
+
+function applyAllCatMargins() {
+  estimateRows.forEach(r => {
+    const cm = catMargins[r.cat];
+    if (cm) { r.kakuritsu = cm.kakuritsu; r.marginPct = cm.marginPct; r.overridden = false; }
+  });
+  renderEstimate();
+  renderCatMarginTable();
+}
+
+function applyBulkToAllCats() {
+  const k = parseFloat(document.getElementById('bulk-kakuritsu').value)||60;
+  const m = parseFloat(document.getElementById('bulk-margin').value)||25;
+  CAT_DEFS.forEach(d => { catMargins[d.cat] = { kakuritsu:k, marginPct:m }; });
+  estimateRows.forEach(r => { r.kakuritsu=k; r.marginPct=m; r.overridden=false; });
+  renderCatMarginTable();
+  renderEstimate();
+}
+
+function calcCatTotals() {
+  const totals = {};
+  estimateRows.forEach(r => {
+    const qty = parseFloat(r.qty)||0, lp = parseFloat(r.listPx)||0;
+    const k = parseFloat(r.kakuritsu)||60, m = parseFloat(r.marginPct)||25;
+    const bp = Math.round(lp*k/100);
+    const sp = m<100 ? Math.round(bp/(1-m/100)) : bp;
+    if (!totals[r.cat]) totals[r.cat] = { buy:0, sell:0 };
+    totals[r.cat].buy  += Math.round(bp * qty);
+    totals[r.cat].sell += Math.round(sp * qty);
+  });
+  return totals;
+}
+
+// ═══════════════════════════════════════════════
+//  ESTIMATE BUILD
+// ═══════════════════════════════════════════════
+function buildEstimate() {
+  const bomRows = collectBomRows();
+
+  // 既存行のキーを保持（手入力上書き保護）
+  const prevMap = {};
+  estimateRows.forEach(r => { prevMap[r.id] = r; });
+
+  estimateRows = bomRows.map((bom, i) => {
+    const id = bom.cat + '_' + i;
+    const prev = prevMap[id];
+    const masterPrice = findMasterPrice(bom);
+    const cm = catMargins[bom.cat] || { kakuritsu:60, marginPct:25 };
+    return {
+      id,
+      cat:        bom.cat,
+      name:       bom.name,
+      spec:       bom.spec,
+      maker:      prev?.maker ?? suggestMaker(bom),
+      qty:        bom.qty,
+      unit:       bom.unit,
+      listPx:     prev?.listPx ?? masterPrice,
+      kakuritsu:  prev?.kakuritsu ?? cm.kakuritsu,
+      marginPct:  prev?.marginPct ?? cm.marginPct,
+      needInquiry:prev?.needInquiry ?? (masterPrice === 0),
+      overridden: prev?.overridden ?? false,
+      note:       bom.note,
+    };
+  });
+
+  renderEstimate();
+  renderCatMarginTable();
+}
+
+function findMasterPrice(bom) {
+  const spec = (bom.spec||'').toLowerCase();
+  const name = (bom.name||'').toLowerCase();
+  for (const m of priceMaster) {
+    if (spec.includes(m.code.toLowerCase()) || name.includes(m.name.toLowerCase().slice(0,6))) {
+      return m.price;
+    }
+  }
+  return 0;
+}
+
+function suggestMaker(bom) {
+  const spec = (bom.spec||'').toLowerCase();
+  if (spec.includes('cv') || spec.includes('cvt') || spec.includes('iv')) return '古河電工';
+  if (spec.includes('pf') || spec.includes('cd')) return '未来工業';
+  if (spec.includes('接続箱') || spec.includes('sdb')) return '河村電器';
+  if (spec.includes('ブレーカー') || spec.includes('分電')) return 'パナソニック';
+  if (spec.includes('c管') || spec.includes('ボックス')) return 'ネグロス';
+  return '—';
+}
+
+function renderEstimate() {
+  const tbody = document.getElementById('est-body');
+  tbody.innerHTML = '';
+  let totalList=0, totalBuy=0, totalSell=0;
+  let currentCat='', catBuy=0, catSell=0, catList=0;
+
+  estimateRows.forEach((r, i) => {
+    if (r.cat !== currentCat) {
+      if (currentCat) appendSubtotal(tbody, currentCat, catList, catBuy, catSell);
+      currentCat=r.cat; catBuy=0; catSell=0; catList=0;
+    }
+    const qty    = parseFloat(r.qty)||0;
+    const listPx = parseFloat(r.listPx)||0;
+    const kaku   = parseFloat(r.kakuritsu)||60;
+    const mPct   = parseFloat(r.marginPct)||25;
+    const buyPx  = Math.round(listPx * kaku/100);
+    const buyTot = Math.round(buyPx * qty);
+    const sellPx = mPct < 100 ? Math.round(buyPx / (1 - mPct/100)) : buyPx;
+    const sellTot= Math.round(sellPx * qty);
+    const listTot= Math.round(listPx * qty);
+    totalList+=listTot; totalBuy+=buyTot; totalSell+=sellTot;
+    catBuy+=buyTot; catSell+=sellTot; catList+=listTot;
+
+    // カテゴリ色
+    const catDef = CAT_DEFS.find(d=>d.cat===r.cat);
+    const dotColor = catDef ? catDef.color : '#888';
+
+    const tr = document.createElement('tr');
+    if (r.needInquiry) tr.className='inquiry-row';
+    tr.innerHTML = `
+      <td style="color:var(--text3);font-size:10px">${i+1}</td>
+      <td><span class="cat-color-dot" style="background:${dotColor}"></span><span class="tag ${tagClass(r.cat)}" style="font-size:9px">${r.cat}</span></td>
+      <td style="font-weight:500;white-space:nowrap">${r.name}</td>
+      <td style="font-size:10px;color:var(--text2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.spec}">${r.spec}</td>
+      <td><input type="text" class="maker-sel" value="${r.maker}" style="width:88px" onchange="estRowChange(${i},'maker',this.value,true)"></td>
+      <td class="num">${fmtQty(r.qty)}</td>
+      <td style="color:var(--text3)">${r.unit}</td>
+      <td class="num"><input type="number" value="${listPx}" min="0" style="width:82px;text-align:right;padding:3px 5px;border:1px solid var(--border2);border-radius:4px;font-size:11px" onchange="estRowChange(${i},'listPx',+this.value,true)"></td>
+      <td class="num"><input type="number" value="${kaku}" min="1" max="100" style="width:50px;text-align:right;padding:3px 5px;border:1px solid var(--border2);border-radius:4px;font-size:11px;color:var(--info)" onchange="estRowChange(${i},'kakuritsu',+this.value,true)"></td>
+      <td class="num" style="color:var(--info)">${fmt(buyPx)}</td>
+      <td class="num" style="font-weight:500">${fmt(buyTot)}</td>
+      <td class="num"><input type="number" value="${mPct}" min="0" max="99" step="0.5" style="width:50px;text-align:right;padding:3px 5px;border:1px solid var(--border2);border-radius:4px;font-size:11px;color:var(--accent)" onchange="estRowChange(${i},'marginPct',+this.value,true)"></td>
+      <td class="num" style="color:var(--accent)">${fmt(sellPx)}</td>
+      <td class="num" style="font-weight:700;color:var(--accent)">${fmt(sellTot)}</td>
+      <td style="text-align:center"><input type="checkbox" ${r.needInquiry?'checked':''} onchange="estRowChange(${i},'needInquiry',this.checked,false)" title="見積依頼リストに追加"></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (currentCat) appendSubtotal(tbody, currentCat, catList, catBuy, catSell);
+
+  // 合計行
+  const marginPct = totalSell>0 ? ((totalSell-totalBuy)/totalSell*100).toFixed(1) : '—';
+  const tr = document.createElement('tr');
+  tr.className = 'grand-total-row';
+  tr.innerHTML = `<td colspan="10" style="text-align:right;font-size:12px">合 計（税抜）</td>
+    <td class="num">${fmt(totalBuy)}</td><td></td><td class="num"></td>
+    <td class="num">${fmt(totalSell)}</td><td></td>`;
+  tbody.appendChild(tr);
+
+  // サマリ更新
+  document.getElementById('ps-list').textContent = fmt(totalList)+'円';
+  document.getElementById('ps-buy').textContent  = fmt(totalBuy)+'円';
+  document.getElementById('ps-sell').textContent = fmt(totalSell)+'円';
+  document.getElementById('ps-margin-pct').textContent = marginPct+'%';
+}
+
+function appendSubtotal(tbody, cat, list, buy, sell) {
+  const catDef = CAT_DEFS.find(d=>d.cat===cat);
+  const col = catDef ? catDef.color : '#888';
+  const profit = sell - buy;
+  const profitPct = sell > 0 ? (profit/sell*100).toFixed(1)+'%' : '—';
+  const tr = document.createElement('tr');
+  tr.style.cssText = 'background:#f0f5f2;border-left:3px solid '+col;
+  tr.innerHTML = `
+    <td colspan="7" style="text-align:right;font-size:11px;font-weight:600;color:var(--text2);padding:5px 8px">
+      <span class="cat-color-dot" style="background:${col}"></span>${cat} 小計
+    </td>
+    <td class="num" style="font-size:11px;color:var(--text3)">${fmt(list)}</td>
+    <td></td>
+    <td class="num" style="font-size:11px;color:var(--info)">${fmt(buy)}</td>
+    <td class="num" style="font-size:11px;font-weight:600">${fmt(buy)}</td>
+    <td class="num" style="font-size:11px;color:var(--text3)">${profitPct}</td>
+    <td class="num" style="font-size:11px;color:var(--accent)">${fmt(sell)}</td>
+    <td class="num" style="font-size:11px;font-weight:700;color:var(--accent)">${fmt(sell)}</td>
+    <td></td>`;
+  tbody.appendChild(tr);
+}
+
+function estRowChange(i, key, val, markOverride) {
+  if (!estimateRows[i]) return;
+  estimateRows[i][key] = val;
+  if (markOverride) estimateRows[i].overridden = true;
+  renderEstimate();
+  renderCatMarginTable();
+}
+
+// 旧applyBulkMarginは廃止（applyBulkToAllCatsに統合）
+function applyBulkMargin() { applyBulkToAllCats(); }
+
+function fmt(n) { return Number(n||0).toLocaleString('ja-JP'); }
+function fmtQty(q) { const n=parseFloat(q); return isNaN(n)?q:n.toLocaleString('ja-JP',{maximumFractionDigits:1}); }
+
+// ═══════════════════════════════════════════════
+//  INQUIRY LIST
+// ═══════════════════════════════════════════════
+function buildInquiry() {
+  const projName = document.getElementById('proj-name').value || '—';
+  document.getElementById('inq-proj').value = projName;
+
+  const rows = estimateRows.filter(r=>r.needInquiry);
+  const tbody = document.getElementById('inq-body');
+  tbody.innerHTML = '';
+  if (!rows.length) {
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">見積依頼品目はありません</td></tr>';
+    return;
+  }
+  rows.forEach((r,i) => {
+    const qty = parseFloat(r.qty)||0;
+    const listPx = parseFloat(r.listPx)||0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i+1}</td>
+      <td><span class="tag ${tagClass(r.cat)}" style="font-size:9px">${r.cat}</span></td>
+      <td style="font-weight:500">${r.name}</td>
+      <td style="font-size:10px">${r.spec}</td>
+      <td>${r.maker}</td>
+      <td class="num">${fmtQty(r.qty)}</td>
+      <td>${r.unit}</td>
+      <td class="num">${listPx>0?fmt(listPx)+'円':'要確認'}</td>
+      <td><input type="text" placeholder="代替品・備考" style="width:100%;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px" value="${r.inquiryNote||''}"></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  PRICE MASTER RENDER
+// ═══════════════════════════════════════════════
+function renderMaster() {
+  const tbody = document.getElementById('master-body');
+  tbody.innerHTML = '';
+  priceMaster.forEach((m,i) => {
+    const tr = document.createElement('tr');
+    const isBuiltin = i < BUILTIN_MASTER.length;
+    tr.innerHTML = `
+      <td style="font-size:10px;font-family:monospace">${m.code}</td>
+      <td>${m.name}</td>
+      <td style="font-size:11px;color:var(--text2)">${m.maker}</td>
+      <td style="font-size:11px">${m.unit}</td>
+      <td class="num" style="font-weight:500">${fmt(m.price)}円</td>
+      <td style="font-size:10px;color:var(--text3)">${m.note||''}</td>
+      <td>${isBuiltin?'<span style="font-size:9px;color:var(--text3)">内蔵</span>':'<button class="btn sm danger" onclick="deleteMasterRow('+i+')">削除</button>'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function deleteMasterRow(i) {
+  if (i < BUILTIN_MASTER.length) return;
+  priceMaster.splice(i,1);
+  renderMaster();
+}
+
+// ═══════════════════════════════════════════════
+//  CSV IMPORT / EXPORT
+// ═══════════════════════════════════════════════
+function doCsvImport() {
+  const text = document.getElementById('csv-input').value.trim();
+  if (!text) { alert('CSVデータを入力してください'); return; }
+  const lines = text.split('\n').filter(l=>l.trim());
+  let added=0, errors=0;
+  lines.forEach((line,idx) => {
+    if (idx===0 && line.startsWith('品番')) return; // ヘッダー行スキップ
+    const cols = parseCsvLine(line);
+    if (cols.length < 5) { errors++; return; }
+    const [code, name, maker, unit, priceStr, note=''] = cols;
+    const price = parseFloat(priceStr.replace(/,/g,''))||0;
+    if (!code || !name) { errors++; return; }
+    // 既存コードがあれば上書き
+    const existing = priceMaster.findIndex(m=>m.code===code.trim());
+    const entry = { code:code.trim(), name:name.trim(), maker:maker.trim(), unit:unit.trim(), price, note:note.trim() };
+    if (existing >= 0) priceMaster[existing]=entry;
+    else priceMaster.push(entry);
+    added++;
+  });
+  document.getElementById('csv-input').value='';
+  renderMaster();
+  alert(`インポート完了：${added}件 追加/更新 ${errors>0?'（エラー'+errors+'行）':''}`);
+}
+
+function parseCsvLine(line) {
+  const result=[]; let cur='', inQ=false;
+  for (let i=0;i<line.length;i++) {
+    const c=line[i];
+    if (c==='"') { inQ=!inQ; }
+    else if (c===',' && !inQ) { result.push(cur); cur=''; }
+    else cur+=c;
+  }
+  result.push(cur);
+  return result.map(s=>s.trim().replace(/^"|"$/g,''));
+}
+
+function exportPriceCsv() {
+  const header = '品番,品名,メーカー,単位,定価(税抜),備考\n';
+  const rows = priceMaster.map(m =>
+    [m.code, csvEsc(m.name), m.maker, m.unit, m.price, csvEsc(m.note||'')].join(',')
+  ).join('\n');
+  downloadCsv('単価マスタ.csv', header+rows);
+}
+
+function exportEstimateCsv() {
+  const proj = document.getElementById('proj-name').value||'案件';
+  const header = '#,分類,品目,型番仕様,メーカー,数量,単位,定価,掛率(%),仕入単価,仕入合計,利益率(%),売価単価,売価合計,要見積\n';
+  const rows = estimateRows.map((r,i)=>{
+    const qty=parseFloat(r.qty)||0, lp=parseFloat(r.listPx)||0;
+    const k=parseFloat(r.kakuritsu)||60, m=parseFloat(r.marginPct)||25;
+    const bp=Math.round(lp*k/100), bt=Math.round(bp*qty);
+    const sp=m<100?Math.round(bp/(1-m/100)):bp, st=Math.round(sp*qty);
+    return [i+1,r.cat,csvEsc(r.name),csvEsc(r.spec),r.maker,r.qty,r.unit,lp,k,bp,bt,m,sp,st,r.needInquiry?'✓':''].join(',');
+  });
+  downloadCsv(proj+'_見積.csv', header+rows.join('\n'));
+}
+
+function exportInquiryCsv() {
+  const proj = document.getElementById('inq-proj').value||'案件';
+  const to   = document.getElementById('inq-to').value||'—';
+  const date = document.getElementById('inq-date').value||'—';
+  const header = `見積依頼先,${to}\n案件名,${proj}\n希望納期,${date}\n\n#,分類,品目,型番仕様,メーカー,数量,単位,定価参考,備考\n`;
+  const rows = estimateRows.filter(r=>r.needInquiry).map((r,i)=>{
+    const lp=parseFloat(r.listPx)||0;
+    return [i+1,r.cat,csvEsc(r.name),csvEsc(r.spec),r.maker,r.qty,r.unit,lp>0?lp:'要確認',csvEsc(r.inquiryNote||'')].join(',');
+  });
+  downloadCsv(proj+'_見積依頼.csv', header+rows.join('\n'));
+}
+
+function csvEsc(s) { return s.includes(',') || s.includes('"') ? '"'+s.replace(/"/g,'""')+'"' : s; }
+
+function downloadCsv(filename, content) {
+  // BOM付きUTF-8でExcel日本語対応
+  const bom = '\uFEFF';
+  const blob = new Blob([bom+content], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════
+//  PRINT FUNCTIONS
+// ═══════════════════════════════════════════════
+function printEstimate() {
+  const proj = document.getElementById('proj-name').value||'案件';
+  const date = new Date().toLocaleDateString('ja-JP');
+  const win = window.open('','_print','width=1100,height=900');
+
+  // カテゴリ別集計
+  const catTotals = calcCatTotals();
+  let catSummaryRows = '';
+  let grandBuy=0, grandSell=0;
+  CAT_DEFS.forEach(d => {
+    const t = catTotals[d.cat];
+    if (!t || t.sell===0) return;
+    const profit = t.sell - t.buy;
+    const pPct = (profit/t.sell*100).toFixed(1);
+    grandBuy+=t.buy; grandSell+=t.sell;
+    catSummaryRows+=`<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${d.color};margin-right:5px"></span>${d.cat}</td>
+      <td style="text-align:right">${fmt(t.buy)}</td>
+      <td style="text-align:right">${fmt(t.sell)}</td>
+      <td style="text-align:right">${fmt(profit)}</td>
+      <td style="text-align:right">${pPct}%</td></tr>`;
+  });
+
+  // 明細行
+  let detailRows = '';
+  let prevCat = '';
+  estimateRows.forEach((r,i)=>{
+    const qty=parseFloat(r.qty)||0, lp=parseFloat(r.listPx)||0;
+    const k=parseFloat(r.kakuritsu)||60, m=parseFloat(r.marginPct)||25;
+    const bp=Math.round(lp*k/100), bt=Math.round(bp*qty);
+    const sp=m<100?Math.round(bp/(1-m/100)):bp, st=Math.round(sp*qty);
+    const catDef=CAT_DEFS.find(d=>d.cat===r.cat);
+    const col=catDef?catDef.color:'#888';
+    if (r.cat!==prevCat) {
+      detailRows+=`<tr style="background:#f0f5f2"><td colspan="12" style="font-weight:bold;padding:6px 8px;border-left:4px solid ${col}">▸ ${r.cat}</td></tr>`;
+      prevCat=r.cat;
+    }
+    detailRows+=`<tr><td style="color:#888">${i+1}</td><td>${r.name}</td><td style="font-size:9px">${r.spec}</td>
+      <td>${r.maker}</td><td style="text-align:right">${fmtQty(r.qty)}</td><td>${r.unit}</td>
+      <td style="text-align:right">${fmt(lp)}</td><td style="text-align:right">${k}%</td>
+      <td style="text-align:right">${fmt(bp)}</td><td style="text-align:right">${fmt(bt)}</td>
+      <td style="text-align:right">${m}%</td>
+      <td style="text-align:right;font-weight:bold">${fmt(st)}</td></tr>`;
+  });
+
+  const grandProfit=grandSell-grandBuy;
+  const grandProfitPct=grandSell>0?(grandProfit/grandSell*100).toFixed(1):'—';
+  const grandSellTax=Math.round(grandSell*1.1);
+
+  win.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+  <title>見積書 ${proj}</title>
+  <style>
+    body{font-family:'Hiragino Kaku Gothic ProN',sans-serif;font-size:10px;color:#111;margin:0;padding:16px}
+    h1{font-size:18px;text-align:center;margin-bottom:8px;color:#1e3d2a}
+    .meta{display:flex;justify-content:space-between;margin-bottom:14px;font-size:11px;border-bottom:2px solid #1e3d2a;padding-bottom:10px}
+    .total-big{font-size:22px;font-weight:bold;color:#1e3d2a}
+    h2{font-size:13px;color:#1e3d2a;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10px}
+    th{background:#1e3d2a;color:#fff;padding:5px 7px;text-align:left;font-size:9px}
+    td{padding:4px 7px;border-bottom:1px solid #e0e0e0}
+    .subtotal-row{background:#f0f5f2;font-weight:bold}
+    .grand{background:#1e3d2a;color:#fff;font-weight:bold;font-size:11px}
+    .grand td{color:#fff;padding:7px 8px}
+    .note{font-size:9px;color:#666;margin-top:8px;border-top:1px solid #ccc;padding-top:6px}
+    @media print{@page{size:A4;margin:12mm}body{padding:0}}
+  </style></head><body>
+  <h1>見 積 書</h1>
+  <div class="meta">
+    <div><strong>案件名：</strong>${proj}<br>作成日：${date}</div>
+    <div style="text-align:right">
+      <div style="font-size:10px;color:#666">売価合計（税込）</div>
+      <div class="total-big">${fmt(grandSellTax)} 円</div>
+      <div style="font-size:10px;color:#666">（税抜 ${fmt(grandSell)}円 / 粗利率 ${grandProfitPct}%）</div>
+    </div>
+  </div>
+
+  <h2>カテゴリ別 集計</h2>
+  <table><thead><tr><th>分類</th><th style="text-align:right">仕入合計</th><th style="text-align:right">売価合計</th><th style="text-align:right">粗利</th><th style="text-align:right">粗利率</th></tr></thead>
+  <tbody>${catSummaryRows}
+  <tr class="grand"><td>合 計</td>
+    <td style="text-align:right">${fmt(grandBuy)}</td>
+    <td style="text-align:right">${fmt(grandSell)}</td>
+    <td style="text-align:right">${fmt(grandProfit)}</td>
+    <td style="text-align:right">${grandProfitPct}%</td></tr>
+  </tbody></table>
+
+  <h2>明 細</h2>
+  <table><thead><tr>
+    <th>#</th><th>品目</th><th>仕様</th><th>メーカー</th><th style="text-align:right">数量</th><th>単位</th>
+    <th style="text-align:right">定価</th><th style="text-align:right">掛率</th>
+    <th style="text-align:right">仕入単価</th><th style="text-align:right">仕入合計</th>
+    <th style="text-align:right">利益率</th><th style="text-align:right">売価合計</th>
+  </tr></thead><tbody>${detailRows}
+  <tr class="grand"><td colspan="9" style="text-align:right">合 計（税抜）</td>
+    <td style="text-align:right">${fmt(grandBuy)}</td>
+    <td></td>
+    <td style="text-align:right;font-size:12px">${fmt(grandSell)}</td></tr>
+  <tr class="grand" style="background:#2d5a3d"><td colspan="9" style="text-align:right">合 計（税込 10%）</td>
+    <td colspan="3" style="text-align:right;font-size:13px">${fmt(grandSellTax)} 円</td></tr>
+  </tbody></table>
+  <div class="note">※ 本見積は内部管理用です。定価・仕入価格は取引商社への確認をお願いします。掛率・利益率は非表示版を別途作成してください。</div>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  win.document.close();
+}
+
+function printInquiry() {
+  const proj = document.getElementById('inq-proj').value||'案件';
+  const to   = document.getElementById('inq-to').value||'○○電機商会 御中';
+  const date = document.getElementById('inq-date').value||'—';
+  const today= new Date().toLocaleDateString('ja-JP');
+  const rows = estimateRows.filter(r=>r.needInquiry);
+  let trs='';
+  rows.forEach((r,i)=>{
+    const lp=parseFloat(r.listPx)||0;
+    trs+=`<tr><td>${i+1}</td><td>${r.cat}</td><td>${r.name}</td><td>${r.spec}</td>
+      <td>${r.maker}</td><td style="text-align:right">${fmtQty(r.qty)}</td><td>${r.unit}</td>
+      <td style="text-align:right">${lp>0?fmt(lp)+'円':'要確認'}</td><td></td></tr>`;
+  });
+  const win = window.open('','_print','width=1000,height=800');
+  win.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+  <title>見積依頼書 - ${proj}</title>
+  <style>
+    body{font-family:'Hiragino Kaku Gothic ProN',sans-serif;font-size:11px;margin:20px}
+    h1{font-size:16px;margin-bottom:4px}
+    .header{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;font-size:11px}
+    .to-box{border:2px solid #1e3d2a;padding:10px 14px;border-radius:6px}
+    .to-box .to-label{font-size:10px;color:#666}
+    .to-box .to-name{font-size:14px;font-weight:bold;margin-top:2px}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1e3d2a;color:#fff;padding:5px 8px;font-size:10px;text-align:left}
+    td{padding:5px 8px;border-bottom:1px solid #ddd;font-size:10px}
+    tr:nth-child(even) td{background:#f9f9f9}
+    .footer{margin-top:20px;font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:10px}
+    @media print{@page{size:A4;margin:15mm}}
+  </style></head><body>
+  <h1>電材 見積依頼書</h1>
+  <div class="header">
+    <div class="to-box"><div class="to-label">宛先</div><div class="to-name">${to}</div></div>
+    <div>案件名：<strong>${proj}</strong><br>依頼日：${today}<br>希望納期：${date}<br>依頼品目数：${rows.length}品目</div>
+  </div>
+  <table><thead><tr><th>#</th><th>分類</th><th>品目</th><th>型番・仕様</th><th>メーカー</th><th>数量</th><th>単位</th><th>定価参考</th><th>仕入価格（記入欄）</th></tr></thead>
+  <tbody>${trs}</tbody></table>
+  <div class="footer">上記品目の見積をお願いいたします。代替品がある場合は型番・価格をご記入ください。</div>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  win.document.close();
+}
+
+function importPriceCsv() {
+  document.getElementById('csv-input').scrollIntoView({behavior:'smooth'});
+}
+
+// ═══════════════════════════════════════════════
+//  BOM ROW COLLECTOR (共通)
+// ═══════════════════════════════════════════════
+function collectBomRows() {
+  const panelModel = document.getElementById('panel-model').value||'—';
+  const pcsModel   = document.getElementById('pcs-model').options[document.getElementById('pcs-model').selectedIndex]?.text||'—';
+  const dc1t=document.getElementById('dc1-type').value, dc1l=V('dc1-len');
+  const dc2t=document.getElementById('dc2-type').value, dc2l=V('dc2-len');
+  const ac3t=document.getElementById('ac3-type').value, ac3l=V('ac3-len');
+  const panelN = parseInt(document.getElementById('rv-panel-n').textContent)||0;
+
+  const rows = [
+    {cat:'パネル',   name:'PVモジュール',            spec:panelModel, qty:panelN, unit:'枚', note:''},
+    {cat:'パワコン', name:'パワーコンディショナー',    spec:pcsModel,   qty:V('pcs-count'), unit:'台', note:''},
+    {cat:'架台',     name:'架台セット',               spec:document.getElementById('frame-type')?.options[document.getElementById('frame-type').selectedIndex]?.text||'—', qty:1, unit:'式', note:''},
+    {cat:'DC配線',   name:'ストリングケーブル',       spec:dc1t, qty:(dc1l*2).toFixed(0)+'m', unit:'', note:''},
+    {cat:'DC配線',   name:'主DCケーブル',             spec:dc2t, qty:(dc2l*2).toFixed(0)+'m', unit:'', note:''},
+    {cat:'AC配線',   name:'AC幹線ケーブル',           spec:ac3t, qty:(ac3l*2).toFixed(0)+'m', unit:'', note:''},
+    ...dcRuns.map(r=>({cat:'DC配線', name:'DC '+r.name, spec:r.cableKey, qty:(r.len*2*r.num).toFixed(0)+'m', unit:'', note:'ルート追加'})),
+    {cat:'DC配線',   name:'保護管 DC側',              spec:(currentSpec==='public'?'C管':'PF管')+' (DC)', qty:V('dc1-len'), unit:'m', note:''},
+    {cat:'AC配線',   name:'保護管 AC側',              spec:(currentSpec==='public'?'C管':'PF管')+' (AC)', qty:V('ac3-len'), unit:'m', note:''},
+    {cat:'盤類',     name:'太陽電池接続箱',           spec:(document.getElementById('jb-spec')?.value==='SUS'?'SUS304':'FRP')+' '+document.getElementById('rv-jb-sz').textContent, qty:V('pcs-count'), unit:'面', note:''},
+    {cat:'盤類',     name:'低圧盤',                   spec:document.getElementById('lv-spec')?.options[document.getElementById('lv-spec').selectedIndex]?.text||'—', qty:1, unit:'面', note:''},
+    {cat:'高圧',     name:'変圧器',                   spec:(document.getElementById('tr-type')?.options[document.getElementById('tr-type').selectedIndex]?.text||'')+' '+document.getElementById('rv-tr-kva').textContent, qty:V('tr-count'), unit:'台', note:''},
+    {cat:'高圧',     name:'高圧キュービクル',          spec:document.getElementById('cub-type')?.options[document.getElementById('cub-type').selectedIndex]?.text||'—', qty:1, unit:'面', note:''},
+    {cat:'高圧',     name:'保護継電器セット',          spec:'OVR/UVR/OFR/UFR', qty:1, unit:'式', note:''},
+    {cat:'接地',     name:'A種接地電線',              spec:document.getElementById('rv-ea')?.textContent||'—', qty:V('ea-len'), unit:'m', note:''},
+    {cat:'接地',     name:'C種接地電線',              spec:document.getElementById('rv-ec')?.textContent||'—', qty:V('ec-len'), unit:'m', note:''},
+    {cat:'接地',     name:'D種接地電線',              spec:document.getElementById('rv-ed')?.textContent||'—', qty:V('ed-len'), unit:'m', note:''},
+    {cat:'接地',     name:'接地棒',                   spec:document.getElementById('earth-rod')?.options[document.getElementById('earth-rod').selectedIndex]?.text||'—', qty:3, unit:'本', note:''},
+    {cat:'通信',     name:'データロガー',             spec:'モニタリング用', qty:V('logger-n'), unit:'台', note:''},
+    {cat:'通信',     name:'通信線',                   spec:document.getElementById('comm-cable')?.options[document.getElementById('comm-cable').selectedIndex]?.text||'—', qty:V('comm-len'), unit:'m', note:''},
+    {cat:'通信',     name:'通信線保護管',             spec:document.getElementById('comm-pipe')?.options[document.getElementById('comm-pipe').selectedIndex]?.text||'—', qty:V('comm-len'), unit:'m', note:''},
+  ];
+  return rows;
+}
+
+function tagClass(cat) {
+  const m={パネル:'eq',パワコン:'eq',架台:'eq',DC配線:'dc',AC配線:'ac',盤類:'eq',高圧:'hv',接地:'gnd',通信:'ac'};
+  return m[cat]||'eq';
+}
+
+// ═══════════════════════════════════════════════
+//  BOM
+// ═══════════════════════════════════════════════
+function generateBOM() {
+  const bomRows = collectBomRows();
+  const tags={パネル:'eq',パワコン:'eq',架台:'eq',DC配線:'dc',AC配線:'ac',盤類:'eq',高圧:'hv',接地:'gnd',通信:'ac'};
+  const tbody=document.getElementById('bom-body');
+  tbody.innerHTML='';
+  bomRows.forEach((row,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--text3)">${i+1}</td>
+      <td><span class="tag ${tags[row.cat]||'eq'}">${row.cat}</span></td>
+      <td style="font-weight:500">${row.name}</td>
+      <td style="font-size:11px;color:var(--text2)">${row.spec}</td>
+      <td class="num">${row.qty}</td>
+      <td style="color:var(--text3)">${row.unit}</td>
+      <td style="font-size:11px;color:var(--text3)">${row.note}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  SAVE / LOAD (localStorage)
+// ═══════════════════════════════════════════════
+const LS_KEY = 'solar-selector-saves';
+
+function collectState() {
+  const ids=['proj-name','proj-loc','proj-kw','grid-voltage','recv-type','designer',
+    'install-type','waterproof','tilt','azimuth','snow','wind',
+    'panel-maker','panel-model','p-wp','p-voc','p-vmp','p-isc','p-imp','p-tvoc','p-tp','p-w','p-h',
+    'str-series','t-min','pcs-vmax-ref',
+    'pcs-maker','pcs-model','pcs-kw','pcs-vmax','pcs-mppt','pcs-vout','pcs-count','pcs-inst',
+    'frame-type','frame-mat','load-dead',
+    'dc1-len','dc1-type','dc2-len','dc2-type','ac3-len','ac3-type','hv4-len','hv4-type',
+    'jb-spec','lv-spec','dc-fuse',
+    'tr-type','tr-count','cub-type','cub-mat','cub-loc',
+    'ea-len','ec-len','ed-len','earth-rod','earth-mesh',
+    'mon-type','comm-type','comm-cable','comm-len','comm-pipe','logger-n',
+  ];
+  const state = { spec: currentSpec, dcRuns, dcRunId, fields:{} };
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) state.fields[id] = el.value;
+  });
+  return state;
+}
+
+function applyState(state) {
+  if (!state) return;
+  if (state.spec) setSpec(state.spec);
+  if (state.fields) {
+    Object.entries(state.fields).forEach(([id,val])=>{
+      const el=document.getElementById(id);
+      if (el) el.value=val;
+    });
+  }
+  if (state.dcRuns) { dcRuns=state.dcRuns; dcRunId=state.dcRunId||dcRuns.length; renderDcRuns(); }
+  calcAll();
+}
+
+function getSaves() { try { return JSON.parse(localStorage.getItem(LS_KEY)||'{}'); } catch(e) { return {}; } }
+function setSaves(saves) { localStorage.setItem(LS_KEY, JSON.stringify(saves)); }
+
+function openSaveModal() {
+  const name = document.getElementById('proj-name').value || '無題案件';
+  document.getElementById('save-name').value = name + '_' + new Date().toLocaleDateString('ja');
+  document.getElementById('modal-save').classList.add('open');
+}
+function openLoadModal() {
+  const saves = getSaves();
+  const c = document.getElementById('load-slots');
+  const keys = Object.keys(saves);
+  if (!keys.length) { c.innerHTML='<p style="font-size:12px;color:var(--text3)">保存済みデータはありません</p>'; }
+  else {
+    c.innerHTML = '';
+    keys.forEach(k => {
+      const div = document.createElement('div');
+      div.className = 'save-slot';
+      div.innerHTML = `<div class="slot-name">${k}</div>
+        <div class="slot-date">${saves[k].savedAt||''}</div>
+        <button class="btn sm primary" onclick="doLoad('${k}')">読込</button>
+        <button class="btn sm danger" onclick="doDelete('${k}')">削除</button>`;
+      c.appendChild(div);
+    });
+  }
+  document.getElementById('modal-load').classList.add('open');
+}
+function doSave() {
+  const name = document.getElementById('save-name').value.trim();
+  if (!name) { alert('保存名を入力してください'); return; }
+  const saves = getSaves();
+  const state = collectState();
+  state.savedAt = new Date().toLocaleString('ja');
+  saves[name] = state;
+  setSaves(saves);
+  closeModals();
+  alert('「'+name+'」を保存しました');
+}
+function doLoad(key) {
+  const saves = getSaves();
+  if (saves[key]) applyState(saves[key]);
+  closeModals();
+}
+function doDelete(key) {
+  if (!confirm('「'+key+'」を削除しますか？')) return;
+  const saves = getSaves();
+  delete saves[key];
+  setSaves(saves);
+  openLoadModal();
+}
+function closeModals() {
+  document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open'));
+}
+document.querySelectorAll('.modal-bg').forEach(m=>{
+  m.addEventListener('click', e=>{ if(e.target===m) closeModals(); });
+});
+
+function autosave() {} // 将来的に自動保存実装用
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  buildPanelModels();
+  buildPcsModels();
+  toggleRoof();
+  // デフォルトDCルートを2本追加
+  addDcRun();
+  addDcRun();
+  calcAll();
+});
+</script>
+</body>
+</html>
