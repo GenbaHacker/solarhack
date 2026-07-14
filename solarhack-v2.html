@@ -193,6 +193,14 @@ table td {
 .card-body-content { transition: max-height 0.3s ease; max-height: 9999px; overflow: hidden; }
 .card-body-content.collapsed { max-height: 0; }
 .preset-btn { flex:1; padding:4px 6px; font-size:11px; background:#162540; color:#7a91b0; border:1px solid rgba(255,255,255,0.12); border-radius:4px; cursor:pointer; }
+.rv-style { background:rgba(30,58,95,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:12px; display:flex; flex-direction:column; gap:6px; font-size:12px; }
+.rv-style-label { color:#8892b0; font-size:11px; font-weight:500; }
+.rv-style-value { color:#e8f0ff; font-weight:600; font-size:13px; }
+.summary-strip { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:12px; margin:15px 0; }
+.accordion-header { cursor:pointer; user-select:none; display:flex; align-items:center; gap:8px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.08); font-weight:600; color:#ff7c2a; }
+.accordion-header:hover { opacity:0.8; }
+.accordion-content { max-height:9999px; overflow:hidden; transition:max-height 0.3s ease; }
+.accordion-content.collapsed { max-height:0; }
 .preset-btn:hover { color:#ff7c2a; border-color:#ff7c2a; }
 input[type="range"] { accent-color:#ff7c2a; }
 .nav-item { padding:10px 16px; font-size:13px; color:#7a91b0; cursor:pointer; transition:all 0.15s; }
@@ -470,10 +478,10 @@ input[type="range"] { accent-color:#ff7c2a; }
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
     </div>
     <div class="card-body-content">
+    <!-- Front layer: Maker and Model selection -->
     <div class="form-row">
       <div class="form-group">
-        <label>次に確定する面のパネル</label>
-        <label style="font-size:11px;font-weight:normal;display:block;margin-top:4px">メーカー</label>
+        <label>次に確定する面のパネル / メーカー</label>
         <select id="panelMaker" onchange="C_buildPanelModels()">
           <option value="">選択してください</option>
         </select>
@@ -485,32 +493,69 @@ input[type="range"] { accent-color:#ff7c2a; }
         </select>
       </div>
     </div>
-    <div class="form-row c3">
-      <div class="form-group">
-        <label>定格出力 (Wp)</label>
-        <input type="number" id="panelWp" readonly>
+
+    <!-- Summary strip: Key panel specs -->
+    <div class="summary-strip">
+      <div class="rv-style">
+        <div class="rv-style-label">パネル出力</div>
+        <div class="rv-style-value" id="panel-summary-wp">—</div>
       </div>
-      <div class="form-group">
-        <label>Voc (V)</label>
-        <input type="number" id="panelVoc" readonly>
+      <div class="rv-style">
+        <div class="rv-style-label">寸法</div>
+        <div class="rv-style-value" id="panel-summary-size">—</div>
       </div>
-      <div class="form-group">
-        <label>Vmp (V)</label>
-        <input type="number" id="panelVmp" readonly>
+      <div class="rv-style">
+        <div class="rv-style-label">枚数</div>
+        <div class="rv-style-value" id="panel-summary-count">—</div>
       </div>
     </div>
-    <div class="form-row c3">
-      <div class="form-group">
-        <label>パネル幅 (mm)</label>
-        <input type="number" id="panelWidth" value="1762" step="10">
+
+    <!-- Accordion: Detailed specs (collapsed by default) -->
+    <div class="accordion-header" onclick="this.nextElementSibling.classList.toggle('collapsed')">
+      ▸ 詳細スペック
+    </div>
+    <div class="accordion-content collapsed">
+      <div class="form-row c3">
+        <div class="form-group">
+          <label>定格出力 (Wp)</label>
+          <input type="number" id="panelWp" readonly>
+        </div>
+        <div class="form-group">
+          <label>Voc (V)</label>
+          <input type="number" id="panelVoc" readonly>
+        </div>
+        <div class="form-group">
+          <label>Vmp (V)</label>
+          <input type="number" id="panelVmp" readonly>
+        </div>
       </div>
-      <div class="form-group">
-        <label>パネル高さ (mm)</label>
-        <input type="number" id="panelHeight" value="1134" step="10">
+      <div class="form-row c3">
+        <div class="form-group">
+          <label>Isc (A)</label>
+          <input type="number" id="panelIsc" readonly>
+        </div>
+        <div class="form-group">
+          <label>Imp (A)</label>
+          <input type="number" id="panelImp" readonly>
+        </div>
+        <div class="form-group">
+          <label>Temperature coefficient (%/K)</label>
+          <input type="number" id="panelTvoc" readonly step="0.001">
+        </div>
       </div>
-      <div class="form-group">
-        <label>メモ</label>
-        <input type="text" value="配置計算用" readonly style="background:#162540;color:#888">
+      <div class="form-row c3">
+        <div class="form-group">
+          <label>パネル幅 (mm)</label>
+          <input type="number" id="panelWidth" value="1762" step="10">
+        </div>
+        <div class="form-group">
+          <label>パネル高さ (mm)</label>
+          <input type="number" id="panelHeight" value="1134" step="10">
+        </div>
+        <div class="form-group">
+          <label>メモ</label>
+          <input type="text" value="配置計算用" readonly style="background:#162540;color:#888">
+        </div>
       </div>
     </div>
     </div>
@@ -521,10 +566,14 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div class="section-panel" id="secp-pcs">
   <div class="card" id="sec-pcs">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
-      <h2>⚡ PCS選択</h2>
+      <div style="display:flex;align-items:center;gap:10px">
+        <h2 style="margin:0">⚡ PCS選択</h2>
+        <span id="pcs-auto-badge" style="display:none;background:#00c896;color:#fff;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600">自動選定</span>
+      </div>
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
     </div>
     <div class="card-body-content">
+    <!-- Front layer: Maker and Model selection -->
     <div class="form-row">
       <div class="form-group">
         <label>メーカー</label>
@@ -539,20 +588,52 @@ input[type="range"] { accent-color:#ff7c2a; }
         </select>
       </div>
     </div>
-    <div class="form-row c3">
-      <div class="form-group">
-        <label>定格kW</label>
-        <input type="number" id="pcsKw" readonly>
+
+    <!-- Summary strip: Key PCS specs -->
+    <div class="summary-strip">
+      <div class="rv-style">
+        <div class="rv-style-label">PCS定格</div>
+        <div class="rv-style-value" id="pcs-summary-kw">—</div>
       </div>
-      <div class="form-group">
-        <label>MPPT範囲 (V)</label>
-        <input type="text" id="pcsMpptRange" readonly placeholder="200-1000">
+      <div class="rv-style">
+        <div class="rv-style-label">AC総</div>
+        <div class="rv-style-value" id="pcs-summary-ac-total">—</div>
       </div>
-      <div class="form-group">
-        <label>最大入力電流 (A)</label>
-        <input type="number" id="pcsImaxPerMppt" readonly>
+      <div class="rv-style">
+        <div class="rv-style-label">DC/AC比</div>
+        <div class="rv-style-value" id="pcs-summary-dcac-ratio">—</div>
+      </div>
+      <div class="rv-style">
+        <div class="rv-style-label">回線数</div>
+        <div class="rv-style-value" id="pcs-summary-mppt-count">—</div>
       </div>
     </div>
+
+    <!-- Accordion: Detailed specs (collapsed by default) -->
+    <div class="accordion-header" onclick="this.nextElementSibling.classList.toggle('collapsed')">
+      ▸ 詳細スペック
+    </div>
+    <div class="accordion-content collapsed">
+      <div class="form-row c3">
+        <div class="form-group">
+          <label>定格kW</label>
+          <input type="number" id="pcsKw" readonly>
+        </div>
+        <div class="form-group">
+          <label>MPPT範囲 (V)</label>
+          <input type="text" id="pcsMpptRange" readonly placeholder="200-1000">
+        </div>
+        <div class="form-group">
+          <label>最大入力電流 (A)</label>
+          <input type="number" id="pcsImaxPerMppt" readonly>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>コスト（参考）</label>
+        <input type="number" id="pcsCost" readonly placeholder="—">
+      </div>
+    </div>
+
     <button class="btn primary" onclick="V2_recommendPcs()" style="margin-top:10px;width:100%">💡 PCS自動推奨</button>
     <div id="pcs-recommend-list" style="margin-top:10px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px;display:none">
       <strong style="color:#ff7c2a">推奨PCS候補</strong>
@@ -572,7 +653,7 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div class="card-body-content">
     <div class="form-group">
       <label id="totalPanels-label">設置パネル枚数</label>
-      <input type="number" id="totalPanels" value="20" min="1" onchange="C_calcString()">
+      <input type="number" id="totalPanels" value="20" min="1" onchange="V2_updatePanelSummary(); C_calcString()">
       <!-- TASK 116: Quick mode tag -->
       <div id="quick-mode-tag" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">⚠ 概算（配置未設計）</div>
     </div>
@@ -1130,8 +1211,14 @@ function C_applyPanel() {
   sv('panelWp', panel.wp);
   sv('panelVoc', panel.voc);
   sv('panelVmp', panel.vmp);
+  sv('panelIsc', panel.isc);
+  sv('panelImp', panel.imp);
+  sv('panelTvoc', panel.tvoc);
   sv('panelWidth', panel.w);
   sv('panelHeight', panel.h);
+
+  // TASK 130-D: Update panel summary display
+  V2_updatePanelSummary();
 
   // TASK 116: Re-layout ALL confirmed faces with new panel model (override TASK 97)
   if (v2RoofFaces.length > 0) {
@@ -1198,9 +1285,49 @@ function C_applyPcs() {
   sv('pcsKw', pcs.kw);
   sv('pcsMpptRange', `${pcs.mpptMin}-${pcs.mpptMax}`);
   sv('pcsImaxPerMppt', pcs.imaxPerMppt);
-  sv('pcsMpptCount', pcs.mppt);
+  // TASK 130-D: pcsMpptCount is now displayed in summary via V2_updatePcsSummary() from V2_SPEC.pcs.mppt
+  sv('pcsCost', pcs.cost ? pcs.cost.toLocaleString() : '—');
+
+  // TASK 130-D: Update PCS summary display
+  V2_updatePcsSummary();
+
   // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
   V2_calcEstimate();
+}
+
+// TASK 130-D: Update panel summary display boxes
+function V2_updatePanelSummary() {
+  const panelWp = parseFloat(gv('panelWp')) || 0;
+  const panelWidth = parseInt(gv('panelWidth')) || 0;
+  const panelHeight = parseInt(gv('panelHeight')) || 0;
+  const totalPanels = parseInt(gv('totalPanels')) || 0;
+
+  // Update summary strip display
+  const wpDisplay = panelWp > 0 ? `${panelWp}Wp` : '—';
+  const sizeDisplay = (panelWidth > 0 && panelHeight > 0) ? `${panelWidth}×${panelHeight}mm` : '—';
+  const countDisplay = totalPanels > 0 ? `${totalPanels}枚` : '—';
+
+  sv('panel-summary-wp', wpDisplay);
+  sv('panel-summary-size', sizeDisplay);
+  sv('panel-summary-count', countDisplay);
+}
+
+// TASK 130-D: Update PCS summary display boxes
+function V2_updatePcsSummary() {
+  const pcsKw = parseFloat(gv('pcsKw')) || 0;
+  const pcsMpptCount = V2_SPEC?.pcs?.mppt || 0;
+  const pcsUnits = V2_SPEC?.pcsUnits || 1;
+  const totalDcKw = (parseInt(gv('totalPanels')) || 0) * (parseFloat(gv('panelWp')) || 0) / 1000;
+
+  const kwDisplay = pcsKw > 0 ? `${pcsKw}kW` : '—';
+  const acTotalDisplay = pcsKw > 0 ? `${(pcsUnits * pcsKw).toFixed(1)}kW` : '—';
+  const dcAcRatioDisplay = pcsKw > 0 && pcsUnits > 0 ? `${(totalDcKw / (pcsUnits * pcsKw)).toFixed(3)}` : '—';
+  const mpptCountDisplay = pcsMpptCount > 0 ? `${pcsMpptCount}` : '—';
+
+  sv('pcs-summary-kw', kwDisplay);
+  sv('pcs-summary-ac-total', acTotalDisplay);
+  sv('pcs-summary-dcac-ratio', dcAcRatioDisplay);
+  sv('pcs-summary-mppt-count', mpptCountDisplay);
 }
 
 // ===== PCS自動推奨 =====
@@ -1299,6 +1426,8 @@ function C_calcString() {
     V2_SPEC.pcsUnits = null;
     V2_SPEC.stringTotal = null;
     if (el) el.innerHTML = `<span style="color:#ff4d6a">⚠ 判定不能（PCS未登録）</span>`;
+    // TASK 130-D: Update PCS summary when calculation fails
+    V2_updatePcsSummary();
     return;
   }
 
@@ -1310,6 +1439,9 @@ function C_calcString() {
     // Quick mode: single-model (existing logic)
     C_calcString_SingleModel(pcs, el);
   }
+
+  // TASK 130-D: Update PCS summary after calculation
+  V2_updatePcsSummary();
 }
 
 function C_calcString_SingleModel(pcs, el) {
@@ -2248,6 +2380,8 @@ function V2_syncTotals() {
     }
   }
   V2_setMapStatus(`✅ 屋根面${v2RoofFaces.length}面 / 合計${total}枚`);
+  // TASK 130-D: Update panel summary display when totalPanels changes
+  V2_updatePanelSummary();
   V2_calcEstimate();
 }
 
