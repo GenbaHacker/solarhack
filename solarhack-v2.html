@@ -3711,6 +3711,9 @@ function V2_runDetailCalc() {
 
   try {
     const denki = window.DenkiHack_calc(params);
+    // TASK 123-FIX2: Hide fallback message on successful DenkiHack call
+    const fb = document.getElementById('detail-fallback-msg');
+    if (fb) fb.style.display = 'none';
     V2_renderDetailResults(denki);
   } catch (err) {
     alert('詳細計算エラー: ' + err.message);
@@ -3740,9 +3743,27 @@ function V2_renderDetailResults(denki) {
     : `<span style="color:#ff4d6a">増額要協議</span>`;
   document.getElementById('detail-diff-note').innerHTML = diffNote;
 
-  // Render BOM table
-  const bomHtml = V2_renderBomTable(denki);
-  document.getElementById('detail-bom-table').innerHTML = bomHtml;
+  // TASK 123-FIX2: Render BOM table — write complete <table> into container
+  const bomEl = document.getElementById('detail-bom-table');
+  if (bomEl && denki.bom) {
+    const fmt = v => Math.round(v).toLocaleString();
+    bomEl.innerHTML = '<table style="width:100%;font-size:11px;border-collapse:collapse">'
+      + '<tr style="color:#7a91b0;border-bottom:1px solid rgba(255,255,255,0.1)">'
+      + '<th style="text-align:left;padding:4px">区分</th><th style="text-align:left;padding:4px">品名</th>'
+      + '<th style="text-align:left;padding:4px">仕様</th><th style="text-align:right;padding:4px">数量</th>'
+      + '<th style="text-align:right;padding:4px">単価</th><th style="text-align:right;padding:4px">金額</th></tr>'
+      + denki.bom.map(r =>
+        `<tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+         <td style="padding:4px">${r.cat}</td><td style="padding:4px">${r.name}</td>
+         <td style="padding:4px;color:#7a91b0">${r.spec||''}</td>
+         <td style="text-align:right;padding:4px">${typeof r.qty==='number'?Math.round(r.qty).toLocaleString():r.qty} ${r.unit||''}</td>
+         <td style="text-align:right;padding:4px">${fmt(r.unitPrice)}</td>
+         <td style="text-align:right;padding:4px">${fmt(r.amount)}</td></tr>`).join('')
+      + `<tr style="border-top:1px solid rgba(255,255,255,0.2);font-weight:700">
+         <td colspan="5" style="text-align:right;padding:6px">合計（材料+雑材+諸経費+労務+運搬）</td>
+         <td style="text-align:right;padding:6px;color:#ff7c2a">${fmt(denki.total)}</td></tr>`
+      + '</table>';
+  }
 
   // Show results
   document.getElementById('detail-result').style.display = 'block';
