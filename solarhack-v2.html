@@ -214,6 +214,11 @@ input[type="range"] { accent-color:#ff7c2a; }
 #info-popup .info-popup-title { font-weight:700; color:#ff7c2a; margin-bottom:8px; font-size:13px; }
 #info-popup dt { color:#f0f4ff; font-weight:600; margin-top:8px; }
 #info-popup dd { color:#7a91b0; margin:2px 0 0 0; }
+
+/* TASK 130-B: SPA tab navigation */
+.section-panel { display:none; }
+.section-panel.active { display:block; }
+.nav-item.active { background:rgba(255,255,255,0.1); color:#ff7c2a; }
 </style>
 <script type="module">
   // TASK 123-A: Load DenkiHack module with fallback guard
@@ -232,18 +237,61 @@ input[type="range"] { accent-color:#ff7c2a; }
 </script>
 </head>
 <body>
+<!-- TASK 130-A: Password gate overlay -->
+<div id="pw-gate-overlay" style="position:fixed;inset:0;z-index:9999;background:#0a1420;display:flex;align-items:center;justify-content:center;font-family:inherit">
+  <div style="background:#1a2845;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:40px;text-align:center;max-width:320px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="font-size:48px;margin-bottom:16px">☀</div>
+    <div style="font-size:28px;font-weight:700;color:#e8f0ff;margin-bottom:8px">SolarHack</div>
+    <div style="font-size:14px;color:#7a91b0;margin-bottom:32px">株式会社SAWADA</div>
+
+    <input type="password" id="pw-input" placeholder="パスワード" style="width:100%;padding:12px;background:#0f1e35;border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#e8f0ff;font-size:14px;margin-bottom:16px" onkeypress="if(event.key==='Enter') window.checkPW()">
+
+    <button onclick="window.checkPW()" style="width:100%;padding:12px;background:#ff7c2a;border:none;border-radius:6px;color:#fff;font-weight:600;cursor:pointer;margin-bottom:12px">ログイン</button>
+
+    <div id="pw-error" style="color:#ff8c42;font-size:12px;display:none"></div>
+  </div>
+</div>
+
+<script>
+// TASK 130-A: Password gate (client-side, deterrence only)
+(function() {
+  const PW = 'sawada';
+  const KEY = 'sh2_auth';
+
+  window.checkPW = function() {
+    const input = document.getElementById('pw-input');
+    const error = document.getElementById('pw-error');
+
+    if (input.value === PW) {
+      sessionStorage.setItem(KEY, 'ok');
+      document.getElementById('pw-gate-overlay').style.display = 'none';
+    } else {
+      error.textContent = 'パスワードが違います';
+      error.style.display = 'block';
+      input.value = '';
+      input.focus();
+    }
+  };
+
+  // Check on load
+  if (sessionStorage.getItem(KEY) === 'ok') {
+    document.getElementById('pw-gate-overlay').style.display = 'none';
+  }
+})();
+</script>
+
 <div style="display:flex">
   <nav id="sidenav" style="width:190px;min-height:100vh;background:#0B1829;border-right:1px solid rgba(255,255,255,0.08);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0">
     <div style="padding:0 16px 16px;font-size:16px;font-weight:700;color:#ff7c2a">☀ SolarHack</div>
-    <div class="nav-item" onclick="V2_scrollTo('sec-project')">📋 案件情報</div>
-    <div class="nav-item" onclick="V2_scrollTo('sec-map')">📍 設置場所</div>
-    <div class="nav-item" onclick="V2_scrollTo('sec-panel')">☀ パネル選択</div>
-    <div class="nav-item" onclick="V2_scrollTo('sec-pcs')">⚡ PCS選択</div>
-    <div class="nav-item" onclick="V2_scrollTo('sec-design')">⚙ システム設計</div>
-    <div class="nav-item" onclick="V2_scrollTo('sec-sim')">📊 シミュレーション</div>
-    <div class="nav-item" onclick="V2_scrollTo('sec-estimate')">💴 概算見積</div>
-    <div class="nav-item" onclick="V2_scrollTo('sec-detail')">🔧 詳細見積（現場調査）</div>
-    <div class="nav-item" onclick="V2_scrollTo('sec-cf')">💹 CF・IRR</div>
+    <div class="nav-item" onclick="gotoSec('project')">📋 案件情報</div>
+    <div class="nav-item" onclick="gotoSec('map')">📍 設置場所</div>
+    <div class="nav-item" onclick="gotoSec('panel')">☀ パネル選択</div>
+    <div class="nav-item" onclick="gotoSec('pcs')">⚡ PCS選択</div>
+    <div class="nav-item" onclick="gotoSec('design')">⚙ システム設計</div>
+    <div class="nav-item" onclick="gotoSec('sim')">📊 シミュレーション</div>
+    <div class="nav-item" onclick="gotoSec('estimate')">💴 概算見積</div>
+    <div class="nav-item" onclick="gotoSec('detail')">🔧 詳細見積（現場調査）</div>
+    <div class="nav-item" onclick="gotoSec('cf')">💹 CF・IRR</div>
     <div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:12px;padding-top:12px">
       <div class="nav-item" onclick="V2_openMaster()">🗄 マスタ管理</div>
       <div class="nav-item" onclick="V2_saveJSON()">💾 保存（JSON）</div>
@@ -260,6 +308,7 @@ input[type="range"] { accent-color:#ff7c2a; }
   </div>
 
   <!-- === 案件情報 === -->
+    <div class="section-panel" id="secp-project">
   <div class="card" id="sec-project">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>📋 案件情報</h2>
@@ -326,8 +375,10 @@ input[type="range"] { accent-color:#ff7c2a; }
     </div>
     </div>
   </div>
+  </div>
 
   <!-- === 設置場所（地図） === -->
+    <div class="section-panel" id="secp-map">
   <div class="card" id="sec-map">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>📍 設置場所</h2>
@@ -409,8 +460,10 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div id="face-list" style="margin-top:10px"></div>
     </div>
   </div>
+  </div>
 
   <!-- === パネル選択 === -->
+    <div class="section-panel" id="secp-panel">
   <div class="card" id="sec-panel">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>☀️ パネル選択</h2>
@@ -462,8 +515,10 @@ input[type="range"] { accent-color:#ff7c2a; }
     </div>
     </div>
   </div>
+  </div>
 
   <!-- === PCS選択 === -->
+    <div class="section-panel" id="secp-pcs">
   <div class="card" id="sec-pcs">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>⚡ PCS選択</h2>
@@ -505,8 +560,10 @@ input[type="range"] { accent-color:#ff7c2a; }
     </div>
     </div>
   </div>
+  </div>
 
   <!-- === システム設計 === -->
+    <div class="section-panel" id="secp-design">
   <div class="card" id="sec-design">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>⚙️ システム設計</h2>
@@ -533,8 +590,10 @@ input[type="range"] { accent-color:#ff7c2a; }
     </div>
     </div>
   </div>
+  </div>
 
   <!-- === シミュレーション === -->
+    <div class="section-panel" id="secp-sim">
   <div class="card" id="sec-sim">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>📊 発電シミュレーション</h2>
@@ -651,8 +710,10 @@ input[type="range"] { accent-color:#ff7c2a; }
     </div>
     </div>
   </div>
+  </div>
 
   <!-- === TASK 123-B: 詳細見積（現場調査） === -->
+    <div class="section-panel" id="secp-estimate">
   <div class="card" id="sec-estimate">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>💴 概算見積</h2>
@@ -850,6 +911,7 @@ input[type="range"] { accent-color:#ff7c2a; }
     </div>
     </div>
   </div>
+  </div>
 
 <!-- === 計算ロジック === -->
 <script>
@@ -930,6 +992,46 @@ const C_PCS_DB = {
     {model:'VBPC244GM2', kw:4.4, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2, cost:120000},
   ],
 };
+
+// TASK 130-B: SPA navigation
+function gotoSec(key) {
+  // Hide all panels, show target
+  document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`secp-${key}`).classList.add('active');
+
+  // Update nav items
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navItem = Array.from(document.querySelectorAll('.nav-item')).find(n => n.textContent.includes(
+    key === 'project' ? '案件情報' :
+    key === 'map' ? '設置場所' :
+    key === 'panel' ? 'パネル' :
+    key === 'pcs' ? 'PCS' :
+    key === 'design' ? 'システム' :
+    key === 'sim' ? 'シミュレーション' :
+    key === 'estimate' ? '概算' :
+    key === 'detail' ? '詳細' :
+    key === 'cf' ? 'CF' : ''
+  ));
+  if (navItem) navItem.classList.add('active');
+
+  // Recompute on show
+  setTimeout(() => {
+    if (key === 'estimate' && V2_EST) V2_calcEstimate();
+    else if (key === 'detail' && V2_EST) V2_runDetailCalc();
+    else if (key === 'cf') window.dispatchEvent(new Event('calc-cf'));
+
+    // Map size-refresh
+    if (key === 'map' && window.map) {
+      window.map.invalidateSize();
+    }
+  }, 100);
+}
+
+// Initialize: set default active panel (案件情報)
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('secp-project').classList.add('active');
+  Array.from(document.querySelectorAll('.nav-item')).find(n => n.textContent.includes('案件情報')).classList.add('active');
+});
 
 // ════════════════════════════════════════════════
 // v2用ラッパー関数
@@ -4193,6 +4295,7 @@ if (document.readyState === 'loading') {
 </div>
 </body>
 </html>
+    <div class="section-panel" id="secp-detail">
   <div class="card" id="sec-detail">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>🔧 詳細見積（現場調査）</h2>
@@ -4282,8 +4385,10 @@ if (document.readyState === 'loading') {
       </div>
     </div>
   </div>
+  </div>
 
   <!-- === CF・IRR計算 === -->
+    <div class="section-panel" id="secp-cf">
   <div class="card" id="sec-cf">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>💰 CF・IRR計算</h2>
@@ -4320,6 +4425,7 @@ if (document.readyState === 'loading') {
         <p>投資回収年: <strong id="cf-payback">-</strong> 年</p>
       </div>
     </div>
+  </div>
   </div>
 </div>
 
