@@ -89,6 +89,7 @@ async function runTest() {
     console.log('\n[console.log from V2_recommendPcs]:');
     logs.filter(l => l.includes('[V2_recommendPcs]')).forEach(l => console.log('  ' + l));
 
+
     // ========== TEST B: パネル選択 → 屋根描画 → PCS自動推奨クリック ==========
     console.log('\n\n========== TEST B: パネル選択後の推奨リスト生成 ==========\n');
 

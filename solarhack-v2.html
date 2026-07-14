@@ -1385,7 +1385,7 @@ function V2_recommendPcs() {
   items.innerHTML = '';
 
   if (candidates.length === 0) {
-    items.innerHTML = '<p style="color:#f44;font-size:12px;margin:0">適合するPCSが見つかりません</p>';
+    items.innerHTML = '<p style="color:#f44;font-size:12px;margin:0">⚠ PCSマスタに適合機種がありません（管理画面から追加してください）</p>';
   } else {
     let html = '<table style="width:100%;border-collapse:collapse;font-size:11px">';
     html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.2)"><th style="text-align:left;padding:4px 2px">メーカー</th><th>型番</th><th>kW</th><th>台</th><th>AC計</th><th>DC/AC</th><th></th></tr>';
