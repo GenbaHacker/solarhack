@@ -653,137 +653,6 @@ input[type="range"] { accent-color:#ff7c2a; }
   </div>
 
   <!-- === TASK 123-B: 詳細見積（現場調査） === -->
-  <div class="card" id="sec-detail">
-    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
-      <h2>🔧 詳細見積（現場調査）</h2>
-      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
-    </div>
-    <div class="card-body-content">
-      <!-- Project header (read-only) -->
-      <div style="background:rgba(255,255,255,0.03);padding:12px;border-radius:4px;margin-bottom:16px;font-size:12px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div>パネル: <strong id="detail-panel-count">—</strong>枚</div>
-          <div>DC容量: <strong id="detail-dc-kw">—</strong>kW</div>
-          <div>PCS: <strong id="detail-pcs-model">—</strong></div>
-          <div>ストリング数: <strong id="detail-string-count">—</strong></div>
-          <div>電圧クラス: <strong id="detail-voltage">—</strong></div>
-        </div>
-        <div id="detail-fallback-msg" style="color:#ff8c42;margin-top:8px;display:none">
-          ⚠ 詳細計算モジュール未読込 — 概算値を表示中
-        </div>
-      </div>
-
-      <!-- 現場調査入力 -->
-      <div style="margin-bottom:20px">
-        <h3 style="color:#ff7c2a;font-size:14px;margin-bottom:12px">現場調査入力</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-          <div>
-            <label style="display:block;font-size:11px;color:#7a91b0;margin-bottom:4px">PV→PCS距離 (m)</label>
-            <input type="number" id="detail-dist-pv-pcs" value="50" min="0" max="500" style="width:100%;padding:6px;background:#1e2e48;border:1px solid #3a5a7f;border-radius:4px;color:#e8f0ff">
-          </div>
-          <div>
-            <label style="display:block;font-size:11px;color:#7a91b0;margin-bottom:4px">PCS→受電点距離 (m)</label>
-            <input type="number" id="detail-dist-pcs-grid" value="100" min="0" max="500" style="width:100%;padding:6px;background:#1e2e48;border:1px solid #3a5a7f;border-radius:4px;color:#e8f0ff">
-          </div>
-        </div>
-        <div style="margin-bottom:12px">
-          <label style="display:block;font-size:11px;color:#7a91b0;margin-bottom:4px">配線ルート</label>
-          <select id="detail-routing" style="width:100%;padding:6px;background:#1e2e48;border:1px solid #3a5a7f;border-radius:4px;color:#e8f0ff">
-            <option value="露出">露出（Outdoor）</option>
-            <option value="屋内">屋内（Indoor）</option>
-            <option value="埋設">埋設（Buried）</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- 詳細計算ボタン -->
-      <button class="btn primary" onclick="V2_runDetailCalc()" style="width:100%;margin-bottom:8px">詳細計算実行</button>
-      <button class="btn" onclick="V2_handoffToDenkiHack()" style="width:100%;margin-bottom:16px;background:#1e3a5f;border-color:#3a5a7f">🔧 DenkiHackで詳細設計を開く</button>
-
-      <!-- 計算結果 -->
-      <div id="detail-result" style="display:none">
-        <!-- Comparison block -->
-        <div style="background:rgba(255,127,42,0.1);border:1px solid #ff7c2a;border-radius:4px;padding:12px;margin-bottom:16px">
-          <div style="font-size:13px;line-height:1.8">
-            <div>概算原価（内諾ベース）: <strong id="detail-base-cost">¥—</strong></div>
-            <div>実査原価A（<span id="detail-calc-source">簡易</span>）: <strong id="detail-calc-cost">¥—</strong></div>
-            <div id="detail-calc-b-line" style="display:none">実査原価B（<span id="detail-calc-b-source">DenkiHack実査</span>）: <strong id="detail-calc-cost-b">¥—</strong> <span id="detail-calc-b-badge" style="font-size:11px;background:rgba(33,150,243,0.2);padding:2px 6px;border-radius:3px;color:#2196f3;margin-left:4px;display:inline-block"></span></div>
-            <div id="detail-diff-line" style="font-weight:600;margin-top:8px">差分: <strong id="detail-diff-amount">¥0</strong> <span id="detail-diff-note"></span></div>
-          </div>
-        </div>
-
-        <!-- BOM Table -->
-        <div style="margin-bottom:16px">
-          <h3 style="color:#ff7c2a;font-size:14px;margin-bottom:8px">部材費内訳（DenkiHack）</h3>
-          <table style="width:100%;border-collapse:collapse;font-size:11px;overflow-x:auto" id="detail-bom-table">
-            <thead>
-              <tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03)">
-                <th style="text-align:left;padding:6px;min-width:100px">品目</th>
-                <th style="text-align:left;padding:6px;min-width:150px">名称</th>
-                <th style="text-align:left;padding:6px;min-width:100px">型式</th>
-                <th style="text-align:center;padding:6px;width:40px">数量</th>
-                <th style="text-align:center;padding:6px;width:40px">単位</th>
-                <th style="text-align:right;padding:6px;width:80px">単価</th>
-                <th style="text-align:right;padding:6px;width:100px">金額</th>
-              </tr>
-            </thead>
-            <tbody id="detail-bom-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- 内諾スナップショット -->
-      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-top:16px">
-        <button class="btn" onclick="V2_snapshotNaitaku()" style="width:100%;margin-bottom:8px">内諾時の概算を固定</button>
-        <div id="detail-snapshot-badge" style="font-size:11px;color:#7a91b0;display:none">
-          内諾固定: <span id="detail-snapshot-info"></span>
-          <a href="#" onclick="V2_clearSnapshot();return false" style="margin-left:8px;color:#ff7c2a">解除</a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- === CF・IRR計算 === -->
-  <div class="card" id="sec-cf">
-    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
-      <h2>💰 CF・IRR計算</h2>
-      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
-    </div>
-    <div class="card-body-content">
-    <div class="form-row">
-      <div class="form-group">
-        <label>計算期間 (年)</label>
-        <input type="number" id="cfYears" value="20" min="10" max="30">
-      </div>
-      <div class="form-group">
-        <label>発電劣化率 (%/年)</label>
-        <input type="number" id="degradeRate" value="0.5" min="0" step="0.1">
-      </div>
-    </div>
-    <button class="btn primary" onclick="C_runCF()">計算実行</button>
-    <div id="cf-result" class="hidden">
-      <table>
-        <thead>
-          <tr>
-            <th>年度</th>
-            <th>発電量 (kWh)</th>
-            <th>現在価値 (万円)</th>
-            <th>累積CF (万円)</th>
-          </tr>
-        </thead>
-        <tbody id="cf-tbody"></tbody>
-      </table>
-      <div class="result">
-        <h3>計算結果</h3>
-        <p>IRR: <strong id="irr-result">-</strong>%</p>
-        <p>NPV: <strong id="npv-result">-</strong> 万円</p>
-        <p>投資回収年: <strong id="cf-payback">-</strong> 年</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-  <!-- === 概算見積 === -->
   <div class="card" id="sec-estimate">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
       <h2>💴 概算見積</h2>
@@ -4324,3 +4193,134 @@ if (document.readyState === 'loading') {
 </div>
 </body>
 </html>
+  <div class="card" id="sec-detail">
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>🔧 詳細見積（現場調査）</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
+      <!-- Project header (read-only) -->
+      <div style="background:rgba(255,255,255,0.03);padding:12px;border-radius:4px;margin-bottom:16px;font-size:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>パネル: <strong id="detail-panel-count">—</strong>枚</div>
+          <div>DC容量: <strong id="detail-dc-kw">—</strong>kW</div>
+          <div>PCS: <strong id="detail-pcs-model">—</strong></div>
+          <div>ストリング数: <strong id="detail-string-count">—</strong></div>
+          <div>電圧クラス: <strong id="detail-voltage">—</strong></div>
+        </div>
+        <div id="detail-fallback-msg" style="color:#ff8c42;margin-top:8px;display:none">
+          ⚠ 詳細計算モジュール未読込 — 概算値を表示中
+        </div>
+      </div>
+
+      <!-- 現場調査入力 -->
+      <div style="margin-bottom:20px">
+        <h3 style="color:#ff7c2a;font-size:14px;margin-bottom:12px">現場調査入力</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label style="display:block;font-size:11px;color:#7a91b0;margin-bottom:4px">PV→PCS距離 (m)</label>
+            <input type="number" id="detail-dist-pv-pcs" value="50" min="0" max="500" style="width:100%;padding:6px;background:#1e2e48;border:1px solid #3a5a7f;border-radius:4px;color:#e8f0ff">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:#7a91b0;margin-bottom:4px">PCS→受電点距離 (m)</label>
+            <input type="number" id="detail-dist-pcs-grid" value="100" min="0" max="500" style="width:100%;padding:6px;background:#1e2e48;border:1px solid #3a5a7f;border-radius:4px;color:#e8f0ff">
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:11px;color:#7a91b0;margin-bottom:4px">配線ルート</label>
+          <select id="detail-routing" style="width:100%;padding:6px;background:#1e2e48;border:1px solid #3a5a7f;border-radius:4px;color:#e8f0ff">
+            <option value="露出">露出（Outdoor）</option>
+            <option value="屋内">屋内（Indoor）</option>
+            <option value="埋設">埋設（Buried）</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 詳細計算ボタン -->
+      <button class="btn primary" onclick="V2_runDetailCalc()" style="width:100%;margin-bottom:8px">詳細計算実行</button>
+      <button class="btn" onclick="V2_handoffToDenkiHack()" style="width:100%;margin-bottom:16px;background:#1e3a5f;border-color:#3a5a7f">🔧 DenkiHackで詳細設計を開く</button>
+
+      <!-- 計算結果 -->
+      <div id="detail-result" style="display:none">
+        <!-- Comparison block -->
+        <div style="background:rgba(255,127,42,0.1);border:1px solid #ff7c2a;border-radius:4px;padding:12px;margin-bottom:16px">
+          <div style="font-size:13px;line-height:1.8">
+            <div>概算原価（内諾ベース）: <strong id="detail-base-cost">¥—</strong></div>
+            <div>実査原価A（<span id="detail-calc-source">簡易</span>）: <strong id="detail-calc-cost">¥—</strong></div>
+            <div id="detail-calc-b-line" style="display:none">実査原価B（<span id="detail-calc-b-source">DenkiHack実査</span>）: <strong id="detail-calc-cost-b">¥—</strong> <span id="detail-calc-b-badge" style="font-size:11px;background:rgba(33,150,243,0.2);padding:2px 6px;border-radius:3px;color:#2196f3;margin-left:4px;display:inline-block"></span></div>
+            <div id="detail-diff-line" style="font-weight:600;margin-top:8px">差分: <strong id="detail-diff-amount">¥0</strong> <span id="detail-diff-note"></span></div>
+          </div>
+        </div>
+
+        <!-- BOM Table -->
+        <div style="margin-bottom:16px">
+          <h3 style="color:#ff7c2a;font-size:14px;margin-bottom:8px">部材費内訳（DenkiHack）</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;overflow-x:auto" id="detail-bom-table">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03)">
+                <th style="text-align:left;padding:6px;min-width:100px">品目</th>
+                <th style="text-align:left;padding:6px;min-width:150px">名称</th>
+                <th style="text-align:left;padding:6px;min-width:100px">型式</th>
+                <th style="text-align:center;padding:6px;width:40px">数量</th>
+                <th style="text-align:center;padding:6px;width:40px">単位</th>
+                <th style="text-align:right;padding:6px;width:80px">単価</th>
+                <th style="text-align:right;padding:6px;width:100px">金額</th>
+              </tr>
+            </thead>
+            <tbody id="detail-bom-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 内諾スナップショット -->
+      <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-top:16px">
+        <button class="btn" onclick="V2_snapshotNaitaku()" style="width:100%;margin-bottom:8px">内諾時の概算を固定</button>
+        <div id="detail-snapshot-badge" style="font-size:11px;color:#7a91b0;display:none">
+          内諾固定: <span id="detail-snapshot-info"></span>
+          <a href="#" onclick="V2_clearSnapshot();return false" style="margin-left:8px;color:#ff7c2a">解除</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- === CF・IRR計算 === -->
+  <div class="card" id="sec-cf">
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>💰 CF・IRR計算</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
+    <div class="form-row">
+      <div class="form-group">
+        <label>計算期間 (年)</label>
+        <input type="number" id="cfYears" value="20" min="10" max="30">
+      </div>
+      <div class="form-group">
+        <label>発電劣化率 (%/年)</label>
+        <input type="number" id="degradeRate" value="0.5" min="0" step="0.1">
+      </div>
+    </div>
+    <button class="btn primary" onclick="C_runCF()">計算実行</button>
+    <div id="cf-result" class="hidden">
+      <table>
+        <thead>
+          <tr>
+            <th>年度</th>
+            <th>発電量 (kWh)</th>
+            <th>現在価値 (万円)</th>
+            <th>累積CF (万円)</th>
+          </tr>
+        </thead>
+        <tbody id="cf-tbody"></tbody>
+      </table>
+      <div class="result">
+        <h3>計算結果</h3>
+        <p>IRR: <strong id="irr-result">-</strong>%</p>
+        <p>NPV: <strong id="npv-result">-</strong> 万円</p>
+        <p>投資回収年: <strong id="cf-payback">-</strong> 年</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- === 概算見積 === -->
