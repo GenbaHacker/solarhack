@@ -658,7 +658,7 @@ input[type="range"] { accent-color:#ff7c2a; }
       <h2>🔧 詳細見積（現場調査）</h2>
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
     </div>
-    <div class="card-body" style="display:none">
+    <div class="card-body-content">
       <!-- Project header (read-only) -->
       <div style="background:rgba(255,255,255,0.03);padding:12px;border-radius:4px;margin-bottom:16px;font-size:12px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -3765,10 +3765,10 @@ function V2_renderDetailResults(denki) {
   const baseCost = naitakuSnapshot ? naitakuSnapshot.cost : (V2_EST.cost || 0);
   const diffAmount = baseCost - detailCost;
 
-  // Render comparison block
-  document.getElementById('detail-base-cost').textContent = `¥${(baseCost || 0).toLocaleString()}`;
-  document.getElementById('detail-calc-cost').textContent = `¥${detailCost.toLocaleString()}`;
-  document.getElementById('detail-diff-amount').textContent = `¥${Math.abs(diffAmount).toLocaleString()}`;
+  // Render comparison block (TASK 126: Math.round all displayed amounts)
+  document.getElementById('detail-base-cost').textContent = `¥${Math.round(baseCost || 0).toLocaleString()}`;
+  document.getElementById('detail-calc-cost').textContent = `¥${Math.round(detailCost).toLocaleString()}`;
+  document.getElementById('detail-diff-amount').textContent = `¥${Math.round(Math.abs(diffAmount)).toLocaleString()}`;
 
   const diffNote = diffAmount >= 0
     ? `<span style="color:#00c896">交渉余地</span>`
