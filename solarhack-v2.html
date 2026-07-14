@@ -1332,17 +1332,27 @@ function V2_updatePcsSummary() {
 
 // ===== PCS自動推奨 =====
 function V2_recommendPcs() {
+  console.log('[V2_recommendPcs] START');
   const totalPanels = parseInt(gv('totalPanels')) || 0;
   const panelWp = parseFloat(gv('panelWp')) || 0;
   const isHigh = document.getElementById('voltage-class').value === 'high';
 
+  console.log('[V2_recommendPcs] totalPanels=' + totalPanels + ', panelWp=' + panelWp);
+
+  const container = document.getElementById('pcs-recommend-list');
+  const items = document.getElementById('pcs-recommend-items');
+
   if (!totalPanels || !panelWp) {
-    alert('パネル枚数と定格Wを先に設定してください');
+    items.innerHTML = '<p style="color:#f44;font-size:12px;margin:0">⚠ 先にパネル選択と枚数を設定してください</p>';
+    container.style.display = 'block';
+    console.log('[V2_recommendPcs] パネル未選択、ガード実行');
     return;
   }
 
   const dcCapacity = (totalPanels * panelWp) / 1000; // kWp
   const candidates = [];
+
+  console.log('[V2_recommendPcs] dcCapacity=' + dcCapacity);
 
   // 全メーカーのPCSを走査
   for (const maker in C_PCS_DB) {
@@ -1366,12 +1376,12 @@ function V2_recommendPcs() {
     }
   }
 
+  console.log('[V2_recommendPcs] candidates=' + candidates.length);
+
   // DC/AC比1.2に近い順でソート
   candidates.sort((a, b) => a.diffFrom1_2 - b.diffFrom1_2);
 
   // UIに出力
-  const container = document.getElementById('pcs-recommend-list');
-  const items = document.getElementById('pcs-recommend-items');
   items.innerHTML = '';
 
   if (candidates.length === 0) {
@@ -1398,15 +1408,20 @@ function V2_recommendPcs() {
   }
 
   container.style.display = 'block';
+  console.log('[V2_recommendPcs] END');
 }
 
 function V2_applyRecommend(maker, model, quantity) {
+  console.log('[V2_applyRecommend] maker=' + maker + ', model=' + model + ', quantity=' + quantity);
   sv('pcsMaker', maker);
   setTimeout(() => {
+    console.log('[V2_applyRecommend] C_buildPcsModels()');
     C_buildPcsModels();
     setTimeout(() => {
+      console.log('[V2_applyRecommend] sv(pcsModel)');
       sv('pcsModel', model);
       C_applyPcs();
+      console.log('[V2_applyRecommend] END');
     }, 50);
   }, 50);
 }
