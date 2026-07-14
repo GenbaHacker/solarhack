@@ -877,6 +877,8 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
           <div style="margin-left:auto;display:flex;gap:8px">
             <button class="btn sm" onclick="printEstimate()">🖨 印刷（見積書）</button>
             <button class="btn sm" onclick="exportEstimateCsv()">📥 CSV出力</button>
+            <button class="btn sm primary" onclick="DH_sendToSolarHack()">📤 原価をSolarHackへ返す</button>
+            <span id="dh-send-confirm" style="font-size:11px;color:var(--accent);margin-left:8px"></span>
           </div>
         </div>
         <div style="overflow-x:auto">
@@ -1794,6 +1796,9 @@ function renderEstimate() {
   document.getElementById('ps-buy').textContent  = fmt(totalBuy)+'円';
   document.getElementById('ps-sell').textContent = fmt(totalSell)+'円';
   document.getElementById('ps-margin-pct').textContent = marginPct+'%';
+
+  // SolarHack連携: 直近の合計を保持（DH_sendToSolarHackが参照）
+  window.DH_TOTALS = { buy: totalBuy, sell: totalSell, list: totalList };
 }
 
 function appendSubtotal(tbody, cat, list, buy, sell) {
@@ -2299,6 +2304,78 @@ document.addEventListener('DOMContentLoaded', () => {
   addDcRun();
   addDcRun();
   calcAll();
+});
+
+// ═══════════════════════════════════════════════
+//  SolarHack ⇔ DenkiHack ブリッジ (TASK 127)
+// ═══════════════════════════════════════════════
+function DH_sendToSolarHack() {
+  try {
+    if (!window.DH_TOTALS) { buildEstimate(); }
+    const t = window.DH_TOTALS;
+    if (!t || !t.buy) {
+      document.getElementById('dh-send-confirm').textContent = '⚠ 先に見積を生成してください';
+      return;
+    }
+    localStorage.setItem('DH2SH_RESULT', JSON.stringify({
+      ts: Date.now(),
+      proj: document.getElementById('proj-name').value || '—',
+      total: Math.round(t.buy)
+    }));
+    const d = new Date();
+    document.getElementById('dh-send-confirm').textContent =
+      '✓ 原価 ' + fmt(Math.round(t.buy)) + '円 をSolarHackへ送信 (' +
+      d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0') + ')';
+  } catch (e) {
+    document.getElementById('dh-send-confirm').textContent = '⚠ 送信失敗: ' + e.message;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // SolarHackからの引き継ぎ (SH2DH_HANDOFF) — 失敗しても本体を壊さない
+  try {
+    const raw = localStorage.getItem('SH2DH_HANDOFF');
+    if (!raw) return;
+    const h = JSON.parse(raw);
+    if (!h.ts || (Date.now() - h.ts) > 3600000) { localStorage.removeItem('SH2DH_HANDOFF'); return; }
+
+    if (h.customer && h.customer !== '—') document.getElementById('proj-name').value = h.customer;
+    if (h.dcKw) document.getElementById('proj-kw').value = h.dcKw;
+    // v4は高圧前提(6600/22000)。'high'なら6600を明示、'low'は既定のまま
+    if (h.voltage === 'high') document.getElementById('grid-voltage').value = '6600';
+
+    if (h.panelModel) {
+      for (const mk of Object.keys(PANEL_DB)) {
+        if ((PANEL_DB[mk]||[]).some(p => p.model === h.panelModel)) {
+          document.getElementById('panel-maker').value = mk;
+          buildPanelModels();
+          document.getElementById('panel-model').value = h.panelModel;
+          applyPanelModel();
+          break;
+        }
+      }
+    }
+    if (h.pcsModel) {
+      for (const mk of Object.keys(PCS_DB)) {
+        if ((PCS_DB[mk]||[]).some(p => p.model === h.pcsModel)) {
+          document.getElementById('pcs-maker').value = mk;
+          buildPcsModels();
+          document.getElementById('pcs-model').value = h.pcsModel;
+          applyPcsModel();
+          break;
+        }
+      }
+    }
+    if (h.pcsUnits) document.getElementById('pcs-count').value = h.pcsUnits;
+    if (h.panels && h.stringTotal && h.panels % h.stringTotal === 0) {
+      document.getElementById('str-series').value = h.panels / h.stringTotal;
+    }
+    calcAll();
+    localStorage.removeItem('SH2DH_HANDOFF');
+    console.log('[SH2DH] SolarHackから案件を引き継ぎました:', h.customer || h.panelModel || '');
+  } catch (e) {
+    console.warn('[SH2DH] 引き継ぎ失敗（本体動作に影響なし）:', e.message);
+  }
 });
 </script>
 </body>
