@@ -287,6 +287,7 @@ input[type="range"] { accent-color:#ff7c2a; }
         <option value="low" selected>低圧（50kW未満）</option>
         <option value="high">高圧（50kW以上）</option>
       </select>
+      <span id="voltage-auto-note" style="display:none;margin-left:8px;color:#2196f3;font-size:12px;font-weight:500;background:rgba(33,150,243,0.1);padding:4px 8px;border-radius:3px">AC合計が50kW以上のため高圧に自動変更しました</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-group">
@@ -1461,6 +1462,21 @@ function C_calcString_SingleModel(pcs, el) {
   sv('opt-parallel', best.nStr);
   sv('pcs-units', best.units);
   document.getElementById('design-result')?.classList.remove('hidden');
+
+  // TASK 124: Voltage auto-escalation — if AC total > 49.5kW on low voltage, escalate
+  const acKwTotalFinal = best.units * pcs.kw;
+  const voltageClassEl = document.getElementById('voltage-class');
+  if (acKwTotalFinal > 49.5 && voltageClassEl?.value === 'low') {
+    voltageClassEl.value = 'high';
+    // Show non-blocking note
+    const noteEl = document.getElementById('voltage-auto-note');
+    if (noteEl) {
+      noteEl.style.display = 'inline-block';
+      noteEl.textContent = '「AC合計が50kW以上のため高圧に自動変更しました」';
+    }
+    // Recalculate with new voltage class
+    C_applyPcs();
+  }
 }
 
 // TASK 117: Multi-model string design
@@ -1601,6 +1617,21 @@ function C_calcString_MultiModel(pcs, el) {
   V2_SPEC.stringTotal = groupArray.reduce((sum, g) => sum + (g.best?.nStr || 0), 0);
   sv('pcs-units', pcsUnits);
   document.getElementById('design-result')?.classList.add('hidden');
+
+  // TASK 124: Voltage auto-escalation — if AC total > 49.5kW on low voltage, escalate
+  const acKwTotalMulti = pcsUnits * pcs.kw;
+  const voltageClassEl = document.getElementById('voltage-class');
+  if (acKwTotalMulti > 49.5 && voltageClassEl?.value === 'low') {
+    voltageClassEl.value = 'high';
+    // Show non-blocking note
+    const noteEl = document.getElementById('voltage-auto-note');
+    if (noteEl) {
+      noteEl.style.display = 'inline-block';
+      noteEl.textContent = '「AC合計が50kW以上のため高圧に自動変更しました」';
+    }
+    // Recalculate with new voltage class
+    C_applyPcs();
+  }
 }
 
 // TASK 122-E: Exact patch — DELETE V2_layoutFace, direct autoCount/kw, restructure, panasonic fix
@@ -3692,7 +3723,8 @@ function V2_runDetailCalc() {
 
   // Call DenkiHack if available
   if (typeof window.DenkiHack_calc !== 'function') {
-    alert('詳細計算モジュールが未読込です');
+    const fb = document.getElementById('detail-fallback-msg');
+    if (fb) fb.style.display = 'block';
     return;
   }
 
