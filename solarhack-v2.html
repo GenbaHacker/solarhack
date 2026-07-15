@@ -292,10 +292,9 @@ input[type="range"] { accent-color:#ff7c2a; }
   <nav id="sidenav" style="width:190px;min-height:100vh;background:#0B1829;border-right:1px solid rgba(255,255,255,0.08);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0">
     <div style="padding:0 16px 16px;font-size:16px;font-weight:700;color:#ff7c2a">☀ SolarHack</div>
     <div class="nav-item" onclick="gotoSec('project')">📋 案件情報</div>
-    <div class="nav-item" onclick="gotoSec('map')">📍 設置場所</div>
     <div class="nav-item" onclick="gotoSec('panel')">☀ パネル選択</div>
+    <div class="nav-item" onclick="gotoSec('map')">📍 屋根描画</div>
     <div class="nav-item" onclick="gotoSec('pcs')">⚡ PCS選択</div>
-    <div class="nav-item" onclick="gotoSec('design')">⚙ システム設計</div>
     <div class="nav-item" onclick="gotoSec('sim')">📊 シミュレーション</div>
     <div class="nav-item" onclick="gotoSec('estimate')">💴 概算見積</div>
     <div class="nav-item" onclick="gotoSec('detail')">🔧 詳細見積（現場調査）</div>
@@ -333,6 +332,86 @@ input[type="range"] { accent-color:#ff7c2a; }
         <input type="text" id="address" placeholder="例：東京都渋谷区" onchange="V2_syncAddress(this.value)">
       </div>
     </div>
+
+  <!-- === パネル選択 === -->
+<!-- === パネル選択 === -->
+    <div class="section-panel" id="secp-panel">
+  <div class="card" id="sec-panel">
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>☀️ パネル選択</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
+    <!-- Front layer: Maker and Model selection -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>次に確定する面のパネル / メーカー</label>
+        <select id="panelMaker" onchange="C_buildPanelModels()">
+          <option value="">選択してください</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>型番</label>
+        <select id="panelModel" onchange="C_applyPanel()">
+          <option value="">選択してください</option>
+        </select>
+      </div>
+    </div>
+
+  <!-- === 設置場所（地図） === -->
+<!-- === 設置場所（地図） === -->
+    <div class="section-panel" id="secp-map">
+  <div class="card" id="sec-map">
+    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
+      <h2>📍 屋根描画</h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+    </div>
+    <div class="card-body-content">
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <input type="text" id="map-address" placeholder="住所（町名まで可）または Google座標 34.48,133.36"
+        style="flex:1;padding:8px 12px;border-radius:6px;border:1px solid var(--border);font-size:13px">
+      <button onclick="V2_searchAddress()"
+        style="padding:8px 18px;background:var(--warn);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">
+        🔍 検索
+      </button>
+    </div>
+    <div id="map-guide" style="padding:10px 14px;background:rgba(255,124,42,0.08);border-left:3px solid #ff7c2a;border-radius:0 6px 6px 0;font-size:12px;line-height:1.7;margin-bottom:8px">
+      <strong style="color:#ff7c2a">📍 屋根指定の手順</strong><br>
+      ① 住所検索（町名までOK）または Googleマップの座標を貼り付け<br>
+      ② 地図をズームして屋根の角を順にクリック（3点以上）<br>
+      ③ ポイントはドラッグで微調整可能<br>
+      ④ 勾配・方位を設定 →「パネル配置を描画」
+    </div>
+    <div id="v2-map" style="height:350px;border-radius:var(--r);border:1px solid var(--border);background:#f0f0f0"></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">
+      💡 地図上をクリックして屋根の頂点を指定します
+    </div>
+    <div id="map-result" style="margin-top:8px;font-size:12px;color:var(--warn);min-height:20px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <button onclick="V2_undoPoint()"
+        style="padding:8px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">
+        🔄 1つ戻る
+      </button>
+      <button onclick="V2_clearPoints()"
+        style="padding:8px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">
+        🗑️ 全消去
+      </button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">
+      <div>
+        <label>屋根勾配 <span id="tilt-val" style="color:#ff7c2a;font-weight:700">20度</span></label>
+        <input type="range" id="roof-tilt" min="0" max="45" value="20" step="1"
+          style="width:100%"
+          oninput="document.getElementById('tilt-val').textContent=this.value+'度';"
+          onchange="V2_renderPanelLayout()">
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <button onclick="V2_setTilt(0)" class="preset-btn">陸屋根 0°</button>
+          <button onclick="V2_setTilt(17)" class="preset-btn">3寸 17°</button>
+          <button onclick="V2_setTilt(22)" class="preset-btn">4寸 22°</button>
+          <button onclick="V2_setTilt(27)" class="preset-btn">5寸 27°</button>
+        </div>
+      </div>
+
     <div class="form-group">
       <label>提案者名</label>
       <input type="text" id="proposer-name" placeholder="例：清田 雄也"
@@ -385,58 +464,7 @@ input[type="range"] { accent-color:#ff7c2a; }
   </div>
   </div>
 
-  <!-- === 設置場所（地図） === -->
-    <div class="section-panel" id="secp-map">
-  <div class="card" id="sec-map">
-    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
-      <h2>📍 設置場所</h2>
-      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
-    </div>
-    <div class="card-body-content">
-    <div style="display:flex;gap:10px;margin-bottom:10px">
-      <input type="text" id="map-address" placeholder="住所（町名まで可）または Google座標 34.48,133.36"
-        style="flex:1;padding:8px 12px;border-radius:6px;border:1px solid var(--border);font-size:13px">
-      <button onclick="V2_searchAddress()"
-        style="padding:8px 18px;background:var(--warn);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">
-        🔍 検索
-      </button>
-    </div>
-    <div id="map-guide" style="padding:10px 14px;background:rgba(255,124,42,0.08);border-left:3px solid #ff7c2a;border-radius:0 6px 6px 0;font-size:12px;line-height:1.7;margin-bottom:8px">
-      <strong style="color:#ff7c2a">📍 屋根指定の手順</strong><br>
-      ① 住所検索（町名までOK）または Googleマップの座標を貼り付け<br>
-      ② 地図をズームして屋根の角を順にクリック（3点以上）<br>
-      ③ ポイントはドラッグで微調整可能<br>
-      ④ 勾配・方位を設定 →「パネル配置を描画」
-    </div>
-    <div id="v2-map" style="height:350px;border-radius:var(--r);border:1px solid var(--border);background:#f0f0f0"></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:8px">
-      💡 地図上をクリックして屋根の頂点を指定します
-    </div>
-    <div id="map-result" style="margin-top:8px;font-size:12px;color:var(--warn);min-height:20px"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-      <button onclick="V2_undoPoint()"
-        style="padding:8px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">
-        🔄 1つ戻る
-      </button>
-      <button onclick="V2_clearPoints()"
-        style="padding:8px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">
-        🗑️ 全消去
-      </button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">
-      <div>
-        <label>屋根勾配 <span id="tilt-val" style="color:#ff7c2a;font-weight:700">20度</span></label>
-        <input type="range" id="roof-tilt" min="0" max="45" value="20" step="1"
-          style="width:100%"
-          oninput="document.getElementById('tilt-val').textContent=this.value+'度';"
-          onchange="V2_renderPanelLayout()">
-        <div style="display:flex;gap:6px;margin-top:4px">
-          <button onclick="V2_setTilt(0)" class="preset-btn">陸屋根 0°</button>
-          <button onclick="V2_setTilt(17)" class="preset-btn">3寸 17°</button>
-          <button onclick="V2_setTilt(22)" class="preset-btn">4寸 22°</button>
-          <button onclick="V2_setTilt(27)" class="preset-btn">5寸 27°</button>
-        </div>
-      </div>
+  
       <div>
         <label>方位角 <span id="az-val" style="color:#ff7c2a;font-weight:700">180度（南）</span></label>
         <input type="range" id="roof-azimuth" min="0" max="359" value="180" step="1"
@@ -466,33 +494,38 @@ input[type="range"] { accent-color:#ff7c2a; }
       ✓ この屋根面を確定
     </button>
     <div id="face-list" style="margin-top:10px"></div>
+
+    <!-- TASK 132-UX: Panel selection guard note -->
+    <div id="map-panel-guard-note" style="display:none;padding:12px;background:rgba(255,140,66,0.2);border-left:4px solid #ff7c2a;border-radius:4px;margin-top:15px;color:#ffb84d;font-weight:600">
+      先にパネルを選択してください
+    </div>
+
+    <!-- TASK 132-UX: Integrated from secp-design -->
+    <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1)">
+      <div class="form-group">
+        <label id="totalPanels-label">設置パネル枚数</label>
+        <input type="number" id="totalPanels" value="20" min="1" onchange="V2_updatePanelSummary(); C_calcString()">
+        <!-- TASK 116: Quick mode tag -->
+        <div id="quick-mode-tag" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">⚠ 概算（配置未設計）</div>
+      </div>
+      <button class="btn primary" onclick="C_calcString()" style="width:100%">計算実行</button>
+
+      <div id="design-result" class="hidden">
+        <div class="result">
+          <h3>推奨文字列構成</h3>
+          <p>直列: <strong id="opt-series">-</strong> 枚 × 並列: <strong id="opt-parallel">-</strong> = <strong id="panels-per-mppt">-</strong> パネル/MPPT</p>
+          <p>PCS台数: <strong id="pcs-units">-</strong> 台</p>
+          <p>DC/AC比: <strong id="dcac-ratio">-</strong></p>
+        </div>
+
+        <div id="safety-checks" class="result"></div>
+      </div>
+    </div>
     </div>
   </div>
   </div>
 
-  <!-- === パネル選択 === -->
-    <div class="section-panel" id="secp-panel">
-  <div class="card" id="sec-panel">
-    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
-      <h2>☀️ パネル選択</h2>
-      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
-    </div>
-    <div class="card-body-content">
-    <!-- Front layer: Maker and Model selection -->
-    <div class="form-row">
-      <div class="form-group">
-        <label>次に確定する面のパネル / メーカー</label>
-        <select id="panelMaker" onchange="C_buildPanelModels()">
-          <option value="">選択してください</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>型番</label>
-        <select id="panelModel" onchange="C_applyPanel()">
-          <option value="">選択してください</option>
-        </select>
-      </div>
-    </div>
+  
 
     <!-- Summary strip: Key panel specs -->
     <div class="summary-strip">
@@ -634,7 +667,7 @@ input[type="range"] { accent-color:#ff7c2a; }
       </div>
     </div>
 
-    <button class="btn primary" onclick="V2_recommendPcs()" style="margin-top:10px;width:100%">💡 PCS自動推奨</button>
+    <button class="btn primary" onclick="V2_recommendPcs()" style="margin-top:10px;width:100%">⚡ PCS自動選定＋ストリング組立</button>
     <div id="pcs-recommend-list" style="margin-top:10px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px;display:none">
       <strong style="color:#ff7c2a">推奨PCS候補</strong>
       <div id="pcs-recommend-items" style="margin-top:8px"></div>
@@ -643,37 +676,7 @@ input[type="range"] { accent-color:#ff7c2a; }
   </div>
   </div>
 
-  <!-- === システム設計 === -->
-    <div class="section-panel" id="secp-design">
-  <div class="card" id="sec-design">
-    <div class="card-header-toggle" style="justify-content:space-between;width:100%">
-      <h2>⚙️ システム設計</h2>
-      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
-    </div>
-    <div class="card-body-content">
-    <div class="form-group">
-      <label id="totalPanels-label">設置パネル枚数</label>
-      <input type="number" id="totalPanels" value="20" min="1" onchange="V2_updatePanelSummary(); C_calcString()">
-      <!-- TASK 116: Quick mode tag -->
-      <div id="quick-mode-tag" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">⚠ 概算（配置未設計）</div>
-    </div>
-    <button class="btn primary" onclick="C_calcString()">計算実行</button>
-
-    <div id="design-result" class="hidden">
-      <div class="result">
-        <h3>推奨文字列構成</h3>
-        <p>直列: <strong id="opt-series">-</strong> 枚 × 並列: <strong id="opt-parallel">-</strong> = <strong id="panels-per-mppt">-</strong> パネル/MPPT</p>
-        <p>PCS台数: <strong id="pcs-units">-</strong> 台</p>
-        <p>DC/AC比: <strong id="dcac-ratio">-</strong></p>
-      </div>
-
-      <div id="safety-checks" class="result"></div>
-    </div>
-    </div>
-  </div>
-  </div>
-
-  <!-- === シミュレーション === -->
+<!-- === シミュレーション === -->
     <div class="section-panel" id="secp-sim">
   <div class="card" id="sec-sim">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
@@ -1076,6 +1079,15 @@ const C_PCS_DB = {
 
 // TASK 130-B: SPA navigation
 function gotoSec(key) {
+  // TASK 132-UX: Panel selection guard for map section
+  if (key === 'map' && !(gv('panelWp') && gv('totalPanels'))) {
+    const noteEl = document.getElementById('map-panel-guard-note');
+    if (noteEl) noteEl.style.display = 'block';
+  } else {
+    const noteEl = document.getElementById('map-panel-guard-note');
+    if (noteEl) noteEl.style.display = 'none';
+  }
+
   // Hide all panels, show target
   document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`secp-${key}`).classList.add('active');
@@ -1087,7 +1099,6 @@ function gotoSec(key) {
     key === 'map' ? '設置場所' :
     key === 'panel' ? 'パネル' :
     key === 'pcs' ? 'PCS' :
-    key === 'design' ? 'システム' :
     key === 'sim' ? 'シミュレーション' :
     key === 'estimate' ? '概算' :
     key === 'detail' ? '詳細' :
@@ -1428,7 +1439,34 @@ function V2_applyRecommend(maker, model, quantity) {
       console.log('[V2_applyRecommend] sv(pcsModel)');
       sv('pcsModel', model);
       C_applyPcs();
-      console.log('[V2_applyRecommend] END');
+      setTimeout(() => {
+        // TASK 132-UX: Extended processing after PCS selection
+        console.log('[V2_applyRecommend] C_calcString()');
+        C_calcString();
+        console.log('[V2_applyRecommend] V2_calcEstimate()');
+        V2_calcEstimate();
+
+        // TASK 132-UX: Display success message with PCS model and string configuration
+        const pcsModel = V2_SPEC?.pcs?.model || model;
+        const pcsUnits = V2_SPEC?.pcsUnits || 1;
+        const stringTotal = V2_SPEC?.stringTotal || 0;
+
+        // Build success message
+        let msg = `「PCS ${pcsModel} × ${pcsUnits}台`;
+        if (stringTotal > 0) {
+          msg += `、ストリング総数 ${stringTotal}`;
+          // TODO: Per-face breakdown (if design mode detected)
+        }
+        msg += '」';
+
+        // Display in pcs-recommend-items
+        const itemsEl = document.getElementById('pcs-recommend-items');
+        if (itemsEl) {
+          itemsEl.innerHTML = `<div style="color:#00c896;font-weight:600;padding:8px">${msg}</div>`;
+        }
+
+        console.log('[V2_applyRecommend] END: ' + msg);
+      }, 50);
     }, 50);
   }, 50);
 }
