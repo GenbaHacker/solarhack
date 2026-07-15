@@ -6,7 +6,26 @@
       "Bash(curl -sI \"https://genbahacker.github.io/solarhack/solarhack-v2.html?cb=$\\(date +%s\\)\")",
       "Bash(node tests/task60-unit-count.test.js)",
       "Bash(awk '/^function V2_calcEstimate\\\\\\(\\\\\\)/,/^}/' solarhack-v2.html)",
-      "Bash(node tests/denkihack.test.mjs)"
+      "Bash(node tests/denkihack.test.mjs)",
+      "Bash(node -e \"const fs=require\\('fs'\\); const html=fs.readFileSync\\('denkihack.html','utf-8'\\); const m=html.match\\(/<script[^>]*>\\([\\\\s\\\\S]*?\\)<\\\\/script>/g\\); if\\(m\\) { m.forEach\\(\\(s,i\\)=>{ try{ new Function\\(s.replace\\(/<\\\\/?script[^>]*>/g,''\\)\\); } catch\\(e\\){ console.error\\('Syntax error in script',i+1,':', e.message\\); } }\\); console.log\\('Parse OK'\\); }\")",
+      "Bash(node tests/task127final-offsettop-test.mjs)",
+      "Bash(node -e \"const fs=require\\('fs'\\); const html=fs.readFileSync\\('solarhack-v2.html','utf-8'\\); const m=html.match\\(/<script[^>]*>\\([\\\\s\\\\S]*?\\)<\\\\/script>/g\\); if\\(m\\) { m.forEach\\(\\(s,i\\)=>{ try{ new Function\\(s.replace\\(/<\\\\/?script[^>]*>/g,''\\)\\); } catch\\(e\\){ console.error\\('Syntax error in script',i+1,':', e.message\\); } }\\); console.log\\('OK'\\); }\")",
+      "Bash(node -c solarhack-v2.html)",
+      "Bash(node -e \"const fs=require\\('fs'\\); const html=fs.readFileSync\\('solarhack-v2.html','utf-8'\\); const m=html.match\\(/<script[^>]*>\\([\\\\s\\\\S]*?\\)<\\\\/script>/g\\); if\\(m\\) { m.forEach\\(\\(s,i\\)=>{ try{ new Function\\(s.replace\\(/<\\\\/?script[^>]*>/g,''\\)\\); } catch\\(e\\){ console.error\\('Script',i+1,'error:', e.message\\); } }\\); console.log\\('Parse OK'\\); }\")",
+      "Read(//c/Obsidian-Vault/10_PROJECTS/sawada/**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/Program Files/Git/bin/bash.exe\" .claude/hooks/no-selftest-dumping.sh"
+          }
+        ]
+      }
     ]
   }
 }
