@@ -1096,7 +1096,7 @@ function gotoSec(key) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navItem = Array.from(document.querySelectorAll('.nav-item')).find(n => n.textContent.includes(
     key === 'project' ? '案件情報' :
-    key === 'map' ? '設置場所' :
+    key === 'map' ? '屋根描画' :
     key === 'panel' ? 'パネル' :
     key === 'pcs' ? 'PCS' :
     key === 'sim' ? 'シミュレーション' :
