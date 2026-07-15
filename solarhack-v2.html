@@ -1133,8 +1133,11 @@ function gotoSec(key) {
 
   // Recompute on show
   if (key === 'map' && window.map) {
-    // TASK 132-FIX2: Call invalidateSize immediately after display to recalculate Leaflet
-    window.map.invalidateSize();
+    // TASK 132-FIX5: Wait for layout completion before invalidateSize (RAF ensures display:block is applied)
+    requestAnimationFrame(() => {
+      window.map.invalidateSize(true);   // true = hard recalc
+      window.map.setView(window.map.getCenter(), window.map.getZoom());
+    });
   }
 
   setTimeout(() => {
