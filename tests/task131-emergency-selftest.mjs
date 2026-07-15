@@ -130,29 +130,47 @@ async function runTest() {
     logs.filter(l => l.includes('[V2_recommendPcs]')).forEach(l => console.log('  ' + l));
 
     // ========== TEST C: multi/mixed 回帰テスト ==========
-    console.log('\n\n========== TEST C: multi/mixed 回帰テスト ==========\n');
+    console.log('\n\n========== TEST C: quick mode roof guard + design mode regression ==========\n');
 
+    // TEST C1: multi (quick mode) → 屋根面ゼロガード確認
     window.localStorage.clear();
-    console.log('Step C1: multi scenario...');
+    console.log('Step C1: multi scenario (quick mode)...');
     window.V2_loadTestScenario('multi');
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    console.log('Step C2: PCS自動推奨をクリック...');
+    console.log('Step C1a: PCS自動推奨をクリック（屋根面ゼロガード確認）...');
     logs.length = 0;
-    const startTimeC = Date.now();
+    recommendBtn.click();
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    const itemsContentC1 = document.getElementById('pcs-recommend-items')?.innerHTML || '(empty)';
+    const hasRoofGuardC1 = itemsContentC1.includes('屋根描画');
+    console.log('\n屋根面ゼロガード message:');
+    console.log(itemsContentC1.substring(0, 200));
+    console.log('\n✓ 屋根ガード fire: ' + (hasRoofGuardC1 ? 'YES' : 'NO'));
+
+    // TEST C2: mixed (design mode) → 候補リスト回帰確認
+    window.localStorage.clear();
+    console.log('\n\nStep C2: mixed scenario (design mode)...');
+    window.V2_loadTestScenario('mixed');
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    console.log('Step C2a: PCS自動推奨をクリック（回帰確認）...');
+    logs.length = 0;
+    const startTimeC2 = Date.now();
     recommendBtn.click();
     await new Promise(resolve => setTimeout(resolve, 500));
-    const elapsedMsC = Date.now() - startTimeC;
+    const elapsedMsC2 = Date.now() - startTimeC2;
 
-    console.log('応答時間: ' + elapsedMsC + 'ms');
+    console.log('応答時間: ' + elapsedMsC2 + 'ms');
 
-    const itemsContentC = document.getElementById('pcs-recommend-items')?.innerHTML || '(empty)';
-    const hasCandidatesC = itemsContentC.includes('<table');
-    console.log('推奨リスト: ' + (hasCandidatesC ? 'YES' : 'NO'));
+    const itemsContentC2 = document.getElementById('pcs-recommend-items')?.innerHTML || '(empty)';
+    const hasCandidatesC2 = itemsContentC2.includes('<table');
+    console.log('推奨リスト: ' + (hasCandidatesC2 ? 'YES' : 'NO'));
 
-    if (hasCandidatesC) {
-      const rowsC = itemsContentC.match(/<tr/g)?.length || 0;
-      console.log('テーブル行数: ' + rowsC);
+    if (hasCandidatesC2) {
+      const rowsC2 = itemsContentC2.match(/<tr/g)?.length || 0;
+      console.log('テーブル行数: ' + rowsC2);
     }
 
     // ========== RESULTS SUMMARY ==========

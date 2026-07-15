@@ -1349,12 +1349,10 @@ function V2_recommendPcs() {
     return;
   }
 
-  // Design mode が active だが faces が描画されていない場合
-  const designPanel = document.getElementById('secp-design');
-  if (designPanel?.classList.contains('active') && (!v2RoofFaces || v2RoofFaces.length === 0)) {
+  if (!v2RoofFaces || v2RoofFaces.length === 0) {
     items.innerHTML = '<p style="color:#f44;font-size:12px;margin:0">⚠ 先に屋根描画を完了させてください</p>';
     container.style.display = 'block';
-    console.log('[V2_recommendPcs] 屋根面ゼロ（design mode）、ガード実行');
+    console.log('[V2_recommendPcs] 屋根面ゼロ、ガード実行');
     return;
   }
 
