@@ -1092,6 +1092,14 @@ function gotoSec(key) {
   document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`secp-${key}`).classList.add('active');
 
+  // Ensure map container has height (TASK 132-FIX2: secp-map was collapsing to 0 height)
+  if (key === 'map') {
+    const mapEl = document.getElementById('v2-map');
+    if (mapEl && !mapEl.style.height) {
+      mapEl.style.height = '400px';
+    }
+  }
+
   // Update nav items
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navItem = Array.from(document.querySelectorAll('.nav-item')).find(n => n.textContent.includes(
@@ -1107,15 +1115,15 @@ function gotoSec(key) {
   if (navItem) navItem.classList.add('active');
 
   // Recompute on show
+  if (key === 'map' && window.map) {
+    // TASK 132-FIX2: Call invalidateSize immediately after display to recalculate Leaflet
+    window.map.invalidateSize();
+  }
+
   setTimeout(() => {
     if (key === 'estimate' && V2_EST) V2_calcEstimate();
     else if (key === 'detail' && V2_EST) V2_runDetailCalc();
     else if (key === 'cf') window.dispatchEvent(new Event('calc-cf'));
-
-    // Map size-refresh
-    if (key === 'map' && window.map) {
-      window.map.invalidateSize();
-    }
   }, 100);
 }
 
