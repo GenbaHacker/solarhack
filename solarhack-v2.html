@@ -46,6 +46,17 @@ body {
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 20px;
+  height: auto;
+}
+
+/* TASK 132-FIX3: Map container height collapse */
+#sec-map {
+  min-height: 450px;
+}
+
+#v2-map, .leaflet-container {
+  height: 400px !important;
+  min-height: 400px !important;
 }
 
 .card h2 {
