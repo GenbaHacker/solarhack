@@ -2343,6 +2343,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (h.dcKw) document.getElementById('proj-kw').value = h.dcKw;
     // v4は高圧前提(6600/22000)。'high'なら6600を明示、'low'は既定のまま
     if (h.voltage === 'high') document.getElementById('grid-voltage').value = '6600';
+    if (h.address) document.getElementById('proj-loc').value = h.address;
+    // 屋根材→設置形態のベストエフォート変換（近似マップ）
+    if (h.roofMaterial) {
+      const ROOF_MAT_TO_INSTALL = {
+        metal_ori:'trap', metal_tate:'trap', metal_yoko:'trap',
+        kawara_wa:'slate', kawara_yo:'slate', slate:'slate', asphalt:'slate', owave_slate:'slate',
+        flat_roof:'flat', ground:'ground'
+      };
+      const mapped = ROOF_MAT_TO_INSTALL[h.roofMaterial];
+      if (mapped) { document.getElementById('install-type').value = mapped; toggleRoof(); }
+    }
 
     if (h.panelModel) {
       for (const mk of Object.keys(PANEL_DB)) {
@@ -2370,6 +2381,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (h.panels && h.stringTotal && h.panels % h.stringTotal === 0) {
       document.getElementById('str-series').value = h.panels / h.stringTotal;
     }
+    // 配線距離: PV→PCSは主DC区間(DC②)へ、PCS→受電点は電圧クラスに応じてAC③/HV④へ
+    if (h.distPvToPcs_m) document.getElementById('dc2-len').value = h.distPvToPcs_m;
+    if (h.distPcsToGrid_m) {
+      document.getElementById(h.voltage === 'high' ? 'hv4-len' : 'ac3-len').value = h.distPcsToGrid_m;
+    }
+    if (h.distPvToPcs_m || h.distPcsToGrid_m) calcWiring();
     calcAll();
     localStorage.removeItem('SH2DH_HANDOFF');
     console.log('[SH2DH] SolarHackから案件を引き継ぎました:', h.customer || h.panelModel || '');
