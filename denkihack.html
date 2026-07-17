@@ -1361,12 +1361,18 @@ function calcPCS() {
   document.getElementById('overload-warn').style.display = ratio>1.5?'':'none';
 }
 
+// TASK W-1: ストリング総数。SolarHackから実測(window.DH_STRING_TOTAL)が来ていればそれを正とし、
+//           無ければ従来の近似(MPPT数×PCS台数)にフォールバック。電圧降下・ブレーカー精度に直結。
+function getStrN() {
+  if (window.DH_STRING_TOTAL && window.DH_STRING_TOTAL>0) return window.DH_STRING_TOTAL;
+  return V('pcs-mppt') * V('pcs-count');
+}
 function calcWiring() {
   const isc   = V('p-isc');
   const vmpS  = V('str-series')*V('p-vmp');
   const pcsKw = V('pcs-kw'), pcsN=V('pcs-count'), vout=V('pcs-vout');
   const mppt  = V('pcs-mppt');
-  const strN  = mppt * pcsN; // total MPPT as proxy for string count
+  const strN  = getStrN(); // TASK W-1: 実測ストリング数優先（無ければMPPT×台数）
 
   // ── DC① ──
   const dc1 = CABLE[document.getElementById('dc1-type').value] || CABLE['PV-1F-4'];
@@ -1440,19 +1446,18 @@ function updateWiringDeviceLabels() {
   document.getElementById('wd-panel-spec').textContent = wp>0?wp+'Wp':'—';
   const pcsKw=V('pcs-kw'),pcsN=V('pcs-count');
   document.getElementById('wd-pcs-spec').textContent = pcsKw>0?(pcsKw+'kW×'+pcsN):'—';
-  const mppt=V('pcs-mppt');
-  document.getElementById('wd-jb-spec').textContent = (mppt*pcsN)+'回路';
+  document.getElementById('wd-jb-spec').textContent = getStrN()+'回路'; // TASK W-1: 実測ストリング数優先
 }
 
 function calcBreaker() {
-  const isc=V('p-isc'), strN=V('pcs-mppt')*V('pcs-count');
+  const isc=V('p-isc'), strN=getStrN(); // TASK W-1: 実測ストリング数優先
   const dcI=strN*isc;
   setRV('rv-dc-mcb', nextBrRating(dcI*1.25)+' A MCCB-DC');
   const pcsKw=V('pcs-kw'),pcsN=V('pcs-count'),vout=V('pcs-vout');
   const acI=vout>0?pcsKw*1000*pcsN/(Math.sqrt(3)*vout):0;
   setRV('rv-ac-mcb', nextBrRating(acI*1.25)+' A MCCB');
   setRV('rv-elb', nextBrRating(acI*1.25)+' A ELB (漏電30mA)');
-  const jbIn=V('pcs-mppt')*V('pcs-count');
+  const jbIn=getStrN(); // TASK W-1: JB回路数も実測ストリング数優先
   setRV('rv-jb-in', jbIn+' 回路');
   setRV('rv-jb-sz', jbIn<=16?'16回路型':jbIn<=24?'24回路型':'32回路型以上');
 }
@@ -2428,6 +2433,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // TASK 141-A: SolarHackの機器単価(原価)を保持（buildEstimateがパネル/パワコン行に使う）
     if (h.panelCost && h.panelCost>0) window.DH_PANEL_COST = h.panelCost;
     if (h.pcsCost && h.pcsCost>0) window.DH_PCS_COST = h.pcsCost;
+    // TASK W-1: SolarHackの実測ストリング総数を保持（getStrNが近似より優先して使う）
+    if (h.stringTotal && h.stringTotal>0) window.DH_STRING_TOTAL = h.stringTotal;
     if (h.panels && h.stringTotal && h.panels % h.stringTotal === 0) {
       document.getElementById('str-series').value = h.panels / h.stringTotal;
     }
