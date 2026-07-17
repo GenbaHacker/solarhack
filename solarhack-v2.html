@@ -2004,7 +2004,7 @@ function C_runSim() {
       const irrF = V2_getIrrFor(f.azimuth, f.tilt)[m];
       const snowCm = V2_IRR.snow ? (V2_IRR.snow[m] || 0) : 0;
       const snowLoss = Math.min(0.30, snowCm * 0.0025);
-      const ambT = V2_IRR.temp ? V2_IRR.temp[m] / 10 : 15;
+      const ambT = V2_IRR.temp ? V2_IRR.temp[m] : 15;  // TASK K-calib: temp is raw °C (was wrongly /10 since TASK 85, neutralized temp derating)
       const tempFactor = 1 + ((ambT + 25) - 25) * (-0.004);
       genM += fkw * irrF * days[m] * K * (1 - snowLoss) * tempFactor;
     }
@@ -3344,7 +3344,7 @@ const COST_MASTER = {
   om_per_kw_year: 5000,  // 年間保守費 ¥5,000/kW（容量ベース）
 
   // ===== TASK 81: Simulation base coefficient =====
-  sim_base_coefficient: 0.92,  // K = inverter 0.945 × wiring/soiling 0.97 (no tempFactor, temp applied separately)
+  sim_base_coefficient: 0.80,  // TASK K-calib: conservative (iChinin-aligned). 邑南町 real actual would want 0.874; 0.80 for under-promise quoting. Temp derating applied separately via tempFactor.
 };
 
 // TASK 109: EQUIP_PRICES deleted — all costs now in COST_MASTER
