@@ -3279,11 +3279,14 @@ const COST_MASTER = {
   fix_bracket_per_kw:      8000,    // 太陽電池固定金具（屋根材で変動）
   other_material_per_kw:  10000,    // 他電材（配管・電線・固定金具）
   mount_install_per_kw:   15000,    // 架台パネル設置工事
-  elec_work_per_kw:       25000,    // 電気工事費 ★see elec_work_warning below
   temp_work_per_kw:        3000,    // 仮設工事・搬入重機費
-  final_inspection:      250000,    // 完了検査費用（一式）
+  // TASK 135-COST: 電気工事 固定費（検査・申請・図面・盤・保護継電器・配線一式）
+  elec_fixed_low: 480000,   // 低圧: 使用前検査300k+連系申請30k+結線図30k+分電盤28k+RPR/OVGR24k+配線接地一式68k
+  elec_fixed_high: 860000,  // 高圧: 使用前検査560k+連系申請70k+結線図70k+保護継電器77k+CT/VT/配線一式83k
+  // PCS設置（台あたり、機種容量で判定）
+  pcs_install_per_unit_small: 10000,  // PCS単機 <50kW
+  pcs_install_per_unit_large: 80000,  // PCS単機 >=50kW
   cubicle_connect:       330000,    // キュービクル内接続工事（高圧時のみ）
-  withstand_test:         26000,    // 耐圧試験費用（高圧時のみ）
   warranty_per_pcs:      300000,    // ワランティ延長保証（PCS 1台あたり）
   monitor_fix_cost:      120000,    // 遠隔監視装置（一式）
 
@@ -3430,31 +3433,34 @@ function V2_buildEquipEstimate() {
   const fixBracket = dcKw * need('fix_bracket_per_kw');
   const otherMaterial = dcKw * need('other_material_per_kw');
   const mountInstall = dcKw * need('mount_install_per_kw');
-  const elecWork = dcKw * need('elec_work_per_kw');
   const tempWork = dcKw * need('temp_work_per_kw');
-  const finalInspection = need('final_inspection');
   const warrantyPerPcs = units * need('warranty_per_pcs');
+
+  // TASK 135-COST: Fixed + per-unit model for electrical and PCS work
+  const elecFixed = isHigh ? need('elec_fixed_high') : need('elec_fixed_low');
+  const pcsKwEach = V2_SPEC.pcs?.kw || 20;  // fallback to 20kW if undefined
+  const pcsInstallUnit = pcsKwEach >= 50 ? need('pcs_install_per_unit_large') : need('pcs_install_per_unit_small');
+  const pcsInstall = units * pcsInstallUnit;
 
   let highVoltageWork = 0;
   if (isHigh) {
-    highVoltageWork = need('cubicle_connect') + need('withstand_test');
+    highVoltageWork = need('cubicle_connect');
   }
 
-  const workTotal = fixBracket + otherMaterial + mountInstall + elecWork + tempWork + finalInspection + warrantyPerPcs + highVoltageWork;
+  const workTotal = fixBracket + otherMaterial + mountInstall + tempWork + elecFixed + pcsInstall + warrantyPerPcs + highVoltageWork;
 
   const workRows = [
     { item:'固定金具（材料）', price:need('fix_bracket_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:fixBracket },
     { item:'その他電材（材料）', price:need('other_material_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:otherMaterial },
     { item:'架台・パネル設置工', price:need('mount_install_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:mountInstall },
-    { item:'電気工事', price:need('elec_work_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:elecWork },
     { item:'仮設・搬入工事', price:need('temp_work_per_kw'), qty:dcKw.toFixed(1)+'kW', amount:tempWork },
-    { item:'完了検査', price:need('final_inspection'), qty:'一式', amount:finalInspection },
+    { item:'電気工事（固定費一式）', price:elecFixed, qty:'一式', amount:elecFixed },
+    { item:'PCS設置・配線', price:pcsInstallUnit, qty:units+'台', amount:pcsInstall },
     { item:'ワランティ保証（PCS）', price:need('warranty_per_pcs'), qty:units+'台', amount:warrantyPerPcs },
   ];
 
   if (isHigh) {
     workRows.push({ item:'キュービクル接続工', price:need('cubicle_connect'), qty:'一式', amount:need('cubicle_connect') });
-    workRows.push({ item:'耐圧試験', price:need('withstand_test'), qty:'一式', amount:need('withstand_test') });
   }
 
   const workTbody = document.getElementById('work-tbody');
@@ -3686,18 +3692,22 @@ function V2_calcEstimate() {
   const fixBracket = dcKwTotal * COST_MASTER.fix_bracket_per_kw;
   const otherMaterial = dcKwTotal * COST_MASTER.other_material_per_kw;
   const mountInstall = dcKwTotal * COST_MASTER.mount_install_per_kw;
-  const elecWork = dcKwTotal * COST_MASTER.elec_work_per_kw;
   const tempWork = dcKwTotal * COST_MASTER.temp_work_per_kw;
-  const finalInspection = COST_MASTER.final_inspection;
   const warrantyPerPcs = pcsUnits * COST_MASTER.warranty_per_pcs;
   const monitorFix = COST_MASTER.monitor_fix_cost || 120000;  // TASK 109
 
+  // TASK 135-COST: Fixed + per-unit model for electrical and PCS work
+  const elecFixed = isHigh ? COST_MASTER.elec_fixed_high : COST_MASTER.elec_fixed_low;
+  const pcsKwEach = V2_SPEC.pcs?.kw || 20;  // fallback to 20kW if undefined
+  const pcsInstallUnit = pcsKwEach >= 50 ? COST_MASTER.pcs_install_per_unit_large : COST_MASTER.pcs_install_per_unit_small;
+  const pcsInstall = pcsUnits * pcsInstallUnit;
+
   let highVoltageWork = 0;
   if (isHigh) {
-    highVoltageWork = COST_MASTER.cubicle_connect + COST_MASTER.withstand_test;
+    highVoltageWork = COST_MASTER.cubicle_connect;
   }
 
-  const workCost = fixBracket + otherMaterial + mountInstall + elecWork + tempWork + finalInspection + warrantyPerPcs + monitorFix + highVoltageWork;
+  const workCost = fixBracket + otherMaterial + mountInstall + tempWork + elecFixed + pcsInstall + warrantyPerPcs + monitorFix + highVoltageWork;
 
   // TASK 20: Capacity-scaled contingency
   const contingencyRate = V2_getContingencyRate(dcKwTotal);
@@ -3944,9 +3954,14 @@ function V2_runDetailCalc() {
 function V2_renderDetailResults(denki) {
   // Calculate detailCost (removing double-counted lines)
   const dcKwTotal = V2_EST.dcKwTotal || 0;
-  const elecWorkLine = dcKwTotal * (COST_MASTER.elec_work_per_kw || 0);
+  const isHigh = document.getElementById('voltage-class')?.value === 'high';
+  const elecFixedLine = isHigh ? COST_MASTER.elec_fixed_high : COST_MASTER.elec_fixed_low;
+  const pcsKwEach = V2_SPEC.pcs?.kw || 20;
+  const pcsInstallUnitLine = pcsKwEach >= 50 ? COST_MASTER.pcs_install_per_unit_large : COST_MASTER.pcs_install_per_unit_small;
+  const pcsUnits = V2_EST.pcsUnits || 1;
+  const pcsInstallLine = pcsUnits * pcsInstallUnitLine;
   const otherMaterialLine = dcKwTotal * (COST_MASTER.other_material_per_kw || 0);
-  const detailCost = (V2_EST.cost || 0) - elecWorkLine - otherMaterialLine + (denki.total || 0);
+  const detailCost = (V2_EST.cost || 0) - elecFixedLine - pcsInstallLine - otherMaterialLine + (denki.total || 0);
 
   // Get base cost (from snapshot or current V2_EST)
   const naitakuSnapshot = window.V2_NAITAKU_SNAPSHOT;
