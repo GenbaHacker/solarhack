@@ -930,19 +930,34 @@ input[type="range"] { accent-color:#ff7c2a; }
       </table>
     </div>
 
-    <div style="font-size:13px;font-weight:600;color:#ff7c2a;margin:14px 0 8px">📦 機器見積</div>
+    <style>
+      .col-int{display:none}
+      #sec-estimate.show-int .col-int{display:table-cell}
+    </style>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px">
+      <span style="font-size:13px;font-weight:600;color:#ff7c2a">📦 機器見積</span>
+      <button id="est-mode-btn" onclick="V2_toggleEstMode()" style="font-size:11px;padding:4px 10px;background:#1e3a5f;border:1px solid rgba(255,255,255,0.25);border-radius:4px;color:#cfe0f5;cursor:pointer">👁 内部表示に切替（原価・利益）</button>
+    </div>
     <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:20px" id="equip-table">
       <tr style="color:#7a91b0;border-bottom:1px solid rgba(255,255,255,0.1)">
         <th style="text-align:left;padding:6px 4px">品目</th>
         <th style="text-align:left;padding:6px 4px">型式</th>
+        <th style="text-align:right;padding:6px 4px">単価（売）</th>
         <th style="text-align:right;padding:6px 4px">数量</th>
-        <th style="text-align:right;padding:6px 4px">単価（円）</th>
-        <th style="text-align:right;padding:6px 4px">金額（円）</th>
+        <th style="text-align:right;padding:6px 4px">金額（売）</th>
+        <th class="col-int" style="text-align:right;padding:6px 4px">原価</th>
+        <th class="col-int" style="text-align:right;padding:6px 4px">原価金額</th>
+        <th class="col-int" style="text-align:right;padding:6px 4px">利益額</th>
+        <th class="col-int" style="text-align:right;padding:6px 4px">利益率</th>
       </tr>
       <tbody id="equip-tbody"></tbody>
       <tr style="border-top:1px solid rgba(255,255,255,0.2);font-weight:700;background:rgba(255,124,42,0.1)">
         <td colspan="4" style="text-align:right;padding:8px 4px">機器合計</td>
-        <td style="text-align:right;padding:8px 4px;color:#ff7c2a" id="equip-total">-</td>
+        <td style="text-align:right;padding:8px 4px;color:#ff7c2a" id="equip-sell-total">-</td>
+        <td class="col-int"></td>
+        <td class="col-int" style="text-align:right;padding:8px 4px;color:#8892b0" id="equip-total">-</td>
+        <td class="col-int"></td>
+        <td class="col-int"></td>
       </tr>
     </table>
 
@@ -950,14 +965,22 @@ input[type="range"] { accent-color:#ff7c2a; }
     <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:20px" id="work-table">
       <tr style="color:#7a91b0;border-bottom:1px solid rgba(255,255,255,0.1)">
         <th style="text-align:left;padding:6px 4px">工事項目</th>
-        <th style="text-align:right;padding:6px 4px">単価（円）</th>
+        <th style="text-align:right;padding:6px 4px">単価（売）</th>
         <th style="text-align:right;padding:6px 4px">数量</th>
-        <th style="text-align:right;padding:6px 4px">金額（円）</th>
+        <th style="text-align:right;padding:6px 4px">金額（売）</th>
+        <th class="col-int" style="text-align:right;padding:6px 4px">原価</th>
+        <th class="col-int" style="text-align:right;padding:6px 4px">原価金額</th>
+        <th class="col-int" style="text-align:right;padding:6px 4px">利益額</th>
+        <th class="col-int" style="text-align:right;padding:6px 4px">利益率</th>
       </tr>
       <tbody id="work-tbody"></tbody>
       <tr style="border-top:1px solid rgba(255,255,255,0.2);font-weight:700;background:rgba(255,124,42,0.1)">
         <td colspan="3" style="text-align:right;padding:8px 4px">工事費合計</td>
-        <td style="text-align:right;padding:8px 4px;color:#ff7c2a" id="work-total">-</td>
+        <td style="text-align:right;padding:8px 4px;color:#ff7c2a" id="work-sell-total">-</td>
+        <td class="col-int"></td>
+        <td class="col-int" style="text-align:right;padding:8px 4px;color:#8892b0" id="work-total">-</td>
+        <td class="col-int"></td>
+        <td class="col-int"></td>
       </tr>
     </table>
 
@@ -3156,7 +3179,8 @@ function V2_exportExcel() {
         const inp = td.querySelector('input');
         return inp ? inp.value : td.textContent.trim();
       });
-      if (tds.length >= 5) estimate.push([tds[0], tds[1], tds[2], parseInt(tds[3]) || 0, parseInt(tds[4]?.replace(/,/g,'')) || 0]);
+      // TASK #4: 列追加後の位置補正（品目,型式,数量,原価単価,原価金額）— 原価出力を維持
+      if (tds.length >= 7) estimate.push([tds[0], tds[1], tds[3], parseInt((tds[5]||'').toString().replace(/,/g,'')) || 0, parseInt((tds[6]||'').replace(/,/g,'')) || 0]);
     });
   }
   estimate.push(['機器合計', '', '', '', window.V2_EQUIP_TOTAL || 0]);
@@ -3167,7 +3191,8 @@ function V2_exportExcel() {
   if (workTbody) {
     workTbody.querySelectorAll('tr').forEach(tr => {
       const tds = [...tr.querySelectorAll('td')].map(td => td.textContent.trim());
-      if (tds.length >= 4) estimate.push([tds[0], parseInt(tds[1]?.replace(/,/g,'')) || 0, tds[2], parseInt(tds[3]?.replace(/,/g,'')) || 0]);
+      // TASK #4: 列追加後の位置補正（工事項目,原価単価,数量,原価金額）— 原価出力を維持
+      if (tds.length >= 6) estimate.push([tds[0], parseInt((tds[4]||'').replace(/,/g,'')) || 0, tds[2], parseInt((tds[5]||'').replace(/,/g,'')) || 0]);
     });
   }
   estimate.push(['工事費合計', '', '', window.V2_WORK_TOTAL || 0]);
@@ -3417,23 +3442,33 @@ function V2_buildEquipEstimate() {
 
   const fmt = v => Math.round(v).toLocaleString();
   const tbody = document.getElementById('equip-tbody');
+  const mkE = 1 + COST_MASTER.markup_equipment;  // TASK #4: 売値 = 原価 × (1+markup)
+  const marginPctE = ((1 - 1/mkE) * 100).toFixed(1) + '%';
   tbody.innerHTML = rows.map((r,i) => {
     // TASK 107: Handle warning messages (price is a string when cost missing)
     const isWarning = typeof r.price === 'string';
-    const priceDisplay = isWarning ? r.price : fmt(r.price);
-    const amountDisplay = r.amount === '—' ? '—' : fmt(r.amount);
+    const num = typeof r.amount === 'number';
     const priceInput = isWarning ?
-      `<span style="color:#ff6b6b;font-weight:600">${priceDisplay}</span>` :
+      `<span style="color:#ff6b6b;font-weight:600">${r.price}</span>` :
       `<input type="number" value="${Math.round(r.price)}" style="width:80px;padding:4px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;background:#162540;color:#fff;text-align:right;font-size:11px"
         onchange="V2_updateEquipPrice(${i},this.value)">`;
+    const sellUnit = isWarning ? '—' : fmt(r.price * mkE);
+    const sellAmt  = num ? fmt(r.amount * mkE) : '—';
+    const costAmt  = num ? fmt(r.amount) : '—';
+    const profit   = num ? fmt(r.amount * mkE - r.amount) : '—';
+    const margin   = num ? marginPctE : '—';
 
     return `
     <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
       <td style="padding:6px 4px">${r.item}</td>
       <td style="padding:6px 4px;font-size:11px;color:#7a91b0">${r.model}</td>
+      <td style="text-align:right;padding:6px 4px">${sellUnit}</td>
       <td style="text-align:right;padding:6px 4px">${r.qty}</td>
-      <td style="text-align:right;padding:6px 4px">${priceInput}</td>
-      <td style="text-align:right;padding:6px 4px" id="equip-amt-${i}">${amountDisplay}</td>
+      <td style="text-align:right;padding:6px 4px" id="equip-sell-${i}">${sellAmt}</td>
+      <td class="col-int" style="text-align:right;padding:6px 4px">${priceInput}</td>
+      <td class="col-int" style="text-align:right;padding:6px 4px" id="equip-amt-${i}">${costAmt}</td>
+      <td class="col-int" style="text-align:right;padding:6px 4px;color:#00c896">${profit}</td>
+      <td class="col-int" style="text-align:right;padding:6px 4px;color:#00c8ff">${margin}</td>
     </tr>
   `;
   }).join('');
@@ -3441,6 +3476,7 @@ function V2_buildEquipEstimate() {
   // TASK 107: Skip rows with missing costs (amount === "—")
   const equipTotal = rows.reduce((s,r)=>s+(typeof r.amount === 'number' ? r.amount : 0),0);
   document.getElementById('equip-total').textContent = fmt(equipTotal);
+  const _est = document.getElementById('equip-sell-total'); if (_est) _est.textContent = fmt(equipTotal * mkE);
   window.V2_EQUIP_TOTAL = equipTotal;
   window.V2_EQUIP_ROWS = rows;  // TASK 105: Store rows for V2_updateEquipPrice access
 
@@ -3488,16 +3524,23 @@ function V2_buildEquipEstimate() {
   }
 
   const workTbody = document.getElementById('work-tbody');
+  const mkW = 1 + COST_MASTER.markup_work;  // TASK #4: 工事 売値 = 原価 × (1+markup_work)
+  const marginPctW = ((1 - 1/mkW) * 100).toFixed(1) + '%';
   workTbody.innerHTML = workRows.map(r => `
     <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
       <td style="padding:6px 4px">${r.item}</td>
-      <td style="text-align:right;padding:6px 4px">${fmt(r.price)}</td>
+      <td style="text-align:right;padding:6px 4px">${fmt(r.price * mkW)}</td>
       <td style="text-align:right;padding:6px 4px">${r.qty}</td>
-      <td style="text-align:right;padding:6px 4px">${fmt(r.amount)}</td>
+      <td style="text-align:right;padding:6px 4px">${fmt(r.amount * mkW)}</td>
+      <td class="col-int" style="text-align:right;padding:6px 4px">${fmt(r.price)}</td>
+      <td class="col-int" style="text-align:right;padding:6px 4px">${fmt(r.amount)}</td>
+      <td class="col-int" style="text-align:right;padding:6px 4px;color:#00c896">${fmt(r.amount * mkW - r.amount)}</td>
+      <td class="col-int" style="text-align:right;padding:6px 4px;color:#00c8ff">${marginPctW}</td>
     </tr>
   `).join('');
 
   document.getElementById('work-total').textContent = fmt(workTotal);
+  const _wst = document.getElementById('work-sell-total'); if (_wst) _wst.textContent = fmt(workTotal * mkW);
   window.V2_WORK_TOTAL = workTotal;
   // TASK 109-B: V2_updateGrandTotal moved to V2_calcEstimate (after V2_EST assigned)
   return equipTotal;
@@ -3541,6 +3584,15 @@ function V2_updateGrandTotal() {
   document.getElementById('total-contingency').textContent = fmt(contingency) + '円';
   document.getElementById('total-amount').textContent = fmt(cost) + '円';
   document.getElementById('total-with-tax').textContent = fmt(cost * 1.1) + '円';
+}
+
+// TASK #4: 概算見積 内部/客向け表示トグル（客向けは原価・利益を非表示）
+function V2_toggleEstMode() {
+  const sec = document.getElementById('sec-estimate');
+  const btn = document.getElementById('est-mode-btn');
+  if (!sec) return;
+  const showInt = sec.classList.toggle('show-int');
+  if (btn) btn.textContent = showInt ? '🙈 客向け表示に切替' : '👁 内部表示に切替（原価・利益）';
 }
 
 // TASK 20: Get contingency rate by total capacity
