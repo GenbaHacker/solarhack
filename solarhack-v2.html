@@ -2093,16 +2093,47 @@ function C_runCF() {
   // TASK 84: Scale O&M to capacity instead of hardcoded value
   const omCost = Math.round(window.V2_SIM.kw * COST_MASTER.om_per_kw_year);
 
-  let cum = -invest, npv = -invest, payback = null;
-  const cashflows = [-invest];
+  // TASK 提案: 財務モデル（補助金・減価償却・固定資産税・税制優遇）
+  const subsidy = parseFloat(document.getElementById('cf-subsidy')?.value) || 0;
+  const taxMode = document.getElementById('cf-taxmode')?.value || 'normal';
+  const taxRate = (parseFloat(document.getElementById('cf-taxrate')?.value) || 34) / 100;
+  const PROP_TAX_RATE = 0.014;   // 固定資産税率
+  const DEPR_RATE = 0.20;        // 定率法 償却率（機械装置 耐用10年）
+  const USEFUL_LIFE = 10;
+  const deprBase = invest;       // 減価償却基礎額（税抜システム価格）
+
+  // 減価償却スケジュール（所得税用）: 即時=初年度一括 / 通常=定率法 / なし=0
+  const depr = new Array(years + 1).fill(0);
+  if (taxMode === 'immediate') {
+    depr[1] = deprBase;
+  } else if (taxMode === 'normal') {
+    let book = deprBase;
+    const floor = deprBase / USEFUL_LIFE;  // 償却保証割れ後は均等（簡易）
+    for (let y = 1; y <= years; y++) {
+      if (y > USEFUL_LIFE || book <= 0) { depr[y] = 0; continue; }
+      let d = book * DEPR_RATE;
+      if (d < floor) d = Math.min(book, floor);
+      depr[y] = Math.min(d, book);
+      book -= depr[y];
+    }
+  }
+
+  const investNet = Math.max(0, invest - subsidy);  // 実質投資額（補助金控除後）
+  let cum = -investNet, npv = -investNet, payback = null;
+  const cashflows = [-investNet];
   const rows = [];
+  let fixedBook = deprBase;  // 固定資産税用簿価（定率0.20逓減・下限5%）
   for (let y = 1; y <= years; y++) {
-    const benefit = window.V2_SIM.totalBenefit * Math.pow(1-deg, y-1) * Math.pow(1+esc, y-1) - omCost;
+    const saving = window.V2_SIM.totalBenefit * Math.pow(1-deg, y-1) * Math.pow(1+esc, y-1);
+    const propTax = Math.round(fixedBook * PROP_TAX_RATE);   // 固定資産税
+    const taxSave = Math.round(depr[y] * taxRate);           // 節税（減価償却×実効税率）
+    const benefit = saving - omCost - propTax + taxSave;     // 年間CF
+    fixedBook = Math.max(deprBase * 0.05, fixedBook * (1 - DEPR_RATE));
     cum += benefit;
     npv += benefit / Math.pow(1+discountRate, y);
     cashflows.push(benefit);
     if (!payback && cum >= 0) payback = y;
-    rows.push({y, gen: window.V2_SIM.totalGen*Math.pow(1-deg,y-1), benefit, cum});
+    rows.push({y, gen: window.V2_SIM.totalGen*Math.pow(1-deg,y-1), saving, om: omCost, propTax, depr: depr[y], taxSave, benefit, cum});
   }
 
   // TASK 2: IRR（二分法）
@@ -2143,11 +2174,32 @@ function C_runCF() {
   const tbody = document.getElementById('cf-tbody');
   if (tbody) tbody.innerHTML = rows.map(r =>
     `<tr style="${r.cum>=0?'background:rgba(0,200,150,0.06)':''}">
-      <td>${r.y}年</td><td style="text-align:right">${fmt(r.gen)}</td>
+      <td>${r.y}年</td>
+      <td style="text-align:right">${fmt(r.gen)}</td>
+      <td style="text-align:right">${fmt(r.saving)}</td>
+      <td style="text-align:right">${fmt(r.depr)}</td>
+      <td style="text-align:right">${fmt(r.propTax)}</td>
+      <td style="text-align:right;color:#00c896">${fmt(r.taxSave)}</td>
       <td style="text-align:right">${fmt(r.benefit)}</td>
       <td style="text-align:right;color:${r.cum>=0?'#00c896':'#ff4d6a'}">${fmt(r.cum)}</td>
     </tr>`
   ).join('');
+
+  // TASK 提案: LCOE・CO2・投資効果を格納（提案書出力用の単一ソース）
+  const totalGen = rows.reduce((s,r)=>s+r.gen,0);
+  const totalOM = omCost * years;
+  const totalPropTax = rows.reduce((s,r)=>s+r.propTax,0);
+  const lcoe = totalGen > 0 ? (investNet + totalOM + totalPropTax) / totalGen : 0;
+  const co2 = Math.round((window.V2_SIM.totalSelfKwh || 0) * 0.418);  // kg-CO2/年（中国電力係数）
+  const cedar = Math.round(co2 / 14);  // 杉の木本数（約14kg-CO2/本・年）
+  window.V2_CF = { rows, invest, subsidy, investNet, taxMode, taxRate, payback,
+    irr, npv, lcoe, co2, cedar, years,
+    firstYearTaxSave: rows[0]?.taxSave || 0,
+    total20Benefit: rows.reduce((s,r)=>s+r.benefit,0) };
+  set('lcoe-result', lcoe.toFixed(2));
+  set('co2-result', (co2/1000).toFixed(1));
+  set('cedar-result', cedar.toLocaleString());
+
   document.getElementById('cf-result').classList.remove('hidden');
 }
 
@@ -4708,15 +4760,38 @@ if (document.readyState === 'loading') {
         <input type="number" id="degradeRate" value="0.5" min="0" step="0.1">
       </div>
     </div>
+    <!-- TASK 提案: 補助金・税制優遇（財務モデル） -->
+    <div class="form-row c3">
+      <div class="form-group">
+        <label>補助金 (円)</label>
+        <input type="number" id="cf-subsidy" value="0" min="0" step="10000" onchange="C_runCF()">
+      </div>
+      <div class="form-group">
+        <label>税制優遇</label>
+        <select id="cf-taxmode" onchange="C_runCF()">
+          <option value="none">なし（税効果考慮せず）</option>
+          <option value="immediate">即時償却（初年度一括）</option>
+          <option value="normal" selected>通常償却（定率法・耐用10年）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>法人実効税率 (%)</label>
+        <input type="number" id="cf-taxrate" value="34" min="0" max="60" step="1" onchange="C_runCF()">
+      </div>
+    </div>
     <button class="btn primary" onclick="C_runCF()">計算実行</button>
     <div id="cf-result" class="hidden">
       <table>
         <thead>
           <tr>
             <th>年度</th>
-            <th>発電量 (kWh)</th>
-            <th>現在価値 (万円)</th>
-            <th>累積CF (万円)</th>
+            <th>発電量(kWh)</th>
+            <th>電気削減(円)</th>
+            <th>減価償却(円)</th>
+            <th>固定資産税(円)</th>
+            <th>節税(円)</th>
+            <th>年間CF(円)</th>
+            <th>累積CF(円)</th>
           </tr>
         </thead>
         <tbody id="cf-tbody"></tbody>
@@ -4726,6 +4801,8 @@ if (document.readyState === 'loading') {
         <p>IRR: <strong id="irr-result">-</strong>%</p>
         <p>NPV: <strong id="npv-result">-</strong> 万円</p>
         <p>投資回収年: <strong id="cf-payback">-</strong> 年</p>
+        <p>LCOE（均等化発電原価）: <strong id="lcoe-result">-</strong> 円/kWh</p>
+        <p>CO2削減量: <strong id="co2-result">-</strong> t/年（杉の木 <strong id="cedar-result">-</strong> 本分）</p>
       </div>
     </div>
   </div>
