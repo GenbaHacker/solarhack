@@ -1462,9 +1462,13 @@ function calcBreaker() {
   setRV('rv-jb-sz', jbIn<=16?'16回路型':jbIn<=24?'24回路型':'32回路型以上');
 }
 
+// TASK W-2: 変圧器の標準容量系列（JIS高圧受電変圧器準拠）。実態と違えばこの配列を編集すれば済む。
+const TR_KVA_STANDARD = [50, 75, 100, 150, 200, 300, 500, 750, 1000];
 function calcHV() {
   const total=V('pcs-kw')*V('pcs-count');
-  const kva=Math.ceil(total*1.1/10)*10;
+  const required = total*1.1; // 余裕率10%
+  // 必要容量を満たす最小の標準品にスナップ（無ければ最大品）
+  const kva = TR_KVA_STANDARD.find(k => k >= required) || TR_KVA_STANDARD[TR_KVA_STANDARD.length-1];
   setRV('rv-tr-kva', kva+' kVA');
 }
 
