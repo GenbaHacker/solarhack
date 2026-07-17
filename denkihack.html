@@ -1330,13 +1330,17 @@ function calcString() {
   setRV('rv-vmax-check', vmaxStr>pcsVmax ? '⚠ '+pcsVmax+'V 超過' : '✓ '+pcsVmax+'V 以内', cls);
 }
 
+// TASK C-2: SolarHackから実測枚数(window.DH_PANELS_ACTUAL)が来ていればそれを正とし、
+//           無ければ従来のPCS容量逆算にフォールバック。屋根実測を殺さない。
 function calcPanelCount() {
   const wp=V('p-wp'), pcsKw=V('pcs-kw'), pcsN=V('pcs-count');
   const target = pcsKw*pcsN;
   if (!wp||!target) return;
-  const n = Math.ceil(target*1000/wp);
+  const n = (window.DH_PANELS_ACTUAL && window.DH_PANELS_ACTUAL>0)
+    ? window.DH_PANELS_ACTUAL
+    : Math.ceil(target*1000/wp);
   const kwp = (n*wp/1000).toFixed(2);
-  setRV('rv-panel-n', n+' 枚');
+  setRV('rv-panel-n', n+' 枚' + (window.DH_PANELS_ACTUAL>0 ? ' (実測)' : ''));
   setRV('rv-panel-kwp', kwp+' kWp');
   const pw=V('p-w'), ph=V('p-h');
   if (pw&&ph) setRV('rv-panel-dim', (pw/1000).toFixed(3)+'m × '+(ph/1000).toFixed(3)+'m');
@@ -1687,8 +1691,13 @@ function buildEstimate() {
   estimateRows = bomRows.map((bom, i) => {
     const id = bom.cat + '_' + i;
     const prev = prevMap[id];
-    const masterPrice = findMasterPrice(bom);
+    let masterPrice = findMasterPrice(bom);
     const cm = catMargins[bom.cat] || { kakuritsu:60, marginPct:25 };
+    // TASK 141-A: SolarHackから来た機器単価(原価)をパネル/パワコン行に反映。
+    //   橋の単価は「原価」なので、定価欄に入れつつ掛率100%で原価=定価扱いにする(下でkakuritsu上書き)。
+    let bridgeCostRow = false;
+    if (bom.cat==='パネル' && window.DH_PANEL_COST>0) { masterPrice = window.DH_PANEL_COST; bridgeCostRow = true; }
+    if (bom.cat==='パワコン' && window.DH_PCS_COST>0) { masterPrice = window.DH_PCS_COST; bridgeCostRow = true; }
     return {
       id,
       cat:        bom.cat,
@@ -1698,7 +1707,7 @@ function buildEstimate() {
       qty:        bom.qty,
       unit:       bom.unit,
       listPx:     prev?.listPx ?? masterPrice,
-      kakuritsu:  prev?.kakuritsu ?? cm.kakuritsu,
+      kakuritsu:  prev?.kakuritsu ?? (bridgeCostRow ? 100 : cm.kakuritsu),
       marginPct:  prev?.marginPct ?? cm.marginPct,
       needInquiry:prev?.needInquiry ?? (masterPrice === 0),
       overridden: prev?.overridden ?? false,
@@ -2414,6 +2423,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     if (h.pcsUnits) document.getElementById('pcs-count').value = h.pcsUnits;
+    // TASK C-2: SolarHackの実測パネル枚数を保持（calcPanelCountが逆算より優先して使う）
+    if (h.panels && h.panels>0) window.DH_PANELS_ACTUAL = h.panels;
+    // TASK 141-A: SolarHackの機器単価(原価)を保持（buildEstimateがパネル/パワコン行に使う）
+    if (h.panelCost && h.panelCost>0) window.DH_PANEL_COST = h.panelCost;
+    if (h.pcsCost && h.pcsCost>0) window.DH_PCS_COST = h.pcsCost;
     if (h.panels && h.stringTotal && h.panels % h.stringTotal === 0) {
       document.getElementById('str-series').value = h.panels / h.stringTotal;
     }
