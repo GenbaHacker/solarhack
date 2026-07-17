@@ -4721,6 +4721,9 @@ function V2_handoffToDenkiHack() {
     voltage: isHigh ? 'high' : 'low',
     dcKw: V2_EST.dcKwTotal,
     naitakuCost: (window.V2_NAITAKU_SNAPSHOT?.cost ?? V2_EST.cost),
+    // TASK 141-A: 機器単価をDenkiHackへ連携（マスタに単価があれば送る、無ければ0）
+    panelCost: V2_SPEC.panel?.cost || 0,
+    pcsCost: V2_SPEC.pcs?.cost || 0,
     // TASK 127-D: DenkiHack再選択レス化のための追加項目
     roofMaterial: document.getElementById('roof-material')?.value || '',
     distPvToPcs_m: parseFloat(document.getElementById('detail-dist-pv-pcs')?.value) || 0,
