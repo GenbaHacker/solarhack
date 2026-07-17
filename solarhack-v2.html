@@ -696,7 +696,7 @@ input[type="range"] { accent-color:#ff7c2a; }
       <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
     </div>
     <div class="card-body-content">
-    <div style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:14px;margin-bottom:14px">
+    <div id="pwr-usage-block" style="border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:14px;margin-bottom:14px">
       <div style="font-size:13px;font-weight:600;color:#ff7c2a;margin-bottom:10px">🔌 電力使用状況（自家消費率の自動計算）</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
         <div>
@@ -706,6 +706,7 @@ input[type="range"] { accent-color:#ff7c2a; }
             <option value="office">事務所（昼間60%）</option>
             <option value="shop">店舗（昼間70%）</option>
             <option value="house">住宅（昼間35%）</option>
+            <option value="unknown">不明（推定55%）</option>
           </select>
         </div>
         <div id="workdays-wrap">
@@ -2353,6 +2354,7 @@ const BLDG_PROFILES = {
   office:  { day: 0.60, workdaySelectable: true },
   shop:    { day: 0.70, workdaySelectable: false },
   house:   { day: 0.35, workdaySelectable: false },
+  unknown: { day: 0.55, workdaySelectable: true },  // 不明：中間値で推定
 };
 const SEASON_COEF = [1.08,1.02,0.98,0.92,0.90,0.95,1.10,1.15,1.02,0.92,0.94,1.02];
 
@@ -3332,6 +3334,18 @@ async function V2_fetchIrr(lat, lon) {
 // 初期化
 window.addEventListener('load', function() {
   V2_loadMaster();
+  // P1構造再編: 電力使用状況を「案件情報」タブへ移設（ID・ハンドラ保持のままDOM再配置）
+  try {
+    const _pwr = document.getElementById('pwr-usage-block');
+    const _projBody = document.querySelector('#sec-project .card-body-content');
+    if (_pwr && _projBody) {
+      const _h = document.createElement('div');
+      _h.style.cssText = 'font-size:13px;font-weight:600;color:#ff7c2a;margin:16px 0 8px';
+      _h.textContent = '⚡ 電力情報（自家消費シミュに使用）';
+      _projBody.appendChild(_h);
+      _projBody.appendChild(_pwr);
+    }
+  } catch(e) { console.warn('電力情報の移設に失敗', e); }
   C_initDropdowns();
   const savedProposer = localStorage.getItem('sh_proposer');
   if (savedProposer) document.getElementById('proposer-name').value = savedProposer;
