@@ -1125,11 +1125,11 @@ function gotoSec(key) {
   if (navItem) navItem.classList.add('active');
 
   // Recompute on show
-  if (key === 'map' && window.map) {
+  if (key === 'map' && typeof v2Map !== 'undefined' && v2Map) {
     // TASK 132-FIX5: Wait for layout completion before invalidateSize (RAF ensures display:block is applied)
     requestAnimationFrame(() => {
-      window.map.invalidateSize(true);   // true = hard recalc
-      window.map.setView(window.map.getCenter(), window.map.getZoom());
+      v2Map.invalidateSize(true);   // true = hard recalc
+      v2Map.setView(v2Map.getCenter(), v2Map.getZoom());
     });
   }
 
