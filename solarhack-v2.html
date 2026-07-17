@@ -4713,6 +4713,7 @@ function V2_handoffToDenkiHack() {
     panelMaker: V2_SPEC.panel?.maker || '—',
     panelModel: V2_SPEC.panel?.model || '—',
     wp: V2_SPEC.panel?.wp || 0,
+    pcsKw: parseFloat(gv('pcsKw')) || 0,
     pcsMaker: document.getElementById('pcsMaker')?.value || '—',
     pcsModel: document.getElementById('pcsModel')?.value || '—',
     pcsUnits: V2_SPEC.pcsUnits,
