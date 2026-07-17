@@ -215,6 +215,7 @@ table td {
 .preset-btn:hover { color:#ff7c2a; border-color:#ff7c2a; }
 input[type="range"] { accent-color:#ff7c2a; }
 .nav-item { padding:10px 16px; font-size:13px; color:#7a91b0; cursor:pointer; transition:all 0.15s; }
+.nav-item.nav-sub { padding:7px 16px 7px 30px; font-size:12px; }
 .nav-item:hover { color:#ff7c2a; background:rgba(255,124,42,0.08); }
 @media (max-width:768px) { #sidenav { display:none; } }
 .info-btn {
@@ -303,13 +304,17 @@ input[type="range"] { accent-color:#ff7c2a; }
   <nav id="sidenav" style="width:190px;min-height:100vh;background:#0B1829;border-right:1px solid rgba(255,255,255,0.08);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0">
     <div style="padding:0 16px 16px;font-size:16px;font-weight:700;color:#ff7c2a">☀ SolarHack</div>
     <div class="nav-item" onclick="gotoSec('project')">📋 案件情報</div>
-    <div class="nav-item" onclick="gotoSec('panel')">☀ パネル選択</div>
-    <div class="nav-item" onclick="gotoSec('map')">📍 屋根描画</div>
-    <div class="nav-item" onclick="gotoSec('pcs')">⚡ PCS選択</div>
+    <div style="padding:10px 16px 2px;font-size:11px;color:#7a91b0;font-weight:700;letter-spacing:1px">機器情報</div>
+    <div class="nav-item nav-sub" onclick="gotoSec('panel')">☀ パネル選択</div>
+    <div class="nav-item nav-sub" onclick="gotoSec('pcs')">⚡ パワコン選択</div>
+    <div class="nav-item nav-sub" onclick="gotoSec('monitor')">📡 監視装置</div>
+    <div class="nav-item nav-sub" onclick="gotoSec('other')">🔩 その他機器</div>
+    <div class="nav-item" onclick="gotoSec('map')">🗺 ツール：屋根描画</div>
     <div class="nav-item" onclick="gotoSec('sim')">📊 シミュレーション</div>
     <div class="nav-item" onclick="gotoSec('estimate')">💴 概算見積</div>
-    <div class="nav-item" onclick="gotoSec('detail')">🔧 詳細見積（現場調査）</div>
+    <div class="nav-item" onclick="gotoSec('detail')">🔧 詳細見積</div>
     <div class="nav-item" onclick="gotoSec('cf')">💹 CF・IRR</div>
+    <div class="nav-item" onclick="gotoSec('preview')">🖨 プレビュー→印刷</div>
     <div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:12px;padding-top:12px">
       <div class="nav-item" onclick="V2_openMaster()">🗄 マスタ管理</div>
       <div class="nav-item" onclick="V2_saveJSON()">💾 保存（JSON）</div>
@@ -1120,7 +1125,8 @@ function gotoSec(key) {
 
   // Hide all panels, show target
   document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(`secp-${key}`).classList.add('active');
+  const _target = document.getElementById(`secp-${key}`);
+  if (_target) _target.classList.add('active');
 
   // Ensure map container has height (TASK 132-FIX2: secp-map was collapsing to 0 height)
   if (key === 'map') {
@@ -1134,13 +1140,16 @@ function gotoSec(key) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navItem = Array.from(document.querySelectorAll('.nav-item')).find(n => n.textContent.includes(
     key === 'project' ? '案件情報' :
-    key === 'map' ? '設置場所' :
+    key === 'map' ? '屋根描画' :
     key === 'panel' ? 'パネル' :
-    key === 'pcs' ? 'PCS' :
+    key === 'pcs' ? 'パワコン' :
+    key === 'monitor' ? '監視' :
+    key === 'other' ? 'その他' :
     key === 'sim' ? 'シミュレーション' :
     key === 'estimate' ? '概算' :
     key === 'detail' ? '詳細' :
-    key === 'cf' ? 'CF' : ''
+    key === 'cf' ? 'CF' :
+    key === 'preview' ? 'プレビュー' : ''
   ));
   if (navItem) navItem.classList.add('active');
 
@@ -4650,6 +4659,34 @@ if (document.readyState === 'loading') {
 }
 </script>
 
+    <!-- === 監視装置（P1構造再編・機器情報グループ） === -->
+    <div class="section-panel" id="secp-monitor">
+      <div class="card" id="sec-monitor">
+        <div class="card-header-toggle" style="justify-content:space-between;width:100%"><h2>📡 監視装置</h2></div>
+        <div class="card-body-content">
+          <p style="color:#7a91b0;font-size:13px;line-height:1.8">監視装置の選択（Leye ／ ソーラーモニター ／ エコめがね ／ SmartLogger 等）。COST_MASTERのmonitorマスタから選択→見積連動。<br><span style="color:#ff8c42">※P1構造再編：ここに機器選択UIを実装予定</span></p>
+        </div>
+      </div>
+    </div>
+    <!-- === その他機器（P1構造再編・機器情報グループ） === -->
+    <div class="section-panel" id="secp-other">
+      <div class="card" id="sec-other">
+        <div class="card-header-toggle" style="justify-content:space-between;width:100%"><h2>🔩 その他機器</h2></div>
+        <div class="card-body-content">
+          <p style="color:#7a91b0;font-size:13px;line-height:1.8">トランス・保護継電器・キュービクル部材など。<br><span style="color:#ff8c42">※P1構造再編：ここに機器選択UIを実装予定</span></p>
+        </div>
+      </div>
+    </div>
+    <!-- === プレビュー→印刷（提案書出力・P4） === -->
+    <div class="section-panel" id="secp-preview">
+      <div class="card" id="sec-preview">
+        <div class="card-header-toggle" style="justify-content:space-between;width:100%"><h2>🖨 プレビュー → 印刷（提案書）</h2></div>
+        <div class="card-body-content">
+          <p style="color:#7a91b0;font-size:13px;line-height:1.8">4ページ提案書（表紙／概要／投資効果／通常償却CF）を生成し印刷。<br><span style="color:#ff8c42">※P4で提案書出力ジェネレータを実装予定（骨格設計済み・window.V2_CF連動）</span></p>
+        </div>
+      </div>
+    </div>
+    <!-- === TASK 123-B: 詳細見積（現場調査） === -->
     <div class="section-panel" id="secp-detail">
   <div class="card" id="sec-detail">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
