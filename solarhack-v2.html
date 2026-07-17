@@ -4718,7 +4718,13 @@ function V2_handoffToDenkiHack() {
     stringTotal: V2_SPEC.stringTotal,
     voltage: isHigh ? 'high' : 'low',
     dcKw: V2_EST.dcKwTotal,
-    naitakuCost: (window.V2_NAITAKU_SNAPSHOT?.cost ?? V2_EST.cost)
+    naitakuCost: (window.V2_NAITAKU_SNAPSHOT?.cost ?? V2_EST.cost),
+    // TASK 127-D: DenkiHack再選択レス化のための追加項目
+    roofMaterial: document.getElementById('roof-material')?.value || '',
+    distPvToPcs_m: parseFloat(document.getElementById('detail-dist-pv-pcs')?.value) || 0,
+    distPcsToGrid_m: parseFloat(document.getElementById('detail-dist-pcs-grid')?.value) || 0,
+    routing: document.getElementById('detail-routing')?.value || '',
+    address: document.getElementById('address')?.value || ''
   };
 
   window.localStorage.setItem('SH2DH_HANDOFF', JSON.stringify(handoff));
