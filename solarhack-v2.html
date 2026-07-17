@@ -321,9 +321,6 @@ input[type="range"] { accent-color:#ff7c2a; }
   <div id="main-content" style="flex:1;min-width:0">
 
 <div class="container">
-  <div class="header">
-    <h1>☀️ SolarHack</h1>
-  </div>
 
   <!-- === 案件情報 === -->
     <div class="section-panel" id="secp-project">
@@ -1368,6 +1365,7 @@ function V2_updatePcsSummary() {
 
 // ===== PCS自動推奨 =====
 function V2_recommendPcs() {
+  C_pcsUserSelected = true;  // TASK ux-punch: user explicitly engaged PCS selection → allow string-config render
   console.log('[V2_recommendPcs] START');
   const totalPanels = parseInt(gv('totalPanels')) || 0;
   const panelWp = parseFloat(gv('panelWp')) || 0;
@@ -1503,8 +1501,11 @@ function C_getSelectedPcs() {
   return C_PCS_DB[maker].find(p => p.model === model) || null;
 }
 
+let C_pcsUserSelected = false;  // TASK ux-punch: gate 推奨ストリング構成 render until user explicitly engages PCS selection
 function C_calcString() {
-  const el = document.getElementById('safety-checks');
+  // Compute always (cost needs pcsUnits); render 推奨ストリング構成 only AFTER explicit PCS selection
+  const el = C_pcsUserSelected ? document.getElementById('safety-checks') : null;
+  if (!C_pcsUserSelected) { const _sc = document.getElementById('safety-checks'); if (_sc) _sc.innerHTML = ''; }
   const pcs = C_getSelectedPcs();
 
   if (!pcs) {
@@ -4548,10 +4549,10 @@ if (document.readyState === 'loading') {
     <div class="section-panel" id="secp-detail">
   <div class="card" id="sec-detail">
     <div class="card-header-toggle" style="justify-content:space-between;width:100%">
-      <h2>🔧 詳細見積（現場調査）</h2>
-      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▲</button>
+      <h2>🔧 詳細見積（現場調査）<span style="font-size:11px;color:#7a91b0;margin-left:8px;font-weight:400">DenkiHack 実査</span></h2>
+      <button class="card-toggle-btn" onclick="toggleCard(this)" style="margin:0">▼</button>
     </div>
-    <div class="card-body-content">
+    <div class="card-body-content collapsed">
       <!-- Project header (read-only) -->
       <div style="background:rgba(255,255,255,0.03);padding:12px;border-radius:4px;margin-bottom:16px;font-size:12px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
