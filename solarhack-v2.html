@@ -1470,6 +1470,7 @@ function V2_recommendPcs() {
   // 全メーカーのPCSを走査
   for (const maker in C_PCS_DB) {
     for (const pcs of C_PCS_DB[maker]) {
+      if (pcs.hidden) continue;
       // TASK 94: PCS台数は max_dc_ac_ratio制約から算出
       const quantity = Math.max(1, Math.ceil(dcCapacity / (pcs.kw * COST_MASTER.max_dc_ac_ratio)));
       const acTotal = quantity * pcs.kw;
@@ -2825,7 +2826,7 @@ function V2_renderFaceList() {
   el.innerHTML = v2RoofFaces.map((f, idx) => {
     // Build panel dropdown options from C_PANEL_DB
     const panelOptions = Object.entries(C_PANEL_DB).flatMap(([maker, models]) =>
-      models.map(m => ({maker, model: m.model, label: `${maker} ${m.model} (${m.wp}W)`}))
+      models.filter(m=>!m.hidden).map(m => ({maker, model: m.model, label: `${maker} ${m.model} (${m.wp}W)`}))
     );
     const selectedLabel = f.panelMaker && f.panelModel
       ? `${f.panelMaker} ${f.panelModel} (${f.panelWp}W)`
