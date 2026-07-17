@@ -362,13 +362,13 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div class="form-row">
       <div class="form-group">
         <label>次に確定する面のパネル / メーカー</label>
-        <select id="panelMaker" onchange="C_buildPanelModels()">
+        <select id="panelMaker" onchange="C_buildPanelModels(); V2_syncCockpitPanel()">
           <option value="">選択してください</option>
         </select>
       </div>
       <div class="form-group">
         <label>型番</label>
-        <select id="panelModel" onchange="C_applyPanel()">
+        <select id="panelModel" onchange="C_applyPanel(); V2_syncCockpitPanel()">
           <option value="">選択してください</option>
         </select>
       </div>
@@ -516,6 +516,18 @@ input[type="range"] { accent-color:#ff7c2a; }
 
     <!-- TASK 132-UX: Integrated from secp-design -->
     <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1)">
+      <!-- コックピット機器選択（パネル選択タブとミラー同期） -->
+      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">☀ パネル選択（パネル選択タブと同期）</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>メーカー</label>
+          <select id="cp-panelMaker" onchange="V2_cpPanelMaker()"><option value="">選択してください</option></select>
+        </div>
+        <div class="form-group">
+          <label>型番</label>
+          <select id="cp-panelModel" onchange="V2_cpPanelModel()"><option value="">選択してください</option></select>
+        </div>
+      </div>
       <div class="form-group">
         <label id="totalPanels-label">設置パネル枚数</label>
         <input type="number" id="totalPanels" value="20" min="1" onchange="V2_updatePanelSummary(); C_calcString()">
@@ -2411,6 +2423,139 @@ function V2_updateOther() {
   if (typeof V2_calcEstimate==='function') V2_calcEstimate();
 }
 
+// ===== 屋根描画コックピット ⇄ パネル選択タブ ミラー同期 =====
+function V2_mirrorOptions(srcId, dstId) {
+  const s = document.getElementById(srcId), d = document.getElementById(dstId);
+  if (!s || !d) return;
+  d.innerHTML = s.innerHTML;  // options コピー
+  d.value = s.value;          // 選択値コピー（programmatic setはonchange発火せず＝ループなし）
+}
+function V2_syncCockpitPanel() {  // canonical(タブ) → cockpit(屋根描画)
+  V2_mirrorOptions('panelMaker', 'cp-panelMaker');
+  V2_mirrorOptions('panelModel', 'cp-panelModel');
+}
+function V2_cpPanelMaker() {  // cockpit → canonical
+  const m = document.getElementById('panelMaker');
+  if (m) { m.value = document.getElementById('cp-panelMaker').value; if (typeof C_buildPanelModels==='function') C_buildPanelModels(); }
+  V2_mirrorOptions('panelModel', 'cp-panelModel');
+}
+function V2_cpPanelModel() {
+  const m = document.getElementById('panelModel');
+  if (m) { m.value = document.getElementById('cp-panelModel').value; if (typeof C_applyPanel==='function') C_applyPanel(); }
+}
+
+// ===== 提案書出力ジェネレータ（ライブデータ→4ページHTML） =====
+const PROPOSAL_CSS = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Yu Gothic","Hiragino Sans",sans-serif;color:#1a2b45;background:#6b7280}
+.page{width:210mm;min-height:296mm;background:#fff;margin:6mm auto;padding:16mm;position:relative;page-break-after:always}.page.land{width:297mm;min-height:209mm}
+h1.doc{font-size:26px;text-align:center;letter-spacing:4px;border-top:3px solid #1e6fd9;border-bottom:3px solid #1e6fd9;padding:14px 0;margin:10mm 0}
+h2.sec{font-size:17px;color:#1e6fd9;border-left:6px solid #1e6fd9;padding-left:10px;margin:4px 0 10px}h3.sub{font-size:13px;margin:12px 0 5px;color:#33465f}
+table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #c8d3e0;padding:4px 6px}th{background:#eef3fa}.num{text-align:right}
+.kpi-row{display:flex;gap:8px;margin:8px 0}.kpi{flex:1;background:#f5f8fc;border:1px solid #d3deec;border-radius:6px;padding:8px;text-align:center}.kpi .lbl{font-size:10px;color:#6b7a90}.kpi .val{font-size:17px;font-weight:700;color:#1e6fd9}.kpi .val.hi{color:#ff7c2a}
+.ba{display:flex;gap:10px}.ba .box{flex:1;border-radius:6px;padding:10px}.before{background:#fbecec;border:1px solid #e0b4b4}.after{background:#eaf6ee;border:1px solid #a9d8bd}
+.est-badge{display:inline-block;background:#ff7c2a;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700}.lt th,.lt td{padding:2px 4px;font-size:9px}.lt .rowlbl{text-align:left;background:#f5f8fc;white-space:nowrap}.note{font-size:9px;color:#8892a0;margin-top:8px}
+@media print{body{background:#fff}.page{margin:0}}`;
+
+function V2_buildProposalHTML() {
+  const g = id => document.getElementById(id);
+  const fmt = v => Math.round(v||0).toLocaleString();
+  const sim = window.V2_SIM || {}, cf = window.V2_CF || {};
+  // V2_EST は同一スクリプトのlet束縛（global-lexical scope）でwindowには乗らないため直接参照
+  const est = (typeof V2_EST !== 'undefined' && V2_EST) ? V2_EST : {};
+  const client = g('clientName')?.value || '株式会社〇〇';
+  const addr = g('address')?.value || '（住所）';
+  const kw = sim.kw || 0;
+  const price = parseFloat(g('elec-price')?.value) || 27.85;
+  const usage = (typeof V2_getMonthlyUsage==='function') ? V2_getMonthlyUsage() : new Array(12).fill(0);
+  const usageAnnual = usage.reduce((a,b)=>a+b,0);
+  const beforeBill = usageAnnual * price;
+  const totalBenefit = sim.totalBenefit || 0;               // 自家消費削減＋売電収入
+  const selfSaving = (sim.totalSelfKwh || 0) * price;       // 自家消費による電気代削減
+  const sellRevenue = Math.max(0, totalBenefit - selfSaving); // 売電収入
+  const saving = totalBenefit;                              // 年間経済メリット（表示用）
+  // 売電収入は電気代削減に含めない（導入後電気代は自家消費分のみ差引）
+  const afterBill = Math.max(0, beforeBill - selfSaving);
+  const cutRate = beforeBill>0 ? Math.min(100, selfSaving/beforeBill*100) : 0;
+  const selfRate = sim.totalGen>0 ? (sim.totalSelfKwh/sim.totalGen*100) : 0;
+  // V2_SPEC も let束縛でwindow非搭載のため直接参照
+  const spec = (typeof V2_SPEC !== 'undefined' && V2_SPEC) ? V2_SPEC : {};
+  const panel = spec.panel || {};
+  const pcs = spec.pcs || {};
+  const panelCount = parseInt(g('totalPanels')?.value) || 0;
+  const rows = sim.rows || [];
+  const cfRows = cf.rows || [];
+  const M = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  // ③ 月別
+  let monthRows = rows.map((r,i)=>`<tr><td>${M[i]||i+1}</td><td class="num">${fmt(r.gen)}</td><td class="num">${fmt(r.selfKwh)}</td><td class="num">${(r.selfRate*100).toFixed(0)}%</td><td class="num">${fmt(r.benefit)}</td></tr>`).join('');
+  // ④ CF（抜粋年）
+  const pick=[1,2,3,5,8,10,13,15,18,19,20];
+  const cfHead = pick.map(y=>`<th>${y}</th>`).join('')+'<th>合計</th>';
+  const cfRow=(key,f)=>{ let cells=pick.map(y=>{const r=cfRows[y-1]; return `<td class="num">${r?f(r):'—'}</td>`}).join(''); return cells; };
+  const cumColor=r=> r&&r.cum>=0?'#1e8f4e':'#c0392b';
+  // システム型: sell-modeに追従（完全自家消費 or 余剰売電）
+  const sellMode = g('sell-mode')?.value || 'surplus';
+  const sysType = sellMode==='full-self' ? '完全自家消費型' : '余剰売電型';
+  // 見積区分: 詳細見積が確定していれば詳細、なければ概算（P6実装までは概算）
+  const estBasis = (window.V2_DETAIL && window.V2_DETAIL.cost) ? '詳細見積ベース' : '概算見積ベース';
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>提案書 ${client}</title><style>${PROPOSAL_CSS}</style></head><body>
+<section class="page"><div style="text-align:right;font-size:12px;color:#6b7a90">発行日：${new Date().toLocaleDateString('ja-JP')}</div>
+<h1 class="doc">太陽光発電 ご提案書</h1>
+<div style="text-align:center;font-size:22px;margin:14mm 0 4mm">${client} <span style="font-size:15px">御中</span></div>
+<div style="border-top:1px solid #1e6fd9;width:60%;margin:0 auto 14mm"></div>
+<table style="width:80%;margin:0 auto"><tr><th style="width:30%">物件名</th><td>${client} 太陽光発電所</td></tr><tr><th>物件住所</th><td>${addr}</td></tr><tr><th>システム</th><td>PV容量 ${kw.toFixed(2)}kW（${sysType}）</td></tr><tr><th>見積区分</th><td><span class="est-badge">${estBasis}</span></td></tr></table>
+<div style="text-align:center;margin-top:20mm;font-size:18px;font-weight:700;color:#ff7c2a">株式会社 SAWADA</div></section>
+
+<section class="page"><h2 class="sec">検討する太陽光発電の概要</h2>
+<div class="kpi-row"><div class="kpi"><div class="lbl">システム容量</div><div class="val">${kw.toFixed(2)} kW</div></div><div class="kpi"><div class="lbl">年間予測発電量</div><div class="val">${fmt(sim.totalGen)} kWh</div></div><div class="kpi"><div class="lbl">年間CO2削減</div><div class="val">${((cf.co2||0)/1000).toFixed(1)} t</div></div><div class="kpi"><div class="lbl">杉の木換算</div><div class="val">${fmt(cf.cedar)} 本</div></div></div>
+<h3 class="sub">システム構成</h3><table><tr><th>機器</th><th>型番</th><th class="num">数量</th></tr><tr><td>太陽電池モジュール</td><td>${panel.model||panel.name||'—'}</td><td class="num">${panelCount} 枚</td></tr><tr><td>パワーコンディショナ</td><td>${pcs.model||'—'}</td><td class="num">${spec.pcsUnits||'—'} 台</td></tr></table>
+<div class="kpi-row" style="margin-top:12px"><div class="kpi"><div class="lbl">LCOE（均等化発電原価）</div><div class="val">${(cf.lcoe||0).toFixed(2)} 円/kWh</div></div><div class="kpi"><div class="lbl">電力会社購入単価</div><div class="val">${price.toFixed(2)} 円/kWh</div></div></div>
+<div class="note">※LCOEが購入単価を下回るほど自家消費メリットが大きい。</div></section>
+
+<section class="page"><h2 class="sec">投資効果</h2>
+<h3 class="sub">■ 経済効果（年）</h3>
+<div class="ba"><div class="box before"><div style="font-size:11px">導入前 電気代</div><div style="font-size:19px;font-weight:700">${fmt(beforeBill)} 円</div></div><div class="box after"><div style="font-size:11px">導入後 電気代</div><div style="font-size:19px;font-weight:700">${fmt(afterBill)} 円</div></div><div class="box" style="background:#fff5eb;border:1px solid #f0c89a"><div style="font-size:11px">年間経済メリット</div><div style="font-size:19px;font-weight:700;color:#ff7c2a">${fmt(saving)} 円</div><div style="font-size:9px;color:#8a6d3b">自家消費削減 ${fmt(selfSaving)}＋売電 ${fmt(sellRevenue)}</div></div><div class="box" style="background:#eef3fa;border:1px solid #c8d3e0"><div style="font-size:11px">電気代削減率／自家消費率</div><div style="font-size:19px;font-weight:700">${cutRate.toFixed(1)}%／${selfRate.toFixed(1)}%</div></div></div>
+<h3 class="sub">■ 投資効果まとめ</h3>
+<div class="kpi-row"><div class="kpi"><div class="lbl">導入コスト（税込）</div><div class="val">${fmt(est.total)} 円</div></div><div class="kpi"><div class="lbl">回収年数</div><div class="val hi">${cf.payback||'—'} 年</div></div><div class="kpi"><div class="lbl">20年経済メリット</div><div class="val">${fmt(cf.total20Benefit)} 円</div></div><div class="kpi"><div class="lbl">初年度節税</div><div class="val">${fmt(cf.firstYearTaxSave)} 円</div></div></div>
+<h3 class="sub">■ 電気料金予測（月別・導入後）</h3>
+<table class="lt"><tr><th>月</th><th class="num">発電量</th><th class="num">自家消費</th><th class="num">自家消費率</th><th class="num">経済効果(円)</th></tr>${monthRows||'<tr><td colspan="5">※シミュレーション未実行</td></tr>'}</table>
+<div class="note">※本シミュレーションは概算であり発電量・経済効果を保証するものではありません。年次の詳細CFは次ページ参照。</div></section>
+
+<section class="page land"><h2 class="sec">損益・キャッシュフロー（通常償却）<span style="font-size:11px;color:#8892a0;font-weight:400"> — 投資効果の根拠資料</span></h2>
+<table class="lt"><tr><th class="rowlbl">期（年）</th>${cfHead}</tr>
+<tr><td class="rowlbl">経済メリット(円)</td>${cfRow('s',r=>fmt(r.saving))}<td class="num">${fmt(cfRows.reduce((s,r)=>s+(r.saving||0),0))}</td></tr>
+<tr><td class="rowlbl">減価償却(定率法)</td>${cfRow('d',r=>fmt(r.depr))}<td class="num">${fmt(cfRows.reduce((s,r)=>s+(r.depr||0),0))}</td></tr>
+<tr><td class="rowlbl">固定資産税</td>${cfRow('p',r=>fmt(r.propTax))}<td class="num">${fmt(cfRows.reduce((s,r)=>s+(r.propTax||0),0))}</td></tr>
+<tr><td class="rowlbl">節税額</td>${cfRow('t',r=>fmt(r.taxSave))}<td class="num">${fmt(cfRows.reduce((s,r)=>s+(r.taxSave||0),0))}</td></tr>
+<tr><td class="rowlbl">年間CF</td>${cfRow('b',r=>fmt(r.benefit))}<td class="num">—</td></tr>
+<tr style="font-weight:700;background:#fff5eb"><td class="rowlbl">累計CF</td>${pick.map(y=>{const r=cfRows[y-1];return `<td class="num" style="color:${cumColor(r)}">${r?fmt(r.cum):'—'}</td>`}).join('')}<td class="num">—</td></tr></table>
+<div class="note">※累計CFがプラス転換する年＝実質回収。定率法減価償却・固定資産税逓減・法人税率${((cf.taxRate||0.34)*100).toFixed(0)}%を反映。抜粋年表示。</div></section>
+</body></html>`;
+}
+
+function V2_generateProposal() {
+  const warn = document.getElementById('proposal-warn');
+  const miss = [];
+  if (!window.V2_SIM) miss.push('シミュレーション');
+  if (!(typeof V2_EST !== 'undefined' && V2_EST)) miss.push('概算見積');
+  if (!window.V2_CF) miss.push('CF・IRR');
+  if (warn) { warn.style.display = miss.length?'block':'none'; warn.textContent = miss.length?('⚠ 未実行: '+miss.join('・')+'（一部データが空欄になります）'):''; }
+  window.V2_PROPOSAL_HTML = V2_buildProposalHTML();
+  const prev = document.getElementById('proposal-preview');
+  if (prev) {
+    const scale = 0.62;
+    prev.innerHTML = `<div style="transform:scale(${scale});transform-origin:top center;width:${100/scale}%"><iframe id="prop-iframe" style="width:210mm;border:none;height:1250mm;background:#6b7280" ></iframe></div>`;
+    const ifr = document.getElementById('prop-iframe');
+    ifr.contentDocument.open(); ifr.contentDocument.write(window.V2_PROPOSAL_HTML); ifr.contentDocument.close();
+  }
+}
+
+function V2_printProposal() {
+  if (!window.V2_PROPOSAL_HTML) V2_generateProposal();
+  const w = window.open('', '_blank');
+  w.document.write(window.V2_PROPOSAL_HTML);
+  w.document.close();
+  setTimeout(()=>{ try{ w.print(); }catch(e){} }, 400);
+}
+
 function V2_toggleUsageMode() {
   const mode = document.getElementById('usage-mode').value;
   document.getElementById('usage-bill-row').style.display = mode==='bill'?'':'none';
@@ -3401,6 +3546,7 @@ window.addEventListener('load', function() {
   } catch(e) { console.warn('電力情報の移設に失敗', e); }
   C_initDropdowns();
   V2_populateEquipment();  // 機器情報: 監視装置・その他機器のマスタ選択肢を生成
+  V2_syncCockpitPanel();   // コックピットのパネル選択を初期同期
   const savedProposer = localStorage.getItem('sh_proposer');
   if (savedProposer) document.getElementById('proposer-name').value = savedProposer;
   // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
@@ -4760,12 +4906,18 @@ if (document.readyState === 'loading') {
         </div>
       </div>
     </div>
-    <!-- === プレビュー→印刷（提案書出力・P4） === -->
+    <!-- === プレビュー→印刷（提案書出力） === -->
     <div class="section-panel" id="secp-preview">
       <div class="card" id="sec-preview">
         <div class="card-header-toggle" style="justify-content:space-between;width:100%"><h2>🖨 プレビュー → 印刷（提案書）</h2></div>
         <div class="card-body-content">
-          <p style="color:#7a91b0;font-size:13px;line-height:1.8">4ページ提案書（表紙／概要／投資効果／通常償却CF）を生成し印刷。<br><span style="color:#ff8c42">※P4で提案書出力ジェネレータを実装予定（骨格設計済み・window.V2_CF連動）</span></p>
+          <p style="color:#7a91b0;font-size:12px;line-height:1.7">4ページ提案書（①表紙 ②概要 ③投資効果 ④通常償却CF）を生成。<br>先に <strong>シミュレーション → 概算見積 → CF・IRR</strong> を実行しておくと全データが反映されます。</p>
+          <div style="display:flex;gap:10px;margin:12px 0">
+            <button class="btn primary" onclick="V2_generateProposal()">📄 提案書を生成（プレビュー）</button>
+            <button class="btn" onclick="V2_printProposal()" style="background:#1e6fd9;color:#fff;border:none;padding:10px 16px;border-radius:6px;cursor:pointer">🖨 印刷（別ウィンドウ）</button>
+          </div>
+          <div id="proposal-warn" style="display:none;color:#ffb84d;font-size:12px;margin-bottom:8px"></div>
+          <div id="proposal-preview" style="background:#6b7280;padding:10px;border-radius:6px;overflow:auto;max-height:70vh"></div>
         </div>
       </div>
     </div>
