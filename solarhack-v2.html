@@ -303,13 +303,13 @@ input[type="range"] { accent-color:#ff7c2a; }
 <div style="display:flex">
   <nav id="sidenav" style="width:190px;min-height:100vh;background:#0B1829;border-right:1px solid rgba(255,255,255,0.08);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0">
     <div style="padding:0 16px 16px;font-size:16px;font-weight:700;color:#ff7c2a">☀ SolarHack</div>
+    <div class="nav-item" onclick="gotoSec('map')">🗺 屋根描画（設計）</div>
     <div class="nav-item" onclick="gotoSec('project')">📋 案件情報</div>
     <div style="padding:10px 16px 2px;font-size:11px;color:#7a91b0;font-weight:700;letter-spacing:1px">機器情報</div>
     <div class="nav-item nav-sub" onclick="gotoSec('panel')">☀ パネル選択</div>
     <div class="nav-item nav-sub" onclick="gotoSec('pcs')">⚡ パワコン選択</div>
     <div class="nav-item nav-sub" onclick="gotoSec('monitor')">📡 監視装置</div>
     <div class="nav-item nav-sub" onclick="gotoSec('other')">🔩 その他機器</div>
-    <div class="nav-item" onclick="gotoSec('map')">🗺 ツール：屋根描画</div>
     <div class="nav-item" onclick="gotoSec('sim')">📊 シミュレーション</div>
     <div class="nav-item" onclick="gotoSec('estimate')">💴 概算見積</div>
     <div class="nav-item" onclick="gotoSec('detail')">🔧 詳細見積</div>
@@ -2358,6 +2358,59 @@ const BLDG_PROFILES = {
 };
 const SEASON_COEF = [1.08,1.02,0.98,0.92,0.90,0.95,1.10,1.15,1.02,0.92,0.94,1.02];
 
+// ===== 機器情報: 監視装置・その他機器（マスタ選択→見積連動） =====
+const MONITOR_LABELS = { leye:'ラプラス Leye', solar_monitor:'ソーラーモニター', eco_megane:'エコめがね', solar_legato:'Solar Legato(50-250kW)', smartlogger_3000a:'SmartLogger3000A', smartlogger_3000a_sb10:'SmartLogger3000A-SB10', com100:'COM100', janizza_umg104:'三相エネルギーメーター UMG104', spread_router:'Spread Router', chugoku_config:'中国地方 設定出張料' };
+const TRANS_LABELS = { iso_trans_50kva:'絶縁トランス 50kVA', iso_trans_70kva:'絶縁トランス 70kVA', iso_trans_100kva:'絶縁トランス 100kVA' };
+const PROTECTION_LABELS = { dvrr_72:'DVRR-72', kp_rprv_cpc:'KP-RPRV(CPC)', voc_ams2_1:'VOC AMS2-1', ovgr_rpr:'OVGR/RPR', zpd_9b:'ZPD-9B' };
+
+function V2_populateEquipment() {
+  const fmt = v => v.toLocaleString();
+  const mSel = document.getElementById('monitor-select');
+  if (mSel && COST_MASTER.monitor) for (const [k,label] of Object.entries(MONITOR_LABELS)) {
+    const c = COST_MASTER.monitor[k]; if (c==null) continue;
+    const o = document.createElement('option'); o.value=k; o.textContent=`${label}（¥${fmt(c)}）`; mSel.appendChild(o);
+  }
+  const tSel = document.getElementById('trans-select');
+  if (tSel && COST_MASTER.transformer) for (const [k,label] of Object.entries(TRANS_LABELS)) {
+    const c = COST_MASTER.transformer[k]; if (c==null) continue;
+    const o = document.createElement('option'); o.value=k; o.textContent=`${label}（¥${fmt(c)}）`; tSel.appendChild(o);
+  }
+  const pWrap = document.getElementById('protection-checks');
+  if (pWrap && COST_MASTER.protection) for (const [k,label] of Object.entries(PROTECTION_LABELS)) {
+    const c = COST_MASTER.protection[k]; if (c==null) continue;
+    const lb = document.createElement('label'); lb.style.cssText='display:block;font-size:12px;margin:3px 0;color:#cfe0f5';
+    lb.innerHTML = `<input type="checkbox" value="${k}" onchange="V2_updateOther()"> ${label}（¥${fmt(c)}）`;
+    pWrap.appendChild(lb);
+  }
+}
+
+function V2_selectMonitor() {
+  const k = document.getElementById('monitor-select')?.value;
+  const el = document.getElementById('monitor-selected');
+  if (k && COST_MASTER.monitor?.[k]!=null) {
+    window.V2_MONITOR = { key:k, name:MONITOR_LABELS[k]||k, cost:COST_MASTER.monitor[k] };
+    if (el) el.textContent = `選択: ${window.V2_MONITOR.name} ¥${window.V2_MONITOR.cost.toLocaleString()}（見積に反映）`;
+  } else {
+    window.V2_MONITOR = null;
+    if (el) el.textContent = '';
+  }
+  if (typeof V2_calcEstimate==='function') V2_calcEstimate();
+}
+
+function V2_updateOther() {
+  const items = [];
+  const t = document.getElementById('trans-select')?.value;
+  if (t && COST_MASTER.transformer?.[t]!=null) items.push({ name:TRANS_LABELS[t], cost:COST_MASTER.transformer[t] });
+  document.querySelectorAll('#protection-checks input:checked').forEach(c => {
+    const k = c.value; if (COST_MASTER.protection?.[k]!=null) items.push({ name:PROTECTION_LABELS[k], cost:COST_MASTER.protection[k] });
+  });
+  window.V2_OTHER = items;
+  const total = items.reduce((s,i)=>s+i.cost,0);
+  const el = document.getElementById('other-selected');
+  if (el) el.textContent = items.length ? `選択${items.length}件 合計 ¥${total.toLocaleString()}（見積に反映）` : '';
+  if (typeof V2_calcEstimate==='function') V2_calcEstimate();
+}
+
 function V2_toggleUsageMode() {
   const mode = document.getElementById('usage-mode').value;
   document.getElementById('usage-bill-row').style.display = mode==='bill'?'':'none';
@@ -3347,6 +3400,7 @@ window.addEventListener('load', function() {
     }
   } catch(e) { console.warn('電力情報の移設に失敗', e); }
   C_initDropdowns();
+  V2_populateEquipment();  // 機器情報: 監視装置・その他機器のマスタ選択肢を生成
   const savedProposer = localStorage.getItem('sh_proposer');
   if (savedProposer) document.getElementById('proposer-name').value = savedProposer;
   // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
@@ -3845,7 +3899,8 @@ function V2_calcEstimate() {
   const mountInstall = dcKwTotal * COST_MASTER.mount_install_per_kw;
   const tempWork = dcKwTotal * COST_MASTER.temp_work_per_kw;
   const warrantyPerPcs = pcsUnits * COST_MASTER.warranty_per_pcs;
-  const monitorFix = COST_MASTER.monitor_fix_cost || 120000;  // TASK 109
+  const monitorFix = window.V2_MONITOR ? window.V2_MONITOR.cost : (COST_MASTER.monitor_fix_cost || 120000);  // TASK 109 + 監視装置選択連動
+  const otherEquip = (window.V2_OTHER || []).reduce((s,i)=>s+(i.cost||0), 0);  // その他機器（トランス・保護継電器）
 
   // TASK 135-COST: Fixed + per-unit model for electrical and PCS work
   const elecFixed = isHigh ? COST_MASTER.elec_fixed_high : COST_MASTER.elec_fixed_low;
@@ -3858,7 +3913,7 @@ function V2_calcEstimate() {
     highVoltageWork = COST_MASTER.cubicle_connect;
   }
 
-  const workCost = fixBracket + otherMaterial + mountInstall + tempWork + elecFixed + pcsInstall + warrantyPerPcs + monitorFix + highVoltageWork;
+  const workCost = fixBracket + otherMaterial + mountInstall + tempWork + elecFixed + pcsInstall + warrantyPerPcs + monitorFix + otherEquip + highVoltageWork;
 
   // TASK 20: Capacity-scaled contingency
   const contingencyRate = V2_getContingencyRate(dcKwTotal);
@@ -4673,21 +4728,35 @@ if (document.readyState === 'loading') {
 }
 </script>
 
-    <!-- === 監視装置（P1構造再編・機器情報グループ） === -->
+    <!-- === 監視装置（機器情報グループ） === -->
     <div class="section-panel" id="secp-monitor">
       <div class="card" id="sec-monitor">
         <div class="card-header-toggle" style="justify-content:space-between;width:100%"><h2>📡 監視装置</h2></div>
         <div class="card-body-content">
-          <p style="color:#7a91b0;font-size:13px;line-height:1.8">監視装置の選択（Leye ／ ソーラーモニター ／ エコめがね ／ SmartLogger 等）。COST_MASTERのmonitorマスタから選択→見積連動。<br><span style="color:#ff8c42">※P1構造再編：ここに機器選択UIを実装予定</span></p>
+          <div class="form-group">
+            <label>監視装置を選択（見積連動）</label>
+            <select id="monitor-select" onchange="V2_selectMonitor()">
+              <option value="">— 一式 ¥120,000 で計上（既定）—</option>
+            </select>
+          </div>
+          <div id="monitor-selected" style="margin-top:10px;font-size:13px;color:#00c896"></div>
         </div>
       </div>
     </div>
-    <!-- === その他機器（P1構造再編・機器情報グループ） === -->
+    <!-- === その他機器（機器情報グループ） === -->
     <div class="section-panel" id="secp-other">
       <div class="card" id="sec-other">
         <div class="card-header-toggle" style="justify-content:space-between;width:100%"><h2>🔩 その他機器</h2></div>
         <div class="card-body-content">
-          <p style="color:#7a91b0;font-size:13px;line-height:1.8">トランス・保護継電器・キュービクル部材など。<br><span style="color:#ff8c42">※P1構造再編：ここに機器選択UIを実装予定</span></p>
+          <div class="form-group">
+            <label style="color:#ff7c2a;font-weight:600">絶縁トランス</label>
+            <select id="trans-select" onchange="V2_updateOther()"><option value="">なし</option></select>
+          </div>
+          <div class="form-group" style="margin-top:12px">
+            <label style="color:#ff7c2a;font-weight:600">保護継電器・その他（複数選択可）</label>
+            <div id="protection-checks" style="margin-top:6px"></div>
+          </div>
+          <div id="other-selected" style="margin-top:12px;font-size:13px;color:#00c896"></div>
         </div>
       </div>
     </div>
