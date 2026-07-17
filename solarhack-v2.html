@@ -2135,6 +2135,9 @@ function C_runCF() {
   let invest;
   if (override > 0) {
     invest = override;
+  } else if (window.V2_DETAIL && window.V2_DETAIL.netPrice) {
+    // TASK 提案-P6: 詳細見積が確定していれば詳細ベースの売価(税抜)を投資額に使う
+    invest = window.V2_DETAIL.netPrice;
   } else {
     // TASK 83: netPrice reflects actual customer cost (discount already applied)
     invest = V2_EST.netPrice || Math.round(window.V2_SIM.kw * 150000);
@@ -2571,6 +2574,9 @@ function V2_buildProposalHTML() {
   const sim = window.V2_SIM || {}, cf = window.V2_CF || {};
   // V2_EST は同一スクリプトのlet束縛（global-lexical scope）でwindowには乗らないため直接参照
   const est = (typeof V2_EST !== 'undefined' && V2_EST) ? V2_EST : {};
+  // P6: 詳細見積が確定していれば売価は詳細ベースを使用（見積区分も詳細に切替）
+  const detail = (window.V2_DETAIL && window.V2_DETAIL.cost) ? window.V2_DETAIL : null;
+  const priceTotal = detail ? detail.total : est.total;
   const client = g('clientName')?.value || '株式会社〇〇';
   const addr = g('address')?.value || '（住所）';
   const kw = sim.kw || 0;
@@ -2629,7 +2635,7 @@ function V2_buildProposalHTML() {
 <h3 class="sub">■ 経済効果（年）</h3>
 <div class="ba"><div class="box before"><div style="font-size:11px">導入前 電気代</div><div style="font-size:19px;font-weight:700">${fmt(beforeBill)} 円</div></div><div class="box after"><div style="font-size:11px">導入後 電気代</div><div style="font-size:19px;font-weight:700">${fmt(afterBill)} 円</div></div><div class="box" style="background:#fff5eb;border:1px solid #f0c89a"><div style="font-size:11px">年間経済メリット</div><div style="font-size:19px;font-weight:700;color:#ff7c2a">${fmt(saving)} 円</div><div style="font-size:9px;color:#8a6d3b">自家消費削減 ${fmt(selfSaving)}＋売電 ${fmt(sellRevenue)}</div></div><div class="box" style="background:#eef3fa;border:1px solid #c8d3e0"><div style="font-size:11px">電気代削減率／自家消費率</div><div style="font-size:19px;font-weight:700">${cutRate.toFixed(1)}%／${selfRate.toFixed(1)}%</div></div></div>
 <h3 class="sub">■ 投資効果まとめ</h3>
-<div class="kpi-row"><div class="kpi"><div class="lbl">導入コスト（税込）</div><div class="val">${fmt(est.total)} 円</div></div><div class="kpi"><div class="lbl">回収年数</div><div class="val hi">${cf.payback||'—'} 年</div></div><div class="kpi"><div class="lbl">20年経済メリット</div><div class="val">${fmt(cf.total20Benefit)} 円</div></div><div class="kpi"><div class="lbl">初年度節税</div><div class="val">${fmt(cf.firstYearTaxSave)} 円</div></div></div>
+<div class="kpi-row"><div class="kpi"><div class="lbl">導入コスト（税込）</div><div class="val">${fmt(priceTotal)} 円</div></div><div class="kpi"><div class="lbl">回収年数</div><div class="val hi">${cf.payback||'—'} 年</div></div><div class="kpi"><div class="lbl">20年経済メリット</div><div class="val">${fmt(cf.total20Benefit)} 円</div></div><div class="kpi"><div class="lbl">初年度節税</div><div class="val">${fmt(cf.firstYearTaxSave)} 円</div></div></div>
 <h3 class="sub">■ 電気料金予測（月別・導入後）</h3>
 <table class="lt"><tr><th>月</th><th class="num">発電量</th><th class="num">自家消費</th><th class="num">自家消費率</th><th class="num">経済効果(円)</th></tr>${monthRows||'<tr><td colspan="5">※シミュレーション未実行</td></tr>'}</table>
 <div class="note">※本シミュレーションは概算であり発電量・経済効果を保証するものではありません。年次の詳細CFは次ページ参照。</div></section>
@@ -3747,6 +3753,26 @@ const COST_MASTER = {
   warranty_per_pcs:      300000,    // ワランティ延長保証（PCS 1台あたり）
   monitor_fix_cost:      120000,    // 遠隔監視装置（一式）
 
+  // ===== TASK 提案-P6: 詳細見積 積上げ単価（DenkiHack BUILTIN_MASTER 実勢・2026年） =====
+  // 電線（円/m）
+  mat_dc_cable_per_m:        350,    // 直流PVケーブル PV-1F相当（司令官指定・暫定）
+  mat_ac_cable_low_per_m:   1450,    // 交流低圧 CV38㎟1C 相当（古河実勢）
+  mat_ac_cable_high_per_m:  5100,    // 交流高圧 CVT100㎟ 相当（古河実勢）
+  mat_ground_cable_per_m:    320,    // 接地 IV14㎟ A種（古河実勢）
+  // 電線管（円/m）
+  mat_conduit_exposed_per_m: 280,    // 露出 フリーボックスFBC22（ネグロス実勢）
+  mat_conduit_hidden_per_m:   60,    // 隠蔽 CD管22 1200円/20m（未来工業実勢）
+  mat_conduit_under_per_m:  2800,    // 地中 FEP＋掘削埋戻し（暫定・要校正）
+  // 接続箱・接地棒（円/個）
+  mat_dc_combiner_unit:    68000,    // 太陽電池接続箱 SDB-400 8回路（河村実勢）
+  mat_dc_combiner_strings:     8,    // 接続箱1個あたりの収容ストリング数
+  mat_ac_combiner_unit:    18000,    // 低圧接続箱 JSB-3060（河村実勢）
+  mat_ground_rod_unit:      2200,    // 接地棒 φ14×1500 D種（未来工業実勢）
+  // 架台施工（円/kW）
+  mount_ground_per_kw:     25000,    // 野立て架台施工（司令官指定）。屋根は mount_install_per_kw を流用
+  // 配線工事 労務係数（材料費に対する施工費の割増）
+  wiring_labor_rate:        0.35,    // 配線・配管施工の労務（材料計×35%・暫定）
+
   // ===== 利益付加率 =====
   markup_equipment: 0.20, // 機器は原価×1.20で売却（粗利率30-40%目線に調整 2026-07-17）
   markup_work:      0.25, // 工事は原価×1.25で売却（旧0.5/0.4は粗利~44%で高過ぎ→~36%へ）
@@ -4391,6 +4417,56 @@ function V2_updateDetailHeader() {
   }
 }
 
+// TASK 提案-P6: ローカル積上げエンジン（DenkiHack非接続時）。距離×数量×実勢単価で {total, bom} を返す。
+// スコープ = 概算の other_material(配管・電線 kW一式) を置換する「配線・配管・接地・接続箱・労務」。
+// 野立て時のみ、屋根架台との差額を上乗せ（概算は屋根単価を使うため）。
+function V2_localTakeoff(params) {
+  const C = COST_MASTER;
+  const bom = [];
+  let unverified = false;
+  const add = (cat, name, spec, qty, unit, unitPrice, prov) => {
+    const amount = Math.round(qty * unitPrice);
+    bom.push({ cat, name, spec, qty: Math.round(qty*10)/10, unit, unitPrice, amount, prov });
+    return amount;
+  };
+  const strings  = params.stringCount || 1;
+  const pcsUnits = V2_SPEC.pcsUnits || 1;
+  const dPv  = Math.max(0, params.distPvToPcs_m || 0);
+  const dGrid= Math.max(0, params.distPcsToGrid_m || 0);
+  const isHigh = params.supply === 'high';
+  const routing = params.routing || '露出';
+  const kw = params.kw || 0;
+
+  let material = 0;
+  // ① 直流PVケーブル: ストリング数 × 往復2 × PV→PCS距離
+  material += add('電線', '直流PVケーブル', 'PV-1F相当', strings*2*dPv, 'm', C.mat_dc_cable_per_m);
+  // ② 交流ケーブル: PCS台数 × PCS→系統距離（低圧/高圧で単価切替）
+  material += add('電線', isHigh?'交流高圧ケーブル':'交流低圧ケーブル', isHigh?'CVT100㎟':'CV38㎟', pcsUnits*dGrid, 'm', isHigh?C.mat_ac_cable_high_per_m:C.mat_ac_cable_low_per_m);
+  // ③ 電線管: 全ルート長 × routing単価（UI値: 露出/屋内/埋設。埋設=地中は暫定単価）
+  const isBuried = (routing==='埋設' || routing==='地中');
+  const isIndoor = (routing==='屋内' || routing==='隠蔽');
+  const conduitUnit = isBuried ? C.mat_conduit_under_per_m : isIndoor ? C.mat_conduit_hidden_per_m : C.mat_conduit_exposed_per_m;
+  if (isBuried) unverified = true;
+  material += add('電線管', '電線管('+routing+')', isBuried?'FEP+掘削(暫定)':'', dPv+dGrid, 'm', conduitUnit);
+  // ④ 接地: 全ルート長 × IV14㎟ + 接地棒(PCS台数分)
+  material += add('接地', '接地線 IV14㎟', 'A種', dPv+dGrid, 'm', C.mat_ground_cable_per_m);
+  material += add('接地', '接地棒 φ14×1500', 'D種', Math.max(1, Math.ceil(pcsUnits)), '本', C.mat_ground_rod_unit);
+  // ⑤ 接続箱: ストリング数を収容数で割った個数 + 低圧接続箱(PCS台数)
+  const combiners = Math.max(1, Math.ceil(strings / (C.mat_dc_combiner_strings||8)));
+  material += add('接続箱', '太陽電池接続箱', 'SDB-400 8回路', combiners, '個', C.mat_dc_combiner_unit);
+  material += add('接続箱', '低圧接続箱', 'JSB-3060', pcsUnits, '個', C.mat_ac_combiner_unit);
+  // ⑥ 配線・配管 労務
+  const labor = Math.round(material * (C.wiring_labor_rate||0.35));
+  add('労務', '配線・配管施工', '材料計×'+((C.wiring_labor_rate||0.35)*100).toFixed(0)+'%', 1, '式', labor);
+  let total = material + labor;
+  // ⑦ 野立て架台差額（地上設置時のみ・概算の屋根単価との差分を上乗せ）
+  if (params.mountType === 'ground') {
+    const delta = Math.max(0, (C.mount_ground_per_kw||0) - (C.mount_install_per_kw||0)) * kw;
+    if (delta > 0) total += add('架台', '野立て架台 割増', '屋根比+'+((C.mount_ground_per_kw-C.mount_install_per_kw)).toLocaleString()+'円/kW', kw, 'kW', C.mount_ground_per_kw - C.mount_install_per_kw);
+  }
+  return { total, bom, _source: 'ローカル積上げ', _unverified: unverified };
+}
+
 function V2_runDetailCalc() {
   // Check prerequisites
   if (!V2_EST || !V2_SPEC.stringTotal) {
@@ -4403,13 +4479,6 @@ function V2_runDetailCalc() {
   const distPcsToGrid = parseFloat(document.getElementById('detail-dist-pcs-grid')?.value || 100);
   const routing = document.getElementById('detail-routing')?.value || '露出';
   const mountType = document.getElementById('roof-material')?.value === 'ground' ? 'ground' : 'roof';
-
-  // Call DenkiHack if available
-  if (typeof window.DenkiHack_calc !== 'function') {
-    const fb = document.getElementById('detail-fallback-msg');
-    if (fb) fb.style.display = 'block';
-    return;
-  }
 
   const pcsKwTotal = (V2_SPEC.pcsUnits || 1) * (V2_SPEC.pcs?.kw || 50);
   const params = {
@@ -4424,15 +4493,17 @@ function V2_runDetailCalc() {
     mountType: mountType
   };
 
+  // TASK 提案-P6: DenkiHack優先、無ければローカル積上げエンジンで単体実行
+  const useLocal = typeof window.DenkiHack_calc !== 'function';
   try {
-    const denki = window.DenkiHack_calc(params);
-    // TASK 123-FIX2: Hide fallback message on successful DenkiHack call
+    const denki = useLocal ? V2_localTakeoff(params) : window.DenkiHack_calc(params);
+    if (!denki._source) denki._source = 'DenkiHack実査';
     const fb = document.getElementById('detail-fallback-msg');
     if (fb) fb.style.display = 'none';
     V2_renderDetailResults(denki);
   } catch (err) {
     alert('詳細計算エラー: ' + err.message);
-    console.error('DenkiHack error:', err);
+    console.error('detail calc error:', err);
   }
 }
 
@@ -4446,17 +4517,37 @@ function V2_renderDetailResults(denki) {
   const pcsUnits = V2_EST.pcsUnits || 1;
   const pcsInstallLine = pcsUnits * pcsInstallUnitLine;
   const otherMaterialLine = dcKwTotal * (COST_MASTER.other_material_per_kw || 0);
-  const detailCost = (V2_EST.cost || 0) - elecFixedLine - pcsInstallLine - otherMaterialLine + (denki.total || 0);
+  // TASK 提案-P6: 二重計上の差引はエンジンのスコープで分岐
+  //  - ローカル積上げ: 配線一式(other_material)のみ置換（申請/検査/PCS据付は概算のまま）
+  //  - DenkiHack実査: フルスコープ（elecFixed/pcsInstall/otherMaterial 全て置換）
+  const isLocal = denki._source === 'ローカル積上げ';
+  const detailCost = isLocal
+    ? (V2_EST.cost || 0) - otherMaterialLine + (denki.total || 0)
+    : (V2_EST.cost || 0) - elecFixedLine - pcsInstallLine - otherMaterialLine + (denki.total || 0);
 
   // Get base cost (from snapshot or current V2_EST)
   const naitakuSnapshot = window.V2_NAITAKU_SNAPSHOT;
   const baseCost = naitakuSnapshot ? naitakuSnapshot.cost : (V2_EST.cost || 0);
   const diffAmount = baseCost - detailCost;
 
+  // TASK 提案-P6: 詳細見積を単一ソース化。概算と同じ粗利率で売価も導出（提案書/CFが参照）
+  const costRatio = (V2_EST.cost > 0) ? detailCost / V2_EST.cost : 1;
+  window.V2_DETAIL = {
+    cost: detailCost,
+    total: (V2_EST.total || 0) * costRatio,       // 税込売価（詳細ベース・粗利率維持）
+    netPrice: (V2_EST.netPrice || 0) * costRatio, // 税抜値引後（CF投資額用）
+    source: denki._source || 'DenkiHack実査',
+    unverified: !!denki._unverified,
+    bom: denki.bom || null,
+    calcedAt: new Date().toISOString()
+  };
+
   // Render comparison block (TASK 126: Math.round all displayed amounts)
   document.getElementById('detail-base-cost').textContent = `¥${Math.round(baseCost || 0).toLocaleString()}`;
   document.getElementById('detail-calc-cost').textContent = `¥${Math.round(detailCost).toLocaleString()}`;
-  document.getElementById('detail-calc-source').textContent = '簡易';
+  document.getElementById('detail-calc-source').textContent = isLocal ? '簡易(ローカル積上げ)' : '実査(DenkiHack)';
+  { const n=document.getElementById('detail-applied-note'); if(n) n.style.display='block'; }
+  { const bd=document.getElementById('detail-unverified-badge'); if(bd) bd.style.display=denki._unverified?'inline-block':'none'; }
 
   // TASK 127-C: Check for DenkiHack write-back result
   let dh2shResult = null;
@@ -4522,6 +4613,14 @@ function V2_renderDetailResults(denki) {
 
   // Show results
   document.getElementById('detail-result').style.display = 'block';
+}
+
+// TASK 提案-P6: 詳細見積をクリアして概算ベースに戻す
+function V2_clearDetail() {
+  window.V2_DETAIL = null;
+  const r = document.getElementById('detail-result'); if (r) r.style.display = 'none';
+  const n = document.getElementById('detail-applied-note'); if (n) n.style.display = 'none';
+  if (typeof C_runCF === 'function' && window.V2_SIM && V2_EST) C_runCF();  // CF投資額を概算に戻す
 }
 
 function V2_renderBomTable(denki) {
@@ -5112,12 +5211,15 @@ if (document.readyState === 'loading') {
             <div>実査原価A（<span id="detail-calc-source">簡易</span>）: <strong id="detail-calc-cost">¥—</strong></div>
             <div id="detail-calc-b-line" style="display:none">実査原価B（<span id="detail-calc-b-source">DenkiHack実査</span>）: <strong id="detail-calc-cost-b">¥—</strong> <span id="detail-calc-b-badge" style="font-size:11px;background:rgba(33,150,243,0.2);padding:2px 6px;border-radius:3px;color:#2196f3;margin-left:4px;display:inline-block"></span></div>
             <div id="detail-diff-line" style="font-weight:600;margin-top:8px">差分: <strong id="detail-diff-amount">¥0</strong> <span id="detail-diff-note"></span></div>
+            <div id="detail-applied-note" style="font-size:11px;color:#00c896;margin-top:8px;display:none">✅ 提案書・CFはこの詳細原価を反映中（見積区分＝詳細見積ベース）</div>
+            <div id="detail-unverified-badge" style="font-size:11px;background:rgba(255,180,0,0.18);color:#ffb400;padding:3px 8px;border-radius:3px;margin-top:6px;display:none">⚠ 暫定単価あり（地中配管など）— 実績で要校正</div>
+            <button class="btn sm" style="margin-top:8px" onclick="V2_clearDetail()">詳細をクリア（概算に戻す）</button>
           </div>
         </div>
 
         <!-- BOM Table -->
         <div style="margin-bottom:16px">
-          <h3 style="color:#ff7c2a;font-size:14px;margin-bottom:8px">部材費内訳（DenkiHack）</h3>
+          <h3 style="color:#ff7c2a;font-size:14px;margin-bottom:8px">部材費内訳（積上げ）</h3>
           <table style="width:100%;border-collapse:collapse;font-size:11px;overflow-x:auto" id="detail-bom-table">
             <thead>
               <tr style="border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03)">
