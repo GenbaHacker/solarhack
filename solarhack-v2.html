@@ -2226,11 +2226,15 @@ function V2_azLabel(v) {
 function V2_getIrrFor(compassAz, tiltDeg) {
   if (!V2_IRR.raw) return V2_IRR.monthly ||
     [2.9,3.4,3.9,4.3,4.5,4.1,4.3,4.5,3.9,3.4,2.9,2.7];
-  const azSteps   = [0,22.5,45,67.5,90,112.5,135,157.5,180];
-  const tiltSteps = [0,10,20,30,40,50,60,70,90];
-  const mAz = Math.abs(compassAz - 180);
-  const azI = azSteps.reduce((bi,v,i)=>Math.abs(v-mAz)<Math.abs(azSteps[bi]-mAz)?i:bi,0);
-  const tI  = tiltSteps.reduce((bi,v,i)=>Math.abs(v-tiltDeg)<Math.abs(tiltSteps[bi]-tiltDeg)?i:bi,0);
+  const azSteps   = [0,15,30,45,60,75,90,105,120,135,150,165,180];
+  const tiltSteps = [10,20,30,40,50,60,70,80,90];
+  // TASK 138-IRR: Convert UI compass (0=north) to MONSOLA (angular distance from south, 0-180)
+  let monsAz = (180 - compassAz + 360) % 360;
+  if (monsAz > 180) monsAz = 360 - monsAz;  // fold west half (SW/W/NW) — data is symmetric about south
+  const azI = azSteps.reduce((bi,v,i)=>Math.abs(v-monsAz)<Math.abs(azSteps[bi]-monsAz)?i:bi,0);
+  // TASK 138-IRR: Clamp tilt <10° to 10° (minimum available)
+  const clampedTilt = Math.max(10, tiltDeg);
+  const tI  = tiltSteps.reduce((bi,v,i)=>Math.abs(v-clampedTilt)<Math.abs(tiltSteps[bi]-clampedTilt)?i:bi,0);
 
   // TASK 85: Fail-loud for missing irradiance (no silent fallback to 350)
   const result = Array.from({length:12},(_,m)=>{
@@ -3201,21 +3205,24 @@ function V2_exportExcel() {
   XLSX.writeFile(wb, fname);
 }
 
+let V2_MONSOLA = null;  // TASK 138-IRR: in-memory cache of the station DB (loaded once)
 async function V2_fetchIrr(lat, lon) {
   const BASE = './data';
   try {
-    const lite = await fetch(`${BASE}/stations_lite.json`).then(r => r.json());
+    // TASK 138-IRR: single verified source (stations_monsola.json), loaded once then cached
+    if (!V2_MONSOLA) {
+      V2_MONSOLA = await fetch(`${BASE}/stations_monsola.json`).then(r => r.json());
+    }
     const hav = (la1,lo1,la2,lo2) => {
       const R=6371, dLa=(la2-la1)*Math.PI/180, dLo=(lo2-lo1)*Math.PI/180;
       const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
       return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
     };
-    let code=null, name='', minD=Infinity;
-    for (const st of lite.stations) {
-      const d = hav(lat, lon, st.la, st.lo);
-      if (d < minD) { minD=d; code=st.c; name=st.n; }
+    let st=null, name='', minD=Infinity;
+    for (const s of V2_MONSOLA.stations) {
+      const d = hav(lat, lon, s.la, s.lo);
+      if (d < minD) { minD=d; st=s; name=s.n; }
     }
-    const st = await fetch(`${BASE}/stations/${code}.json`).then(r => r.json());
     // 南向き(az_i=0)・傾斜30度(tilt_i=2)の月別日射量 kWh/m2/day
     const az_i = 0, tilt_i = 2;
     const monthly = Array.from({length:12}, (_,m) =>
