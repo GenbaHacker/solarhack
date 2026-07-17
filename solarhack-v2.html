@@ -338,7 +338,7 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div class="form-row">
       <div class="form-group">
         <label>顧客名</label>
-        <input type="text" id="clientName" placeholder="例：山田太郎">
+        <input type="text" id="clientName" placeholder="例：山田太郎" onchange="V2_syncCockpitProject()" oninput="V2_syncCockpitProject()">
       </div>
       <div class="form-group">
         <label>住所</label>
@@ -516,8 +516,20 @@ input[type="range"] { accent-color:#ff7c2a; }
 
     <!-- TASK 132-UX: Integrated from secp-design -->
     <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1)">
+      <!-- TASK 提案-P2: 案件情報ミラー（案件情報タブと同期） -->
+      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">📋 案件情報（案件情報タブと同期）</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>顧客名</label>
+          <input type="text" id="cp-clientName" placeholder="例：株式会社〇〇" oninput="V2_cpProjectField('cp-clientName','clientName')">
+        </div>
+        <div class="form-group">
+          <label>月額電気代 (円)</label>
+          <input type="number" id="cp-monthly-bill" step="1000" placeholder="例：250000" onchange="V2_cpProjectField('cp-monthly-bill','monthly-bill')">
+        </div>
+      </div>
       <!-- コックピット機器選択（パネル選択タブとミラー同期） -->
-      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">☀ パネル選択（パネル選択タブと同期）</div>
+      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:10px 0 6px">☀ パネル選択（パネル選択タブと同期）</div>
       <div class="form-row">
         <div class="form-group">
           <label>メーカー</label>
@@ -533,6 +545,18 @@ input[type="range"] { accent-color:#ff7c2a; }
         <input type="number" id="totalPanels" value="20" min="1" onchange="V2_updatePanelSummary(); C_calcString()">
         <!-- TASK 116: Quick mode tag -->
         <div id="quick-mode-tag" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">⚠ 概算（配置未設計）</div>
+      </div>
+      <!-- TASK 提案-P2: PCS選択（PCS選択タブとミラー同期） -->
+      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:10px 0 6px">⚡ PCS選択（PCS選択タブと同期）</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>メーカー</label>
+          <select id="cp-pcsMaker" onchange="V2_cpPcsMaker()"><option value="">自動選定 or 選択</option></select>
+        </div>
+        <div class="form-group">
+          <label>型番</label>
+          <select id="cp-pcsModel" onchange="V2_cpPcsModel()"><option value="">自動選定 or 選択</option></select>
+        </div>
       </div>
       <button class="btn primary" onclick="C_calcString()" style="width:100%">計算実行</button>
 
@@ -634,13 +658,13 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div class="form-row">
       <div class="form-group">
         <label>メーカー</label>
-        <select id="pcsMaker" onchange="C_buildPcsModels()">
+        <select id="pcsMaker" onchange="C_buildPcsModels(); V2_syncCockpitPcs()">
           <option value="">選択してください</option>
         </select>
       </div>
       <div class="form-group">
         <label>型番</label>
-        <select id="pcsModel" onchange="C_applyPcs()">
+        <select id="pcsModel" onchange="C_applyPcs(); V2_syncCockpitPcs()">
           <option value="">選択してください</option>
         </select>
       </div>
@@ -739,7 +763,7 @@ input[type="range"] { accent-color:#ff7c2a; }
       </div>
       <div id="usage-bill-row" style="margin-bottom:10px">
         <label>月額電気代（円・平均）</label>
-        <input type="number" id="monthly-bill" value="250000" step="1000" onchange="V2_updateUsage()" style="width:100%;padding:8px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff">
+        <input type="number" id="monthly-bill" value="250000" step="1000" onchange="V2_updateUsage(); V2_syncCockpitProject()" style="width:100%;padding:8px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;background:#162540;color:#fff">
       </div>
       <div id="usage-monthly-row" style="display:none">
         <label style="display:block;margin-bottom:8px">月別使用量（kWh）</label>
@@ -1371,6 +1395,9 @@ function C_applyPcs() {
 
   // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
   V2_calcEstimate();
+
+  // TASK 提案-P2: どの経路でPCSが適用されても屋根描画コックピットへ反映（scenario/自動選定含む）
+  if (typeof V2_syncCockpitPcs==='function') V2_syncCockpitPcs();
 }
 
 // TASK 130-D: Update panel summary display boxes
@@ -1507,6 +1534,7 @@ function V2_applyRecommend(maker, model, quantity) {
       console.log('[V2_applyRecommend] sv(pcsModel)');
       sv('pcsModel', model);
       C_applyPcs();
+      if (typeof V2_syncCockpitPcs==='function') V2_syncCockpitPcs();  // TASK 提案-P2: 自動選定をコックピットへ反映
       setTimeout(() => {
         // TASK 132-UX: Extended processing after PCS selection
         console.log('[V2_applyRecommend] C_calcString()');
@@ -2112,8 +2140,12 @@ function C_runCF() {
     invest = V2_EST.netPrice || Math.round(window.V2_SIM.kw * 150000);
   }
 
-  // TASK 84: Scale O&M to capacity instead of hardcoded value
-  const omCost = Math.round(window.V2_SIM.kw * COST_MASTER.om_per_kw_year);
+  // TASK 提案-P4: メンテナンス費 = 販売金額(税抜)の2%/年（自動）。手入力枠で実額上書き可。
+  const maintRate = 0.02;
+  const maintAuto = Math.round((V2_EST.netPrice || window.V2_SIM.kw * 150000) * maintRate);
+  const maintOverride = parseFloat(document.getElementById('cf-maint')?.value);
+  const omCost = (maintOverride > 0) ? Math.round(maintOverride) : maintAuto;
+  { const el = document.getElementById('cf-maint-auto'); if (el) el.textContent = '自動: ' + maintAuto.toLocaleString() + '円/年（販売額×2%）'; }
 
   // TASK 提案: 財務モデル（補助金・減価償却・固定資産税・税制優遇）
   const subsidy = parseFloat(document.getElementById('cf-subsidy')?.value) || 0;
@@ -2141,35 +2173,70 @@ function C_runCF() {
   }
 
   const investNet = Math.max(0, invest - subsidy);  // 実質投資額（補助金控除後）
-  let cum = -investNet, npv = -investNet, payback = null;
-  const cashflows = [-investNet];
+
+  // TASK 提案-P4: 資金調達（現金一括 / 借入・元利均等 / リース・全額損金）
+  const financeMode = document.getElementById('cf-finance-mode')?.value || 'cash';
+  const amort = (P, r, n) => (P<=0||n<=0) ? 0 : (r===0 ? P/n : P*r/(1-Math.pow(1+r,-n)));  // 元利均等 年額
+  const loanRate  = (parseFloat(document.getElementById('cf-loan-rate')?.value)  || 2.5)/100;
+  const loanYears = parseInt(document.getElementById('cf-loan-years')?.value)     || 15;
+  const downPay   = Math.max(0, parseFloat(document.getElementById('cf-down')?.value) || 0);
+  const leaseRate = (parseFloat(document.getElementById('cf-lease-rate')?.value)  || 3.5)/100;
+  const leaseYears= parseInt(document.getElementById('cf-lease-years')?.value)     || 10;
+  const isLease = financeMode === 'lease';
+  const finPay = new Array(years+1).fill(0);       // 年間の財務支出（返済 or リース料）
+  const finInterest = new Array(years+1).fill(0);  // 借入の支払利息（損金算入分）
+  let initialOutflow = investNet;                  // 現金一括: 初年度に全額
+  if (financeMode === 'loan') {
+    const borrowed = Math.max(0, investNet - downPay);
+    const A = amort(borrowed, loanRate, loanYears);
+    let bal = borrowed;
+    for (let y=1; y<=Math.min(loanYears, years); y++) {
+      const interest = bal * loanRate;
+      const principal = Math.min(bal, A - interest);
+      finInterest[y] = interest;
+      finPay[y] = interest + principal;            // ≒A（最終年は残債で端数調整）
+      bal = Math.max(0, bal - principal);
+    }
+    initialOutflow = downPay;                       // 初期支出は頭金のみ
+  } else if (isLease) {
+    const A = amort(investNet, leaseRate, leaseYears);
+    for (let y=1; y<=Math.min(leaseYears, years); y++) finPay[y] = A;
+    initialOutflow = 0;                             // リースは初期支出なし・資産非保有
+  }
+
+  let cum = -initialOutflow, npv = -initialOutflow, payback = null;
+  const cashflows = [-initialOutflow];
   const rows = [];
   let fixedBook = deprBase;  // 固定資産税用簿価（定率0.20逓減・下限5%）
   for (let y = 1; y <= years; y++) {
     const saving = window.V2_SIM.totalBenefit * Math.pow(1-deg, y-1) * Math.pow(1+esc, y-1);
-    const propTax = Math.round(fixedBook * PROP_TAX_RATE);   // 固定資産税
-    const taxSave = Math.round(depr[y] * taxRate);           // 節税（減価償却×実効税率）
-    const benefit = saving - omCost - propTax + taxSave;     // 年間CF
-    fixedBook = Math.max(deprBase * 0.05, fixedBook * (1 - DEPR_RATE));
+    // リースは資産を保有しない → 減価償却・固定資産税なし。リース料は全額損金。
+    const propTax = isLease ? 0 : Math.round(fixedBook * PROP_TAX_RATE);
+    const deprY = isLease ? 0 : depr[y];
+    const deductible = deprY + finInterest[y] + (isLease ? finPay[y] : 0);  // 損金算入額
+    const taxSave = Math.round(deductible * taxRate);        // 節税（損金×実効税率）
+    const benefit = saving - omCost - propTax + taxSave - finPay[y];  // 年間CF（財務支出控除後）
+    if (!isLease) fixedBook = Math.max(deprBase * 0.05, fixedBook * (1 - DEPR_RATE));
     cum += benefit;
     npv += benefit / Math.pow(1+discountRate, y);
     cashflows.push(benefit);
     if (!payback && cum >= 0) payback = y;
-    rows.push({y, gen: window.V2_SIM.totalGen*Math.pow(1-deg,y-1), saving, om: omCost, propTax, depr: depr[y], taxSave, benefit, cum});
+    rows.push({y, gen: window.V2_SIM.totalGen*Math.pow(1-deg,y-1), saving, om: omCost, propTax, depr: deprY, taxSave, finPay: finPay[y], finInterest: finInterest[y], benefit, cum});
   }
 
-  // TASK 2: IRR（二分法）
+  // TASK 2: IRR（二分法）。TASK 提案-P4: 初期支出がほぼ無い財務（借入頭金0・リース）はIRR定義不能→null
   const f = (r) => { let npv = 0; for (let i = 0; i < cashflows.length; i++) npv += cashflows[i] / Math.pow(1+r, i); return npv; };
   let irr = null;
+  const irrDefined = initialOutflow > 1;  // 初期キャッシュアウトが無いとIRRは意味を持たない
   let lo = -0.999, hi = 1.0;
-  if (f(lo) * f(hi) > 0) {
+  if (irrDefined && f(lo) * f(hi) > 0) {
     for (let i = 0; i < 10; i++) { hi *= 2; if (f(lo) * f(hi) < 0) break; }
   }
   if (f(lo) * f(hi) >= 0) {
     lo = -0.999;
     for (let i = 0; i < 10; i++) { lo = lo / 2; if (f(lo) * f(hi) < 0) break; }
   }
-  if (f(lo) * f(hi) < 0) {
+  if (irrDefined && f(lo) * f(hi) < 0) {
     for (let iter = 0; iter < 100; iter++) {
       const mid = (lo + hi) / 2;
       if (Math.abs(f(mid)) < 1e-6) { irr = mid; break; }
@@ -2216,6 +2283,10 @@ function C_runCF() {
   const cedar = Math.round(co2 / 14);  // 杉の木本数（約14kg-CO2/本・年）
   window.V2_CF = { rows, invest, subsidy, investNet, taxMode, taxRate, payback,
     irr, npv, lcoe, co2, cedar, years,
+    financeMode, omCost, maintRate,
+    loanRate: financeMode==='loan'?loanRate:null, loanYears: financeMode==='loan'?loanYears:null, downPay: financeMode==='loan'?downPay:null,
+    leaseRate: isLease?leaseRate:null, leaseYears: isLease?leaseYears:null,
+    totalFinPay: finPay.reduce((s,v)=>s+v,0),
     firstYearTaxSave: rows[0]?.taxSave || 0,
     total20Benefit: rows.reduce((s,r)=>s+r.benefit,0) };
   set('lcoe-result', lcoe.toFixed(2));
@@ -2223,6 +2294,20 @@ function C_runCF() {
   set('cedar-result', cedar.toLocaleString());
 
   document.getElementById('cf-result').classList.remove('hidden');
+}
+
+// TASK 提案-P4: 資金調達UIの表示切替（借入/リースの入力枠を出し分け）
+function V2_toggleFinanceUI() {
+  const mode = document.getElementById('cf-finance-mode')?.value || 'cash';
+  document.querySelectorAll('.finance-loan').forEach(el => el.style.display = (mode==='loan')?'':'none');
+  document.querySelectorAll('.finance-lease').forEach(el => el.style.display = (mode==='lease')?'':'none');
+  const note = document.getElementById('cf-finance-note');
+  if (note) {
+    note.textContent =
+      mode==='loan'  ? '借入: 元利均等返済。支払利息は損金算入（節税）。減価償却・固定資産税あり。' :
+      mode==='lease' ? 'リース: 初期支出なし。リース料は全額損金（節税）。資産非保有のため減価償却・固定資産税なし。' :
+                       '現金一括: 初年度に全額支出・減価償却/固定資産税あり。';
+  }
 }
 
 // ===== 地図関数 =====
@@ -2443,6 +2528,31 @@ function V2_cpPanelModel() {
   const m = document.getElementById('panelModel');
   if (m) { m.value = document.getElementById('cp-panelModel').value; if (typeof C_applyPanel==='function') C_applyPanel(); }
 }
+// TASK 提案-P2: PCS選択ミラー（PCSタブ ⇄ 屋根描画コックピット）
+function V2_syncCockpitPcs() {  // canonical(PCSタブ) → cockpit
+  V2_mirrorOptions('pcsMaker', 'cp-pcsMaker');
+  V2_mirrorOptions('pcsModel', 'cp-pcsModel');
+}
+function V2_cpPcsMaker() {  // cockpit → canonical
+  const m = document.getElementById('pcsMaker');
+  if (m) { m.value = document.getElementById('cp-pcsMaker').value; if (typeof C_buildPcsModels==='function') C_buildPcsModels(); }
+  V2_mirrorOptions('pcsModel', 'cp-pcsModel');
+}
+function V2_cpPcsModel() {
+  const m = document.getElementById('pcsModel');
+  if (m) { m.value = document.getElementById('cp-pcsModel').value; if (typeof C_applyPcs==='function') C_applyPcs(); }
+}
+// TASK 提案-P2: 案件情報ミラー（顧客名・月額電気代）（案件情報タブ ⇄ コックピット）
+function V2_syncCockpitProject() {  // canonical → cockpit
+  [['clientName','cp-clientName'],['monthly-bill','cp-monthly-bill']].forEach(([s,d])=>{
+    const se=document.getElementById(s), de=document.getElementById(d);
+    if (se && de && de.value!==se.value) de.value=se.value;
+  });
+}
+function V2_cpProjectField(cpId, canonId) {  // cockpit → canonical（canonicalのonchangeも発火）
+  const c=document.getElementById(canonId), cp=document.getElementById(cpId);
+  if (c && cp) { c.value=cp.value; c.dispatchEvent(new Event('change')); }
+}
 
 // ===== 提案書出力ジェネレータ（ライブデータ→4ページHTML） =====
 const PROPOSAL_CSS = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Yu Gothic","Hiragino Sans",sans-serif;color:#1a2b45;background:#6b7280}
@@ -2496,6 +2606,11 @@ function V2_buildProposalHTML() {
   const sysType = sellMode==='full-self' ? '完全自家消費型' : '余剰売電型';
   // 見積区分: 詳細見積が確定していれば詳細、なければ概算（P6実装までは概算）
   const estBasis = (window.V2_DETAIL && window.V2_DETAIL.cost) ? '詳細見積ベース' : '概算見積ベース';
+  // P4: CF資料タイトルを資金調達/償却方法に追従
+  const cfTitle = cf.financeMode==='lease' ? 'リース（全額損金）'
+    : cf.financeMode==='loan' ? '借入・元利均等'
+    : cf.taxMode==='immediate' ? '即時償却'
+    : cf.taxMode==='none' ? '税効果考慮なし' : '通常償却';
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>提案書 ${client}</title><style>${PROPOSAL_CSS}</style></head><body>
 <section class="page"><div style="text-align:right;font-size:12px;color:#6b7a90">発行日：${new Date().toLocaleDateString('ja-JP')}</div>
 <h1 class="doc">太陽光発電 ご提案書</h1>
@@ -2519,7 +2634,7 @@ function V2_buildProposalHTML() {
 <table class="lt"><tr><th>月</th><th class="num">発電量</th><th class="num">自家消費</th><th class="num">自家消費率</th><th class="num">経済効果(円)</th></tr>${monthRows||'<tr><td colspan="5">※シミュレーション未実行</td></tr>'}</table>
 <div class="note">※本シミュレーションは概算であり発電量・経済効果を保証するものではありません。年次の詳細CFは次ページ参照。</div></section>
 
-<section class="page land"><h2 class="sec">損益・キャッシュフロー（通常償却）<span style="font-size:11px;color:#8892a0;font-weight:400"> — 投資効果の根拠資料</span></h2>
+<section class="page land"><h2 class="sec">損益・キャッシュフロー（${cfTitle}）<span style="font-size:11px;color:#8892a0;font-weight:400"> — 投資効果の根拠資料</span></h2>
 <table class="lt"><tr><th class="rowlbl">期（年）</th>${cfHead}</tr>
 <tr><td class="rowlbl">経済メリット(円)</td>${cfRow('s',r=>fmt(r.saving))}<td class="num">${fmt(cfRows.reduce((s,r)=>s+(r.saving||0),0))}</td></tr>
 <tr><td class="rowlbl">減価償却(定率法)</td>${cfRow('d',r=>fmt(r.depr))}<td class="num">${fmt(cfRows.reduce((s,r)=>s+(r.depr||0),0))}</td></tr>
@@ -2843,12 +2958,18 @@ function V2_setCost(key, rawValue) {
   return { success: true, value: clamped };
 }
 
+// 価格スキーマ版数: マークアップ等の既定を変更したら+1する。
+// 旧版の保存値が新既定を上書きするのを V2_loadMaster の移行処理で防ぐ。
+const COST_MASTER_SCHEMA_VERSION = 2;  // v2: markup 0.5/0.4 → 0.20/0.25（粗利~44%→~36%）
+const PRICING_MIGRATION_KEYS = ['markup_equipment', 'markup_work'];
+
 function V2_saveMaster() {
   try {
     localStorage.setItem('COST_MASTER', JSON.stringify({
       cost: COST_MASTER,
       updatedAt: COST_MASTER_STATE.updatedAt,
       updatedBy: COST_MASTER_STATE.updatedBy,
+      version: COST_MASTER_SCHEMA_VERSION,
     }));
     // TASK 137-VIS: Also persist panel and PCS masters with hidden flags
     localStorage.setItem('MASTER_DATA', JSON.stringify({
@@ -2862,12 +2983,22 @@ function V2_saveMaster() {
 
 function V2_loadMaster() {
   try {
+    // 移行前のハードコード既定を退避（Object.assignで上書きされる前に確保）
+    const pricingDefaults = {};
+    PRICING_MIGRATION_KEYS.forEach(k => { pricingDefaults[k] = COST_MASTER[k]; });
     const saved = localStorage.getItem('COST_MASTER');
     if (saved) {
-      const {cost, updatedAt, updatedBy} = JSON.parse(saved);
+      const {cost, updatedAt, updatedBy, version} = JSON.parse(saved);
       Object.assign(COST_MASTER, cost);
       COST_MASTER_STATE.updatedAt = updatedAt;
       COST_MASTER_STATE.updatedBy = updatedBy;
+      // 価格スキーマ移行: 旧版の保存値が価格系既定を上書きしていたら、新既定を強制復元
+      if ((version || 0) < COST_MASTER_SCHEMA_VERSION) {
+        Object.assign(COST_MASTER, pricingDefaults);
+        COST_MASTER_STATE.updatedAt = new Date().toISOString();
+        V2_saveMaster();  // 新版で再保存（次回以降は移行不要）
+        console.log('[COST_MASTER] 価格スキーマをv' + COST_MASTER_SCHEMA_VERSION + 'へ移行: ' + JSON.stringify(pricingDefaults));
+      }
     }
     // TASK 137-VIS: Restore panel and PCS masters with hidden flags
     const masterData = localStorage.getItem('MASTER_DATA');
@@ -3547,6 +3678,8 @@ window.addEventListener('load', function() {
   C_initDropdowns();
   V2_populateEquipment();  // 機器情報: 監視装置・その他機器のマスタ選択肢を生成
   V2_syncCockpitPanel();   // コックピットのパネル選択を初期同期
+  V2_syncCockpitPcs();     // TASK 提案-P2: コックピットのPCS選択を初期同期
+  V2_syncCockpitProject(); // TASK 提案-P2: コックピットの案件情報を初期同期
   const savedProposer = localStorage.getItem('sh_proposer');
   if (savedProposer) document.getElementById('proposer-name').value = savedProposer;
   // TASK 70: Call V2_calcEstimate which will call V2_buildEquipEstimate for rendering
@@ -3615,8 +3748,8 @@ const COST_MASTER = {
   monitor_fix_cost:      120000,    // 遠隔監視装置（一式）
 
   // ===== 利益付加率 =====
-  markup_equipment: 0.5,  // 機器は原価×1.5で売却
-  markup_work:      0.4,  // 工事は原価×1.4で売却
+  markup_equipment: 0.20, // 機器は原価×1.20で売却（粗利率30-40%目線に調整 2026-07-17）
+  markup_work:      0.25, // 工事は原価×1.25で売却（旧0.5/0.4は粗利~44%で高過ぎ→~36%へ）
 
   // ===== 諸経費（v16に準ずる） =====
   overhead_general_rate: 0.20,  // 一般管理費 = 工事販売計 × 20%
@@ -5051,6 +5184,45 @@ if (document.readyState === 'loading') {
         <input type="number" id="cf-taxrate" value="34" min="0" max="60" step="1" onchange="C_runCF()">
       </div>
     </div>
+    <!-- TASK 提案-P4: 資金調達（現金/借入/リース） -->
+    <div class="form-row c3">
+      <div class="form-group">
+        <label>資金調達方法</label>
+        <select id="cf-finance-mode" onchange="V2_toggleFinanceUI(); C_runCF()">
+          <option value="cash" selected>現金一括</option>
+          <option value="loan">借入（元利均等）</option>
+          <option value="lease">リース（全額損金）</option>
+        </select>
+      </div>
+      <div class="form-group finance-loan" style="display:none">
+        <label>借入金利 (%/年)</label>
+        <input type="number" id="cf-loan-rate" value="2.5" min="0" max="15" step="0.1" onchange="C_runCF()">
+      </div>
+      <div class="form-group finance-loan" style="display:none">
+        <label>借入期間 (年)</label>
+        <input type="number" id="cf-loan-years" value="15" min="1" max="30" step="1" onchange="C_runCF()">
+      </div>
+      <div class="form-group finance-loan" style="display:none">
+        <label>頭金 (円)</label>
+        <input type="number" id="cf-down" value="0" min="0" step="100000" onchange="C_runCF()">
+      </div>
+      <div class="form-group finance-lease" style="display:none">
+        <label>リース料率相当 (%/年)</label>
+        <input type="number" id="cf-lease-rate" value="3.5" min="0" max="15" step="0.1" onchange="C_runCF()">
+      </div>
+      <div class="form-group finance-lease" style="display:none">
+        <label>リース期間 (年)</label>
+        <input type="number" id="cf-lease-years" value="10" min="1" max="20" step="1" onchange="C_runCF()">
+      </div>
+    </div>
+    <div class="form-row c3">
+      <div class="form-group">
+        <label>メンテナンス費 実額 (円/年・任意)</label>
+        <input type="number" id="cf-maint" value="" min="0" step="10000" placeholder="空欄=自動(販売額×2%)" onchange="C_runCF()">
+        <div id="cf-maint-auto" style="font-size:10px;color:#8aa;margin-top:2px"></div>
+      </div>
+    </div>
+    <div class="note" id="cf-finance-note" style="font-size:11px;color:#8aa;margin:-4px 0 8px">現金一括: 初年度に全額支出・減価償却/固定資産税あり。</div>
     <button class="btn primary" onclick="C_runCF()">計算実行</button>
     <div id="cf-result" class="hidden">
       <table>

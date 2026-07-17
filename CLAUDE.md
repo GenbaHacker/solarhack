@@ -44,9 +44,16 @@
   画面での動作を確認してください。
 - テストシナリオ: 既存の `V2_loadTestScenario('multi'|'mixed'|'lowv'|'boundary'|'hicurrent')`
   を使用。実装したタスクに関係なくても、multi と mixed の回帰は毎回実行:
-  - multi: `pcsUnits === 6` AND `V2_EST.cost` が 40,000,000〜45,000,000 の範囲
-  - mixed: `panelCost === 386974` AND `V2_EST.cost === 3555999.2`（低圧時）
+  - multi: `pcsUnits === 6` AND `V2_EST.cost === 32290473.2`（±0.5%以内）
+  - mixed: `panelCost === 419734` AND `V2_EST.cost === 4280762.2`（低圧時）
   この2件が崩れた瞬間、実装は失敗です。
+  ※基準は2026-07-17に現行原価へ再設定（旧: multi 40-45M / mixed panelCost386974・原価3555999.2。
+    パネル単価更新・監視/その他機器の原価組込みによる正当な変化を反映）。原価が下振れした場合は
+    粗利過大評価→赤字見逃しに直結するため、基準割れは必ず回帰調査すること。
+  - 粗利率(grossMargin): markup_equipment=0.20 / markup_work=0.25 で multi/mixed とも約36%。
+    目標レンジ30〜40%。三重錠の下限20%を割る変更は禁止。マークアップ既定を変えたら
+    COST_MASTER_SCHEMA_VERSION を+1し、施主ブラウザのlocalStorage影を自動移行させること
+    （V2_loadMaster の価格スキーマ移行処理。手動console削除は不要になった）。
 - **発電・シミュ精度のPASSは、偽装不能な外部実測と照合すること。** 内部整合や
   未検証ファイルへのスポットチェックはPASS根拠になりません。このツールの価値は
   「数字が実績と合うか」です。日射・発電量の検証は FusionSolar等の実測との
