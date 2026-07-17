@@ -2355,6 +2355,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mapped) { document.getElementById('install-type').value = mapped; toggleRoof(); }
     }
 
+    let panelMatched = false;
     if (h.panelModel) {
       for (const mk of Object.keys(PANEL_DB)) {
         if ((PANEL_DB[mk]||[]).some(p => p.model === h.panelModel)) {
@@ -2362,10 +2363,28 @@ document.addEventListener('DOMContentLoaded', () => {
           buildPanelModels();
           document.getElementById('panel-model').value = h.panelModel;
           applyPanelModel();
+          panelMatched = true;
           break;
         }
       }
     }
+    // TASK 機器マスタ代替: 型番不一致の場合、出力(Wp)が最も近い機種で代替選定（±30W以内）
+    if (!panelMatched && h.wp) {
+      let best = null, bestDiff = Infinity;
+      for (const mk of Object.keys(PANEL_DB)) {
+        for (const p of PANEL_DB[mk]) {
+          const diff = Math.abs(p.wp - h.wp);
+          if (diff < bestDiff) { bestDiff = diff; best = {mk, model: p.model}; }
+        }
+      }
+      if (best && bestDiff <= 30) {
+        document.getElementById('panel-maker').value = best.mk;
+        buildPanelModels();
+        document.getElementById('panel-model').value = best.model;
+        applyPanelModel();
+      }
+    }
+    let pcsMatched = false;
     if (h.pcsModel) {
       for (const mk of Object.keys(PCS_DB)) {
         if ((PCS_DB[mk]||[]).some(p => p.model === h.pcsModel)) {
@@ -2373,8 +2392,25 @@ document.addEventListener('DOMContentLoaded', () => {
           buildPcsModels();
           document.getElementById('pcs-model').value = h.pcsModel;
           applyPcsModel();
+          pcsMatched = true;
           break;
         }
+      }
+    }
+    // TASK 機器マスタ代替: 型番不一致の場合、容量(kW)が最も近い機種で代替選定（±20%以内）
+    if (!pcsMatched && h.pcsKw) {
+      let best = null, bestDiff = Infinity;
+      for (const mk of Object.keys(PCS_DB)) {
+        for (const p of PCS_DB[mk]) {
+          const diff = Math.abs(p.kw - h.pcsKw);
+          if (diff < bestDiff) { bestDiff = diff; best = {mk, model: p.model}; }
+        }
+      }
+      if (best && bestDiff <= h.pcsKw * 0.2) {
+        document.getElementById('pcs-maker').value = best.mk;
+        buildPcsModels();
+        document.getElementById('pcs-model').value = best.model;
+        applyPcsModel();
       }
     }
     if (h.pcsUnits) document.getElementById('pcs-count').value = h.pcsUnits;
