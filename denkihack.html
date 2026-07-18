@@ -272,7 +272,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
         </div>
         <div class="form-row c3">
           <div class="field"><label>系統連系電圧</label>
-            <select id="grid-voltage" onchange="autosave()">
+            <select id="grid-voltage" onchange="autosave(); updateWiringDiagram();">
               <option value="6600">6,600V（高圧）</option>
               <option value="22000">22,000V（特別高圧）</option>
             </select>
@@ -451,10 +451,10 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 
       <!-- 視覚的配線図 -->
       <div class="wiring-diagram">
-        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:12px">⚡ 配線経路ダイアグラム — 各区間の長さと仕様を入力してください</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:12px">⚡ 配線経路ダイアグラム — 標準構成（PCS→MCB→昇圧器→ELB→分電盤）</div>
         <div class="wd-flow">
 
-          <!-- パネルアレイ -->
+          <!-- PVパネル -->
           <div class="wd-device panel-dev">
             <div class="dev-icon">⬛</div>
             <div class="dev-name">PVパネル</div>
@@ -488,15 +488,15 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
             </div>
           </div>
 
-          <!-- 接続箱 -->
-          <div class="wd-device jb-dev">
+          <!-- 接続箱（条件表示：jb-spec!='none'） -->
+          <div class="wd-device jb-dev" id="wd-jb-box" style="display:none">
             <div class="dev-icon">📦</div>
             <div class="dev-name">接続箱</div>
             <div class="dev-spec" id="wd-jb-spec">—</div>
           </div>
 
           <!-- ② 主DC区間 -->
-          <div class="wd-segment">
+          <div class="wd-segment" id="wd-dc2-seg">
             <div class="wd-line-area">
               <div class="wd-line dc-line"></div>
               <div class="wd-arrow dc"></div>
@@ -529,15 +529,22 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
             <div class="dev-spec" id="wd-pcs-spec">—</div>
           </div>
 
-          <!-- ③ AC低圧区間 -->
-          <div class="wd-segment">
+          <!-- MCB（AC主ブレーカー） -->
+          <div class="wd-device breaker-dev">
+            <div class="dev-icon">⚡</div>
+            <div class="dev-name">MCB</div>
+            <div class="dev-spec" id="wd-ac-mcb">主幹 —</div>
+          </div>
+
+          <!-- ③ AC低圧区間（条件表示：高圧時のみ） -->
+          <div class="wd-segment" id="wd-ac3-seg" style="display:none">
             <div class="wd-line-area">
               <div class="wd-line ac-line"></div>
               <div class="wd-arrow ac"></div>
             </div>
             <div class="wd-inputs">
               <div class="wd-inputs-title">
-                <span class="tag ac">AC③</span> AC幹線（低圧）
+                <span class="tag ac">AC③</span> AC幹線
               </div>
               <div class="wd-input-row">
                 <label>片道長 (m)</label>
@@ -557,15 +564,29 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
             </div>
           </div>
 
-          <!-- 低圧盤/昇圧器 -->
-          <div class="wd-device breaker-dev">
-            <div class="dev-icon">🔌</div>
-            <div class="dev-name">低圧盤</div>
-            <div class="dev-spec">MCCB・ELB</div>
+          <!-- TR（変圧器、条件表示：高圧時のみ） -->
+          <div class="wd-device tr-dev" id="wd-tr-box" style="display:none">
+            <div class="dev-icon">⚙</div>
+            <div class="dev-name">変圧器</div>
+            <div class="dev-spec" id="wd-tr-kva">— kVA</div>
           </div>
 
-          <!-- ④ 高圧区間 -->
-          <div class="wd-segment">
+          <!-- ELB（漏電遮断器） -->
+          <div class="wd-device elb-dev">
+            <div class="dev-icon">🔌</div>
+            <div class="dev-name">ELB</div>
+            <div class="dev-spec" id="wd-elb">— A</div>
+          </div>
+
+          <!-- MCB（2番目・分電盤用） -->
+          <div class="wd-device breaker-dev" id="wd-mcb2-box">
+            <div class="dev-icon">⚡</div>
+            <div class="dev-name">MCB</div>
+            <div class="dev-spec" id="wd-ac-mcb2">—</div>
+          </div>
+
+          <!-- ④ 高圧区間（条件表示：高圧時のみ） -->
+          <div class="wd-segment" id="wd-hv4-seg" style="display:none">
             <div class="wd-line-area">
               <div class="wd-line hv-line"></div>
               <div class="wd-arrow hv"></div>
@@ -590,11 +611,11 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
             </div>
           </div>
 
-          <!-- 系統/変圧器 -->
-          <div class="wd-device grid-dev">
-            <div class="dev-icon">⚙</div>
-            <div class="dev-name">変圧器・系統</div>
-            <div class="dev-spec">6.6kV連系</div>
+          <!-- キュービクル / 分電盤（条件表示） -->
+          <div class="wd-device grid-dev" id="wd-grid-box">
+            <div class="dev-icon">📦</div>
+            <div class="dev-name" id="wd-grid-name">キュービクル</div>
+            <div class="dev-spec" id="wd-grid-spec">6.6kV連系</div>
           </div>
         </div>
       </div>
@@ -639,7 +660,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
           <div class="field"><label>接続箱 入力回路数（自動）</label><div class="rv" id="rv-jb-in">—</div></div>
           <div class="field"><label>推奨接続箱サイズ（自動）</label><div class="rv" id="rv-jb-sz">—</div></div>
           <div class="field"><label>接続箱仕様</label>
-            <select id="jb-spec" onchange="calcAll(); autosave()">
+            <select id="jb-spec" onchange="calcAll(); autosave(); updateWiringDiagram();">
               <option value="none">なし（PCS直結・接続箱不要）</option>
               <option value="FRP">屋外・FRP製（一般仕様）</option>
               <option value="SUS">屋外・SUS304製（営繕仕様）</option>
@@ -1313,6 +1334,7 @@ function calcAll() {
   calcFrame();
   calcEarth();
   updateWiringDeviceLabels();
+  updateWiringDiagram();
 }
 
 function calcString() {
@@ -2324,6 +2346,7 @@ document.addEventListener('DOMContentLoaded', () => {
   addDcRun();
   addDcRun();
   calcAll();
+  updateWiringDiagram();
 });
 
 // ═══════════════════════════════════════════════
@@ -2455,6 +2478,63 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('[SH2DH] 引き継ぎ失敗（本体動作に影響なし）:', e.message);
   }
 });
+
+// ═══════════════════════════════════════════════
+// TASK #5: 配線ダイアグラム条件表示・値更新
+// ═══════════════════════════════════════════════
+function updateWiringDiagram() {
+  const isHighVoltage = (document.getElementById('grid-voltage')?.value === '6600');
+  const jbNone = (document.getElementById('jb-spec')?.value === 'none');
+
+  // 接続箱・DC②区間の表示（接続箱「なし」で非表示）
+  const jbBox = document.getElementById('wd-jb-box');
+  const dc2Seg = document.getElementById('wd-dc2-seg');
+  if (jbBox) jbBox.style.display = jbNone ? 'none' : 'flex';
+  if (dc2Seg) dc2Seg.style.display = jbNone ? 'none' : 'flex';
+
+  // 高圧時のみ表示：AC③区間、TR、HV④区間、キュービクル
+  const ac3Seg = document.getElementById('wd-ac3-seg');
+  const trBox = document.getElementById('wd-tr-box');
+  const hv4Seg = document.getElementById('wd-hv4-seg');
+  const gridBox = document.getElementById('wd-grid-box');
+  if (ac3Seg) ac3Seg.style.display = isHighVoltage ? 'flex' : 'none';
+  if (trBox) trBox.style.display = isHighVoltage ? 'flex' : 'none';
+  if (hv4Seg) hv4Seg.style.display = isHighVoltage ? 'flex' : 'none';
+
+  // キュービクル / 分電盤の切替
+  if (gridBox) gridBox.style.display = 'flex';
+  const gridName = document.getElementById('wd-grid-name');
+  const gridSpec = document.getElementById('wd-grid-spec');
+  if (gridName) gridName.textContent = isHighVoltage ? 'キュービクル' : '分電盤';
+  if (gridSpec) gridSpec.textContent = isHighVoltage ? '6.6kV連系' : '低圧受電';
+
+  // MCB・ELB・TR の値を更新
+  const mcbEl = document.getElementById('wd-ac-mcb');
+  const elbEl = document.getElementById('wd-elb');
+  const trKvaEl = document.getElementById('wd-tr-kva');
+
+  if (mcbEl) {
+    const mcbVal = document.getElementById('rv-ac-mcb')?.textContent || '—';
+    mcbEl.textContent = '主幹' + (mcbVal.includes('A') ? mcbVal : mcbVal + ' A');
+  }
+  if (elbEl) {
+    const elbVal = document.getElementById('rv-elb')?.textContent || '—';
+    elbEl.textContent = elbVal;
+  }
+  if (trKvaEl) {
+    const trVal = document.getElementById('rv-tr-kva')?.textContent || '—';
+    trKvaEl.textContent = trVal + ' kVA';
+  }
+
+  // 2番目のMCBは低圧時のみ表示
+  const mcb2Box = document.getElementById('wd-mcb2-box');
+  if (mcb2Box) mcb2Box.style.display = isHighVoltage ? 'none' : 'flex';
+  const mcb2El = document.getElementById('wd-ac-mcb2');
+  if (mcb2El) {
+    const mcbVal = document.getElementById('rv-ac-mcb')?.textContent || '—';
+    mcb2El.textContent = mcbVal.includes('A') ? mcbVal : mcbVal + ' A';
+  }
+}
 </script>
 </body>
 </html>
