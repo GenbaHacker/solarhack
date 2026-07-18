@@ -558,7 +558,7 @@ input[type="range"] { accent-color:#ff7c2a; }
           <select id="cp-pcsModel" onchange="V2_cpPcsModel()"><option value="">自動選定 or 選択</option></select>
         </div>
       </div>
-      <button class="btn primary" onclick="C_calcString()" style="width:100%">計算実行</button>
+      <button class="btn primary" onclick="C_pcsUserSelected=true; C_calcString()" style="width:100%">計算実行</button>
 
       <div id="design-result" class="hidden">
         <div class="result">
