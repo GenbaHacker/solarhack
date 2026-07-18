@@ -657,6 +657,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
           <div class="field"><label>漏電遮断器 ELB（自動）</label><div class="rv" id="rv-elb">—</div></div>
         </div>
         <div class="form-row c3">
+          <div class="field"><label>受電側MCB（自動）</label><div class="rv" id="rv-hv-mcb">—</div></div>
           <div class="field"><label>接続箱 入力回路数（自動）</label><div class="rv" id="rv-jb-in">—</div></div>
           <div class="field"><label>推奨接続箱サイズ（自動）</label><div class="rv" id="rv-jb-sz">—</div></div>
           <div class="field"><label>接続箱仕様</label>
@@ -1483,6 +1484,12 @@ function calcBreaker() {
   const jbIn=getStrN(); // TASK W-1: JB回路数も実測ストリング数優先
   setRV('rv-jb-in', jbIn+' 回路');
   setRV('rv-jb-sz', jbIn<=16?'16回路型':jbIn<=24?'24回路型':'32回路型以上');
+  // TASK B: TR二次側(高圧側)の電流 — 昇圧により低圧側の約1/24になる
+  const gv = document.getElementById('grid-voltage')?.value;
+  const vHv = parseFloat(gv) || 6600;
+  const totalW = V('pcs-kw') * V('pcs-count') * 1000;
+  const hvI = vHv > 0 ? totalW / (Math.sqrt(3) * vHv) : 0;
+  setRV('rv-hv-mcb', nextBrRating(hvI * 1.25) + ' A MCCB');
 }
 
 // TASK W-2: 変圧器の標準容量系列（JIS高圧受電変圧器準拠）。実態と違えばこの配列を編集すれば済む。
@@ -2531,8 +2538,8 @@ function updateWiringDiagram() {
   if (mcb2Box) mcb2Box.style.display = isHighVoltage ? 'flex' : 'none';
   const mcb2El = document.getElementById('wd-ac-mcb2');
   if (mcb2El) {
-    const mcbVal = document.getElementById('rv-ac-mcb')?.textContent || '—';
-    mcb2El.textContent = mcbVal.includes('A') ? mcbVal : mcbVal + ' A';
+    const mcbVal = document.getElementById('rv-hv-mcb')?.textContent || '—';
+    mcb2El.textContent = mcbVal;
   }
 }
 </script>
