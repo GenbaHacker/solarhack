@@ -639,7 +639,8 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
           <div class="field"><label>接続箱 入力回路数（自動）</label><div class="rv" id="rv-jb-in">—</div></div>
           <div class="field"><label>推奨接続箱サイズ（自動）</label><div class="rv" id="rv-jb-sz">—</div></div>
           <div class="field"><label>接続箱仕様</label>
-            <select id="jb-spec" onchange="autosave()">
+            <select id="jb-spec" onchange="calcAll(); autosave()">
+              <option value="none">なし（PCS直結・接続箱不要）</option>
               <option value="FRP">屋外・FRP製（一般仕様）</option>
               <option value="SUS">屋外・SUS304製（営繕仕様）</option>
             </select>
@@ -2184,7 +2185,8 @@ function collectBomRows() {
     {cat:'通信',     name:'通信線',                   spec:document.getElementById('comm-cable')?.options[document.getElementById('comm-cable').selectedIndex]?.text||'—', qty:V('comm-len'), unit:'m', note:''},
     {cat:'通信',     name:'通信線保護管',             spec:document.getElementById('comm-pipe')?.options[document.getElementById('comm-pipe').selectedIndex]?.text||'—', qty:V('comm-len'), unit:'m', note:''},
   ];
-  return rows;
+  const jbNone = document.getElementById('jb-spec')?.value === 'none';
+  return jbNone ? rows.filter(r => r.name !== '太陽電池接続箱') : rows;
 }
 
 function tagClass(cat) {
@@ -2433,6 +2435,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (h.pcsCost && h.pcsCost>0) window.DH_PCS_COST = h.pcsCost;
     // TASK W-1: SolarHackの実測ストリング総数を保持（getStrNが近似より優先して使う）
     if (h.stringTotal && h.stringTotal>0) window.DH_STRING_TOTAL = h.stringTotal;
+    if (h.roofFaces && h.roofFaces>0) {
+      while (dcRuns.length < h.roofFaces) addDcRun();
+      while (dcRuns.length > h.roofFaces && dcRuns.length > 1) removeDcRun(dcRuns[dcRuns.length-1].id);
+    }
     if (h.panels && h.stringTotal && h.panels % h.stringTotal === 0) {
       document.getElementById('str-series').value = h.panels / h.stringTotal;
     }
