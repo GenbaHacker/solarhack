@@ -4718,6 +4718,7 @@ function V2_handoffToDenkiHack() {
     pcsModel: document.getElementById('pcsModel')?.value || '—',
     pcsUnits: V2_SPEC.pcsUnits,
     stringTotal: V2_SPEC.stringTotal,
+    roofFaces: (typeof v2RoofFaces !== 'undefined' && v2RoofFaces) ? v2RoofFaces.length : 0,
     voltage: isHigh ? 'high' : 'low',
     dcKw: V2_EST.dcKwTotal,
     naitakuCost: (window.V2_NAITAKU_SNAPSHOT?.cost ?? V2_EST.cost),
