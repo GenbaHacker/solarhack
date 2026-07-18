@@ -2523,12 +2523,12 @@ function updateWiringDiagram() {
   }
   if (trKvaEl) {
     const trVal = document.getElementById('rv-tr-kva')?.textContent || '—';
-    trKvaEl.textContent = trVal + ' kVA';
+    trKvaEl.textContent = trVal;
   }
 
-  // 2番目のMCBは低圧時のみ表示
+  // 2番目のMCB（受電側）は高圧時のみ表示
   const mcb2Box = document.getElementById('wd-mcb2-box');
-  if (mcb2Box) mcb2Box.style.display = isHighVoltage ? 'none' : 'flex';
+  if (mcb2Box) mcb2Box.style.display = isHighVoltage ? 'flex' : 'none';
   const mcb2El = document.getElementById('wd-ac-mcb2');
   if (mcb2El) {
     const mcbVal = document.getElementById('rv-ac-mcb')?.textContent || '—';
