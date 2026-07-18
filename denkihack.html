@@ -2173,7 +2173,7 @@ function collectBomRows() {
     {cat:'DC配線',   name:'保護管 DC側',              spec:(currentSpec==='public'?'C管':'PF管')+' (DC)', qty:V('dc1-len'), unit:'m', note:''},
     {cat:'AC配線',   name:'保護管 AC側',              spec:(currentSpec==='public'?'C管':'PF管')+' (AC)', qty:V('ac3-len'), unit:'m', note:''},
     {cat:'盤類',     name:'太陽電池接続箱',           spec:(document.getElementById('jb-spec')?.value==='SUS'?'SUS304':'FRP')+' '+document.getElementById('rv-jb-sz').textContent, qty:V('pcs-count'), unit:'面', note:''},
-    {cat:'盤類',     name:'低圧盤',                   spec:document.getElementById('lv-spec')?.options[document.getElementById('lv-spec').selectedIndex]?.text||'—', qty:1, unit:'面', note:''},
+    {cat:'盤類',     name:'低圧盤',                   spec:(document.getElementById('lv-spec')?.options[document.getElementById('lv-spec').selectedIndex]?.text||'—')+' / 主幹'+(document.getElementById('rv-ac-mcb')?.textContent||'—')+' / '+(document.getElementById('rv-elb')?.textContent||'—'), qty:1, unit:'面', note:'ブレーカー容量は自動選定'},
     {cat:'高圧',     name:'変圧器',                   spec:(document.getElementById('tr-type')?.options[document.getElementById('tr-type').selectedIndex]?.text||'')+' '+document.getElementById('rv-tr-kva').textContent, qty:V('tr-count'), unit:'台', note:''},
     {cat:'高圧',     name:'高圧キュービクル',          spec:document.getElementById('cub-type')?.options[document.getElementById('cub-type').selectedIndex]?.text||'—', qty:1, unit:'面', note:''},
     {cat:'高圧',     name:'保護継電器セット',          spec:'OVR/UVR/OFR/UFR', qty:1, unit:'式', note:''},
