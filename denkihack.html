@@ -2341,9 +2341,10 @@ function DH_sendToSolarHack() {
       total: Math.round(t.buy)
     }));
     const d = new Date();
-    document.getElementById('dh-send-confirm').textContent =
-      '✓ 原価 ' + fmt(Math.round(t.buy)) + '円 をSolarHackへ送信 (' +
-      d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0') + ')';
+    const hhmm = d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0');
+    // TASK 143: 送信完了を明確に告知し、SolarHackタブへの導線を案内（別タブ運用のため自動クローズはしない）
+    document.getElementById('dh-send-confirm').innerHTML =
+      '<span style="display:inline-block;background:rgba(46,160,67,0.15);border:1px solid var(--accent);border-radius:4px;padding:4px 10px;color:var(--accent);font-weight:600">' + '✅ SolarHackに反映済 ｜ 原価 ' + fmt(Math.round(t.buy)) + '円 (' + hhmm + ')' + '<br><span style="font-weight:400;font-size:10px;color:var(--text2)">→ SolarHackのタブに戻って詳細見積・CF・提案書をご確認ください</span>' + '</span>';
   } catch (e) {
     document.getElementById('dh-send-confirm').textContent = '⚠ 送信失敗: ' + e.message;
   }
