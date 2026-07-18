@@ -2387,21 +2387,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     }
-    // TASK 機器マスタ代替: 型番不一致の場合、出力(Wp)が最も近い機種で代替選定（±30W以内）
-    if (!panelMatched && h.wp) {
-      let best = null, bestDiff = Infinity;
-      for (const mk of Object.keys(PANEL_DB)) {
-        for (const p of PANEL_DB[mk]) {
-          const diff = Math.abs(p.wp - h.wp);
-          if (diff < bestDiff) { bestDiff = diff; best = {mk, model: p.model}; }
-        }
-      }
-      if (best && bestDiff <= 30) {
-        document.getElementById('panel-maker').value = best.mk;
-        buildPanelModels();
-        document.getElementById('panel-model').value = best.model;
-        applyPanelModel();
-      }
+    // TASK #2: DBに型番が無い場合、近い別メーカーに化けさせず、
+    //   「その他」枠にSolarHackの実型番・Wpをそのまま流し込む（長州→ハンファ化を防ぐ）
+    if (!panelMatched && h.panelModel && h.panelModel !== '—') {
+      document.getElementById('panel-maker').value = 'other';
+      buildPanelModels();
+      // other枠のoptionラベルを実型番に差し替え
+      const psel = document.getElementById('panel-model');
+      if (psel.options.length) { psel.options[0].value = h.panelModel; psel.options[0].textContent = h.panelModel + '（SolarHack）'; psel.value = h.panelModel; }
+      applyPanelModel();
+      // SolarHackの実Wpで上書き（other既定値ではなく）
+      if (h.wp) document.getElementById('p-wp').value = h.wp;
+      calcAll();
     }
     let pcsMatched = false;
     if (h.pcsModel) {
@@ -2416,21 +2413,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     }
-    // TASK 機器マスタ代替: 型番不一致の場合、容量(kW)が最も近い機種で代替選定（±20%以内）
-    if (!pcsMatched && h.pcsKw) {
-      let best = null, bestDiff = Infinity;
-      for (const mk of Object.keys(PCS_DB)) {
-        for (const p of PCS_DB[mk]) {
-          const diff = Math.abs(p.kw - h.pcsKw);
-          if (diff < bestDiff) { bestDiff = diff; best = {mk, model: p.model}; }
-        }
-      }
-      if (best && bestDiff <= h.pcsKw * 0.2) {
-        document.getElementById('pcs-maker').value = best.mk;
-        buildPcsModels();
-        document.getElementById('pcs-model').value = best.model;
-        applyPcsModel();
-      }
+    // TASK #2: DBに型番が無い場合、近い別機種に化けさせず、
+    //   「その他」枠にSolarHackの実型番・kWをそのまま流し込む
+    if (!pcsMatched && h.pcsModel && h.pcsModel !== '—') {
+      document.getElementById('pcs-maker').value = 'other';
+      buildPcsModels();
+      const psel = document.getElementById('pcs-model');
+      if (psel.options.length) { psel.options[0].value = h.pcsModel; psel.options[0].textContent = h.pcsModel + '（SolarHack）'; psel.value = h.pcsModel; }
+      applyPcsModel();
+      // SolarHackの実kWで上書き（vmax/mppt/voutはother既定＝現場で要確認）
+      if (h.pcsKw) document.getElementById('pcs-kw').value = h.pcsKw;
+      calcAll();
     }
     if (h.pcsUnits) document.getElementById('pcs-count').value = h.pcsUnits;
     // TASK C-2: SolarHackの実測パネル枚数を保持（calcPanelCountが逆算より優先して使う）
