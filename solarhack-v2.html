@@ -302,7 +302,7 @@ input[type="range"] { accent-color:#ff7c2a; }
 
 <div style="display:flex">
   <nav id="sidenav" style="width:190px;min-height:100vh;background:#0B1829;border-right:1px solid rgba(255,255,255,0.08);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0">
-    <div style="padding:0 16px 16px;font-size:16px;font-weight:700;color:#ff7c2a">☀ SolarHack</div>
+    <div style="padding:0 16px 16px;font-size:16px;font-weight:700;color:#ff7c2a;cursor:pointer" onclick="V2_logout()">☀ SolarHack</div>
     <div class="nav-item" onclick="gotoSec('map')">🗺 屋根描画（設計）</div>
     <div class="nav-item" onclick="gotoSec('project')">📋 案件情報</div>
     <div style="padding:10px 16px 2px;font-size:11px;color:#7a91b0;font-weight:700;letter-spacing:1px">機器情報</div>
@@ -5115,6 +5115,13 @@ if (document.readyState === 'loading') {
 } else {
   V2_syncTotals();
   V2_updateDrawButtonState();  // TASK 119: Initialize draw button state
+}
+
+// ログアウト: 認証セッションを破棄してゲート画面に戻す
+function V2_logout() {
+  if (!confirm('ログアウトしますか？\n（入力中の内容は保存された分のみ残ります）')) return;
+  sessionStorage.removeItem('sh2_auth');
+  location.reload();
 }
 </script>
 
