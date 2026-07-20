@@ -1389,7 +1389,14 @@ function calcPCS() {
 //           無ければ従来の近似(MPPT数×PCS台数)にフォールバック。電圧降下・ブレーカー精度に直結。
 function getStrN() {
   if (window.DH_STRING_TOTAL && window.DH_STRING_TOTAL>0) return window.DH_STRING_TOTAL;
-  return V('pcs-mppt') * V('pcs-count');
+  // 1MPPTあたりの並列可能ストリング数 = MPPT最大入力電流 ÷ パネルIsc（切り捨て、最低1）
+  const maker = document.getElementById('pcs-maker')?.value;
+  const model = document.getElementById('pcs-model')?.value;
+  const pcs = (PCS_DB[maker]||[]).find(x=>x.model===model) || PCS_DB.other[0];
+  const imax = (pcs?.imax) || 0;
+  const isc  = V('p-isc') || 0;
+  const parallelPerMppt = (imax > 0 && isc > 0) ? Math.max(1, Math.floor(imax / isc)) : 1;
+  return V('pcs-mppt') * V('pcs-count') * parallelPerMppt;
 }
 function calcWiring() {
   const isc   = V('p-isc');
