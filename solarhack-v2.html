@@ -1111,19 +1111,19 @@ const C_PANEL_DB = {
 
 const C_PCS_DB = {
   huawei:[
-    {model:'SUN2000-4.95KTL-JPL1', kw:4.95,  vmax:600,  mpptMin:90,  mpptMax:560,  imaxPerMppt:16, mppt:4, cost:100200},
-    {model:'SUN2000-4.95KTL-NHL2', kw:4.95,  vmax:600,  mpptMin:90,  mpptMax:560,  imaxPerMppt:16, mppt:4, cost:75900},
-    {model:'SUN2000-20KTL-M3',     kw:20,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:14.5,mppt:6, cost:332000},
+    {model:'SUN2000-4.95KTL-NHL2', kw:4.95,  vmax:600,  mpptMin:90,  mpptMax:560,  imaxPerMppt:16, mppt:4, cost:78500},
+    {model:'SUN2000-20KTL-M3',     kw:20,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:14.5,mppt:6, cost:338000},
     {model:'SUN2000-33KTL-NH',     kw:33.3,  vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:22, mppt:5, cost:null},
     {model:'SUN2000-40KTL-NH',     kw:40,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:22, mppt:5, cost:null},
-    {model:'SUN2000-50KTL-JPM0',   kw:50,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:26, mppt:8, cost:470000},
-    {model:'SUN2000-50KTL-NHM3',   kw:50,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:30, mppt:8, cost:434600},
+    {model:'SUN2000-40KTL-JP', kw:40, vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:22, mppt:5, cost:348000}, // spec: 40KTL-NH流用・要検証
+    {model:'SUN2000-50KTL-JPM0',   kw:50,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:26, mppt:8, cost:415000},
+    {model:'SUN2000-50KTL-NHM3',   kw:50,    vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:30, mppt:8, cost:378000},
     {model:'SUN2000-111KTL-NHM0',  kw:111.1, vmax:1500, mpptMin:200, mpptMax:1300, imaxPerMppt:26, mppt:12, cost:null},
     {model:'SUN2000-125KTL-JPH0',  kw:125,   vmax:1500, mpptMin:200, mpptMax:1300, imaxPerMppt:26, mppt:12, cost:787000},
   ],
   yasukawa:[
-    {model:'CEPT-P3AA2025B（標準型）',  kw:25, vmax:1000, mpptMin:200, mpptMax:900, imaxPerMppt:25, mppt:4, cost:620000},
-    {model:'CEPT-P3AB2025B（多機能型）',kw:25, vmax:1000, mpptMin:200, mpptMax:900, imaxPerMppt:25, mppt:4, cost:720000},
+    {model:'CEPT-P3AA2025B（標準型）',  kw:25, vmax:1000, mpptMin:200, mpptMax:900, imaxPerMppt:25, mppt:4, cost:520000},
+    {model:'CEPT-P3AB2025B（多機能型）',kw:25, vmax:1000, mpptMin:200, mpptMax:900, imaxPerMppt:25, mppt:4, cost:620000},
     {model:'CEPT-P2HA29P9B（9.9kW）',    kw:9.9, vmax:600, mpptMin:150, mpptMax:550, imaxPerMppt:20, mppt:3, cost:307000},
   ],
   omron:[
@@ -1131,11 +1131,11 @@ const C_PCS_DB = {
     {model:'KPW-A55-2J4',  kw:5.5, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2, cost:165000},
   ],
   sungrow:[
-    {model:'SG49.5CX-JP（10年）', kw:49.5, vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:30, mppt:12, cost:479000},
+    {model:'SG49.5CX-JP（10年）', kw:49.5, vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:30, mppt:12, cost:335000},
     {model:'SG49.5CX-JP（20年）', kw:49.5, vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:30, mppt:12, cost:620000},
-    {model:'SG100CX-JP（10年）',  kw:100,  vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:26, mppt:12, cost:888000},
+    {model:'SG100CX-JP（10年）',  kw:100,  vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:26, mppt:12, cost:695000},
     {model:'SG100CX-JP（20年）',  kw:100,  vmax:1100, mpptMin:200, mpptMax:1000, imaxPerMppt:26, mppt:12, cost:1220000},
-    {model:'SG125HX-JP（10年）',  kw:125,  vmax:1500, mpptMin:200, mpptMax:1300, imaxPerMppt:26, mppt:16, cost:null},
+    {model:'SG125HX-JP（10年）',  kw:125,  vmax:1500, mpptMin:200, mpptMax:1300, imaxPerMppt:26, mppt:16, cost:730000},
   ],
   solaredge:[
     {model:'SE17.5K-JPI（12年）', kw:17.5, vmax:1000, mpptMin:200, mpptMax:850, imaxPerMppt:30, mppt:2, cost:220000},
@@ -1146,6 +1146,10 @@ const C_PCS_DB = {
   panasonic:[
     {model:'VBPC255GM2', kw:5.5, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2, cost:120000},
     {model:'VBPC244GM2', kw:4.4, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2, cost:120000},
+    {model:'VBPC244GM4', kw:4.4, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2, cost:113040}, // spec: GM2流用・要検証
+    {model:'VBPC255GM4', kw:5.5, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2, cost:132720}, // spec: GM2流用・要検証
+    {model:'VBPC244GM4T（塩害）', kw:4.4, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2, cost:129500}, // spec: GM2流用・要検証
+    {model:'VBPC255GM4T（塩害）', kw:5.5, vmax:600, mpptMin:100, mpptMax:550, imaxPerMppt:25, mppt:2, cost:153000}, // spec: GM2流用・要検証
   ],
 };
 
