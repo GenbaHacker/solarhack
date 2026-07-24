@@ -436,6 +436,63 @@ input[type="range"] { accent-color:#ff7c2a; }
       ③ ポイントはドラッグで微調整可能<br>
       ④ 勾配・方位を設定 →「パネル配置を描画」
     </div>
+    <!-- TASK 145: ミラーブロック（パネル・パワコン選択）を地図の上へ移動 -->
+    <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1)">
+      <!-- TASK 提案-P2: 案件情報ミラー（案件情報タブと同期） -->
+      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">📋 案件情報（案件情報タブと同期）</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>顧客名</label>
+          <input type="text" id="cp-clientName" placeholder="例：株式会社〇〇" oninput="V2_cpProjectField('cp-clientName','clientName')">
+        </div>
+        <div class="form-group">
+          <label>月額電気代 (円)</label>
+          <input type="number" id="cp-monthly-bill" step="1000" placeholder="例：250000" onchange="V2_cpProjectField('cp-monthly-bill','monthly-bill')">
+        </div>
+      </div>
+      <!-- コックピット機器選択（パネル選択タブとミラー同期） -->
+      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:10px 0 6px">☀ パネル選択（パネル選択タブと同期）</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>メーカー</label>
+          <select id="cp-panelMaker" onchange="V2_cpPanelMaker()"><option value="">選択してください</option></select>
+        </div>
+        <div class="form-group">
+          <label>型番</label>
+          <select id="cp-panelModel" onchange="V2_cpPanelModel()"><option value="">選択してください</option></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label id="totalPanels-label">設置パネル枚数</label>
+        <input type="number" id="totalPanels" value="20" min="1" onchange="V2_updatePanelSummary(); C_calcString()">
+        <!-- TASK 116: Quick mode tag -->
+        <div id="quick-mode-tag" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">⚠ 概算（配置未設計）</div>
+      </div>
+      <!-- TASK 提案-P2: PCS選択（PCS選択タブとミラー同期） -->
+      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:10px 0 6px">⚡ PCS選択（PCS選択タブと同期）</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>メーカー</label>
+          <select id="cp-pcsMaker" onchange="V2_cpPcsMaker()"><option value="">自動選定 or 選択</option></select>
+        </div>
+        <div class="form-group">
+          <label>型番</label>
+          <select id="cp-pcsModel" onchange="V2_cpPcsModel()"><option value="">自動選定 or 選択</option></select>
+        </div>
+      </div>
+      <button class="btn primary" onclick="C_pcsUserSelected=true; C_calcString()" style="width:100%">計算実行</button>
+
+      <div id="design-result" class="hidden">
+        <div class="result">
+          <h3>推奨文字列構成</h3>
+          <p>直列: <strong id="opt-series">-</strong> 枚 × 並列: <strong id="opt-parallel">-</strong> = <strong id="panels-per-mppt">-</strong> パネル/MPPT</p>
+          <p>PCS台数: <strong id="pcs-units">-</strong> 台</p>
+          <p>DC/AC比: <strong id="dcac-ratio">-</strong></p>
+        </div>
+
+        <div id="safety-checks" class="result"></div>
+      </div>
+    </div>
     <div id="v2-map" style="height:350px;border-radius:var(--r);border:1px solid var(--border);background:#f0f0f0"></div>
     <div style="font-size:11px;color:var(--text3);margin-top:8px">
       💡 地図上をクリックして屋根の頂点を指定します
@@ -547,65 +604,6 @@ input[type="range"] { accent-color:#ff7c2a; }
     <!-- TASK 132-UX: Panel selection guard note -->
     <div id="map-panel-guard-note" style="display:none;padding:12px;background:rgba(255,140,66,0.2);border-left:4px solid #ff7c2a;border-radius:4px;margin-top:15px;color:#ffb84d;font-weight:600">
       先にパネルを選択してください
-    </div>
-
-    <!-- TASK 132-UX: Integrated from secp-design -->
-    <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1)">
-      <!-- TASK 提案-P2: 案件情報ミラー（案件情報タブと同期） -->
-      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">📋 案件情報（案件情報タブと同期）</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>顧客名</label>
-          <input type="text" id="cp-clientName" placeholder="例：株式会社〇〇" oninput="V2_cpProjectField('cp-clientName','clientName')">
-        </div>
-        <div class="form-group">
-          <label>月額電気代 (円)</label>
-          <input type="number" id="cp-monthly-bill" step="1000" placeholder="例：250000" onchange="V2_cpProjectField('cp-monthly-bill','monthly-bill')">
-        </div>
-      </div>
-      <!-- コックピット機器選択（パネル選択タブとミラー同期） -->
-      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:10px 0 6px">☀ パネル選択（パネル選択タブと同期）</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>メーカー</label>
-          <select id="cp-panelMaker" onchange="V2_cpPanelMaker()"><option value="">選択してください</option></select>
-        </div>
-        <div class="form-group">
-          <label>型番</label>
-          <select id="cp-panelModel" onchange="V2_cpPanelModel()"><option value="">選択してください</option></select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label id="totalPanels-label">設置パネル枚数</label>
-        <input type="number" id="totalPanels" value="20" min="1" onchange="V2_updatePanelSummary(); C_calcString()">
-        <!-- TASK 116: Quick mode tag -->
-        <div id="quick-mode-tag" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">⚠ 概算（配置未設計）</div>
-      </div>
-      <!-- TASK 提案-P2: PCS選択（PCS選択タブとミラー同期） -->
-      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:10px 0 6px">⚡ PCS選択（PCS選択タブと同期）</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>メーカー</label>
-          <select id="cp-pcsMaker" onchange="V2_cpPcsMaker()"><option value="">自動選定 or 選択</option></select>
-        </div>
-        <div class="form-group">
-          <label>型番</label>
-          <select id="cp-pcsModel" onchange="V2_cpPcsModel()"><option value="">自動選定 or 選択</option></select>
-        </div>
-      </div>
-      <button class="btn primary" onclick="C_pcsUserSelected=true; C_calcString()" style="width:100%">計算実行</button>
-
-      <div id="design-result" class="hidden">
-        <div class="result">
-          <h3>推奨文字列構成</h3>
-          <p>直列: <strong id="opt-series">-</strong> 枚 × 並列: <strong id="opt-parallel">-</strong> = <strong id="panels-per-mppt">-</strong> パネル/MPPT</p>
-          <p>PCS台数: <strong id="pcs-units">-</strong> 台</p>
-          <p>DC/AC比: <strong id="dcac-ratio">-</strong></p>
-        </div>
-
-        <div id="safety-checks" class="result"></div>
-      </div>
-    </div>
     </div>
   </div>
   </div>
