@@ -350,7 +350,7 @@ input[type="range"] { accent-color:#ff7c2a; }
     <div class="form-row">
       <div class="form-group">
         <label>顧客名</label>
-        <input type="text" id="clientName" placeholder="例：山田太郎" onchange="V2_syncCockpitProject()" oninput="V2_syncCockpitProject()">
+        <input type="text" id="clientName" placeholder="例：山田太郎" onchange="V2_syncCockpitProject(); V2_updateFlowStatus();" oninput="V2_syncCockpitProject()">
       </div>
       <div class="form-group">
         <label>住所</label>
@@ -2042,6 +2042,9 @@ function V2_loadTestScenario(name) {
   }
 
   console.log(`=== Scenario complete ===\n`);
+
+  // TASK 144-FIX: Update flow status after test scenario
+  if (V2_EST) V2_updateFlowStatus();
 }
 
 function C_runSim() {
@@ -4547,6 +4550,9 @@ function V2_calcEstimate() {
     panelModels,
     calcedAt: new Date().toISOString(),
   };
+
+  // TASK 144-FIX: Update flow status after V2_EST is set
+  V2_updateFlowStatus();
 
   // TASK 99: Show risk banner with unresolved count
   const unresolvedCount = countUnresolvedRisks(V2_EST.risks);
