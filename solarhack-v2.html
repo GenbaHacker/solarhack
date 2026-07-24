@@ -303,18 +303,19 @@ input[type="range"] { accent-color:#ff7c2a; }
 <div style="display:flex">
   <nav id="sidenav" style="width:190px;min-height:100vh;background:#0B1829;border-right:1px solid rgba(255,255,255,0.08);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0">
     <div style="padding:0 16px 16px;font-size:16px;font-weight:700;color:#ff7c2a;cursor:pointer" onclick="V2_logout()">☀ SolarHack</div>
-    <div class="nav-item" onclick="gotoSec('map')">🗺 屋根描画（設計）</div>
-    <div class="nav-item" onclick="gotoSec('project')">📋 案件情報</div>
+    <div id="next-action-display" class="next-action-badge" style="margin:12px 16px 12px 16px;display:none" onclick="event.stopPropagation()"></div>
+    <div class="nav-item" onclick="gotoSec('map')" data-step="map"><span class="flow-step-icon" id="icon-map">–</span>🗺 屋根描画（設計）</div>
+    <div class="nav-item" onclick="gotoSec('project')" data-step="project"><span class="flow-step-icon" id="icon-project">○</span>📋 案件情報</div>
     <div style="padding:10px 16px 2px;font-size:11px;color:#7a91b0;font-weight:700;letter-spacing:1px">機器情報</div>
-    <div class="nav-item nav-sub" onclick="gotoSec('panel')">☀ パネル選択</div>
-    <div class="nav-item nav-sub" onclick="gotoSec('pcs')">⚡ パワコン選択</div>
-    <div class="nav-item nav-sub" onclick="gotoSec('monitor')">📡 監視装置</div>
-    <div class="nav-item nav-sub" onclick="gotoSec('other')">🔩 その他機器</div>
-    <div class="nav-item" onclick="gotoSec('estimate')">💴 概算見積</div>
-    <div class="nav-item" onclick="gotoSec('detail')">🔧 詳細見積</div>
-    <div class="nav-item" onclick="gotoSec('sim')">📊 シミュレーション</div>
-    <div class="nav-item" onclick="gotoSec('cf')">💹 CF・IRR</div>
-    <div class="nav-item" onclick="gotoSec('preview')">🖨 プレビュー→印刷</div>
+    <div class="nav-item nav-sub" onclick="gotoSec('panel')" data-step="panel"><span class="flow-step-icon" id="icon-panel">○</span>☀ パネル選択</div>
+    <div class="nav-item nav-sub" onclick="gotoSec('pcs')" data-step="pcs"><span class="flow-step-icon" id="icon-pcs">○</span>⚡ パワコン選択</div>
+    <div class="nav-item nav-sub" onclick="gotoSec('monitor')" data-step="monitor"><span class="flow-step-icon" id="icon-monitor">○</span>📡 監視装置</div>
+    <div class="nav-item nav-sub" onclick="gotoSec('other')" data-step="other"><span class="flow-step-icon" id="icon-other">○</span>🔩 その他機器</div>
+    <div class="nav-item" onclick="gotoSec('estimate')" data-step="estimate"><span class="flow-step-icon" id="icon-estimate">○</span>💴 概算見積</div>
+    <div class="nav-item" onclick="gotoSec('detail')" data-step="detail"><span class="flow-step-icon" id="icon-detail">–</span>🔧 詳細見積</div>
+    <div class="nav-item" onclick="gotoSec('sim')" data-step="sim"><span class="flow-step-icon" id="icon-sim">○</span>📊 シミュレーション</div>
+    <div class="nav-item" onclick="gotoSec('cf')" data-step="cf"><span class="flow-step-icon" id="icon-cf">○</span>💹 CF・IRR</div>
+    <div class="nav-item" onclick="gotoSec('preview')" data-step="preview"><span class="flow-step-icon" id="icon-preview">○</span>🖨 プレビュー→印刷</div>
     <div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:12px;padding-top:12px">
       <div class="nav-item" onclick="V2_openMaster()">🗄 マスタ管理</div>
       <div class="nav-item" onclick="V2_saveJSON()">💾 保存（JSON）</div>
@@ -323,6 +324,17 @@ input[type="range"] { accent-color:#ff7c2a; }
       <input type="file" id="load-file" accept=".json" style="display:none" onchange="V2_loadJSON(event)">
     </div>
   </nav>
+
+  <!-- TASK 144: Floating flow panel -->
+  <div class="flow-floating-bar" id="flow-bar" onmouseenter="V2_flowPanelShow()" onmouseleave="V2_flowPanelHide()"></div>
+  <div class="flow-floating-panel" id="flow-panel" onmouseenter="V2_flowPanelKeepOpen()" onmouseleave="V2_flowPanelHide()">
+    <div class="flow-panel-header">
+      📋 実務フロー
+      <div class="flow-panel-pin" id="flow-panel-pin" onclick="V2_toggleFlowPinned()">📌</div>
+    </div>
+    <div id="flow-panel-items" style="display:flex;flex-direction:column;gap:0"></div>
+  </div>
+
   <div id="main-content" style="flex:1;min-width:0">
 
 <div class="container">
@@ -1205,6 +1217,8 @@ function gotoSec(key) {
     if (key === 'estimate' && V2_EST) V2_calcEstimate();
     else if (key === 'detail' && V2_EST) V2_runDetailCalc();
     else if (key === 'cf') window.dispatchEvent(new Event('calc-cf'));
+    // TASK 144: Update flow status on section change
+    V2_updateFlowStatus();
   }, 100);
 }
 
@@ -2119,6 +2133,9 @@ function C_runSim() {
     ).join('');
     document.getElementById('sim-result')?.classList.remove('hidden');
   }
+
+  // TASK 144: Update flow status after simulation
+  V2_updateFlowStatus();
 
   // TASK 74: Removed broken code that referenced undefined variable `panels`
   // est-panels element doesn't exist; simulation is independent from estimate
@@ -3109,6 +3126,187 @@ let V2_SPEC = {
   pcs: null,    // TASK 91: Selected PCS object (C_applyPcs stores this)
 };
 
+// ===== TASK 144: Flow navigation state =====
+let V2_FLOW_STATE = {
+  flowPanelPinned: false,
+  flowPanelTimeoutId: null,
+};
+
+const V2_FLOW_STEPS = [
+  { key: 'map', name: '屋根描画', required: false },
+  { key: 'project', name: '案件情報', required: true },
+  { key: 'panel', name: 'パネル選択', required: true },
+  { key: 'pcs', name: 'パワコン選択', required: true },
+  { key: 'monitor', name: '監視装置', required: true },
+  { key: 'other', name: 'その他機器', required: false },
+  { key: 'estimate', name: '概算見積', required: true },
+  { key: 'detail', name: '詳細見積', required: false },
+  { key: 'sim', name: 'シミュレーション', required: true },
+  { key: 'cf', name: 'CF・IRR', required: true },
+  { key: 'preview', name: 'プレビュー→印刷', required: true },
+];
+
+// TASK 144: Check if step is complete
+function V2_isStepComplete(stepKey) {
+  switch(stepKey) {
+    case 'map':
+      return v2RoofFaces?.length >= 1;
+    case 'project':
+      return !!document.getElementById('clientName')?.value?.trim();
+    case 'panel':
+      return V2_EST?.panels > 0 && V2_EST?.panelCost > 0;
+    case 'pcs':
+      return V2_SPEC?.pcsUnits > 0 && V2_EST?.pcsCost > 0;
+    case 'monitor':
+      return !!document.getElementById('monitor-select')?.value;
+    case 'other':
+      return true;
+    case 'estimate':
+      return V2_EST?.cost > 0;
+    case 'detail':
+      return document.getElementById('detail-bom-tbody')?.children.length > 0;
+    case 'sim':
+      return !document.getElementById('sim-result')?.classList.contains('hidden');
+    case 'cf':
+      return V2_IRR_STATE?.source !== 'NONE';
+    case 'preview':
+      return true;
+    default:
+      return false;
+  }
+}
+
+// TASK 144: Update flow status icons in navbar
+function V2_updateFlowStatus() {
+  V2_FLOW_STEPS.forEach(step => {
+    const icon = document.getElementById(`icon-${step.key}`);
+    if (!icon) return;
+
+    const isComplete = V2_isStepComplete(step.key);
+    const navItem = document.querySelector(`[data-step="${step.key}"]`);
+    const isActive = navItem?.classList.contains('active');
+
+    if (step.required === false) {
+      icon.textContent = '–';
+    } else if (isActive) {
+      icon.textContent = '●';
+    } else if (isComplete) {
+      icon.textContent = '✓';
+    } else {
+      icon.textContent = '○';
+    }
+  });
+
+  V2_updateNextAction();
+  V2_renderFlowPanel();
+}
+
+// TASK 144: Get next required incomplete step
+function V2_getNextRequiredStep() {
+  for (const step of V2_FLOW_STEPS) {
+    if (!step.required) continue;
+    if (!V2_isStepComplete(step.key)) {
+      return step;
+    }
+  }
+  return null;
+}
+
+// TASK 144: Update next action display
+function V2_updateNextAction() {
+  const nextStep = V2_getNextRequiredStep();
+  const badge = document.getElementById('next-action-display');
+
+  if (!badge) return;
+
+  if (nextStep) {
+    badge.style.display = 'block';
+    badge.textContent = `次: ${nextStep.name}`;
+    badge.onclick = () => gotoSec(nextStep.key);
+  } else {
+    badge.textContent = '次: 🖨 プレビュー→印刷';
+    badge.style.display = 'block';
+    badge.onclick = () => gotoSec('preview');
+  }
+}
+
+// TASK 144: Render flow panel items
+function V2_renderFlowPanel() {
+  const container = document.getElementById('flow-panel-items');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  V2_FLOW_STEPS.forEach(step => {
+    const isComplete = V2_isStepComplete(step.key);
+    const navItem = document.querySelector(`[data-step="${step.key}"]`);
+    const isActive = navItem?.classList.contains('active');
+
+    let icon = '○';
+    if (step.required === false) {
+      icon = '–';
+    } else if (isActive) {
+      icon = '●';
+    } else if (isComplete) {
+      icon = '✓';
+    }
+
+    const el = document.createElement('div');
+    el.className = 'flow-step-item';
+    if (step.required === false) el.classList.add('optional');
+
+    const display = step.required === false ? `${icon} ${step.name}` : `${icon} ${step.name}`;
+    el.innerHTML = `<span style="margin-right:6px">${icon}</span>${step.name}`;
+    el.onclick = () => gotoSec(step.key);
+
+    container.appendChild(el);
+  });
+}
+
+// TASK 144: Floating panel show
+function V2_flowPanelShow() {
+  if (V2_FLOW_STATE.flowPanelPinned) return;
+
+  clearTimeout(V2_FLOW_STATE.flowPanelTimeoutId);
+  const panel = document.getElementById('flow-panel');
+  if (panel) panel.classList.add('show');
+}
+
+// TASK 144: Floating panel hide with 0.3s delay
+function V2_flowPanelHide() {
+  if (V2_FLOW_STATE.flowPanelPinned) return;
+
+  V2_FLOW_STATE.flowPanelTimeoutId = setTimeout(() => {
+    const panel = document.getElementById('flow-panel');
+    if (panel) panel.classList.remove('show');
+  }, 300);
+}
+
+// TASK 144: Keep floating panel open on hover
+function V2_flowPanelKeepOpen() {
+  clearTimeout(V2_FLOW_STATE.flowPanelTimeoutId);
+}
+
+// TASK 144: Toggle floating panel pin
+function V2_toggleFlowPinned() {
+  V2_FLOW_STATE.flowPanelPinned = !V2_FLOW_STATE.flowPanelPinned;
+  const pin = document.getElementById('flow-panel-pin');
+  const panel = document.getElementById('flow-panel');
+
+  if (V2_FLOW_STATE.flowPanelPinned) {
+    pin?.classList.add('pinned');
+    panel?.classList.add('show');
+  } else {
+    pin?.classList.remove('pinned');
+    panel?.classList.remove('show');
+  }
+}
+
+// TASK 144: Initialize flow navigation
+function V2_initFlowNavigation() {
+  V2_updateFlowStatus();
+}
+
 // ===== TASK 5: 単価マスタ状態 =====
 let COST_MASTER_STATE = {
   updatedAt: null,
@@ -3687,6 +3885,12 @@ window.addEventListener('load', function() {
   if (document.getElementById('v2-map')) {
     setTimeout(V2_initMap, 100);
   }
+  // TASK 144: Initialize flow navigation
+  V2_initFlowNavigation();
+  // TASK 144: Update flow status after CF calculation
+  window.addEventListener('calc-cf', () => {
+    setTimeout(() => V2_updateFlowStatus(), 100);
+  });
   // CRITICAL: Print button MUST start disabled until estimate is valid
   const printBtn = document.getElementById('print-button');
   if (printBtn) printBtn.disabled = true;
@@ -5064,6 +5268,138 @@ function V2_importMaster(event) {
   border:1px solid rgba(255,255,255,0.2);
   color:#fff;
   border-radius:3px;
+}
+
+/* TASK 144: Flow navigation styles */
+.flow-step-icon {
+  display:inline-block;
+  width:16px;
+  margin-right:4px;
+  font-weight:600;
+  text-align:center;
+}
+
+.next-action-badge {
+  background:rgba(255,124,42,0.15);
+  border-left:3px solid #ff7c2a;
+  padding:8px 12px;
+  border-radius:0 4px 4px 0;
+  margin-bottom:12px;
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  transition:background 0.2s;
+}
+
+.next-action-badge:hover {
+  background:rgba(255,124,42,0.25);
+}
+
+.flow-floating-bar {
+  position:fixed;
+  left:0;
+  top:50%;
+  transform:translateY(-50%);
+  width:8px;
+  height:40vh;
+  background:linear-gradient(180deg, rgba(255,124,42,0.3) 0%, rgba(255,124,42,0.1) 100%);
+  border-right:1px solid rgba(255,124,42,0.4);
+  cursor:pointer;
+  z-index:998;
+  transition:width 0.3s ease;
+}
+
+.flow-floating-bar:hover {
+  width:280px;
+}
+
+.flow-floating-panel {
+  position:fixed;
+  left:-280px;
+  top:50%;
+  transform:translateY(-50%);
+  width:280px;
+  height:40vh;
+  background:#0f1b2e;
+  border-right:1px solid rgba(255,124,42,0.4);
+  border-top:1px solid rgba(255,124,42,0.2);
+  border-bottom:1px solid rgba(255,124,42,0.2);
+  border-radius:0 8px 8px 0;
+  padding:12px;
+  overflow-y:auto;
+  z-index:999;
+  transition:left 0.3s ease;
+  box-shadow:-2px 0 8px rgba(0,0,0,0.5);
+}
+
+.flow-floating-panel.show {
+  left:8px;
+}
+
+.flow-panel-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:12px;
+  padding-bottom:8px;
+  border-bottom:1px solid rgba(255,255,255,0.1);
+  font-size:12px;
+  font-weight:600;
+  color:#ff7c2a;
+}
+
+.flow-panel-pin {
+  width:24px;
+  height:24px;
+  background:rgba(255,124,42,0.2);
+  border:1px solid rgba(255,124,42,0.4);
+  border-radius:4px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  transition:background 0.2s;
+}
+
+.flow-panel-pin:hover {
+  background:rgba(255,124,42,0.3);
+}
+
+.flow-panel-pin.pinned {
+  background:rgba(255,124,42,0.4);
+  border-color:#ff7c2a;
+}
+
+.flow-step-item {
+  padding:8px;
+  margin-bottom:6px;
+  background:rgba(255,255,255,0.03);
+  border-radius:4px;
+  cursor:pointer;
+  font-size:12px;
+  display:flex;
+  align-items:center;
+  transition:background 0.2s;
+}
+
+.flow-step-item:hover {
+  background:rgba(255,124,42,0.1);
+}
+
+.flow-step-item.optional {
+  opacity:0.6;
+  color:#7a91b0;
+}
+
+.flow-step-item.optional::after {
+  content:'任意';
+  font-size:10px;
+  margin-left:auto;
+  background:rgba(122,145,176,0.2);
+  padding:2px 6px;
+  border-radius:3px;
+  color:#7a91b0;
 }
 </style>
 
