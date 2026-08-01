@@ -450,32 +450,16 @@ input[type="range"] { accent-color:#ff7c2a; }
         ④ 勾配・方位を設定 →「パネル配置を描画」
       </div>
     </div>
-    <!-- TASK 145: ミラーブロック（パネル・パワコン選択）を地図の上へ移動・横並び化 -->
+    <!-- TASK 146: パネル・PCS選択に限定（位置、PV、PCS の3要素のみ） -->
     <div class="mirror-grid">
       <div class="mirror-col">
-        <!-- TASK 提案-P2: 案件情報ミラー（案件情報タブと同期） -->
-        <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">📋 案件情報（案件情報タブと同期）</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>顧客名</label>
-            <input type="text" id="cp-clientName" placeholder="例：株式会社〇〇" oninput="V2_cpProjectField('cp-clientName','clientName')">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>月額電気代 (円)</label>
-            <input type="number" id="cp-monthly-bill" step="1000" placeholder="例：250000" onchange="V2_cpProjectField('cp-monthly-bill','monthly-bill')">
-          </div>
-        </div>
-        <!-- コックピット機器選択（パネル選択タブとミラー同期） -->
-        <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:8px 0 6px">☀ パネル選択（パネル選択タブと同期）</div>
-        <div class="form-row">
+        <!-- ☀ パネル選択（パネル選択タブとミラー同期） -->
+        <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">☀ パネル選択</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div class="form-group">
             <label>メーカー</label>
             <select id="cp-panelMaker" onchange="V2_cpPanelMaker()"><option value="">選択してください</option></select>
           </div>
-        </div>
-        <div class="form-row">
           <div class="form-group">
             <label>型番</label>
             <select id="cp-panelModel" onchange="V2_cpPanelModel()"><option value="">選択してください</option></select>
@@ -490,15 +474,13 @@ input[type="range"] { accent-color:#ff7c2a; }
       </div>
 
       <div class="mirror-col">
-        <!-- TASK 提案-P2: PCS選択（PCS選択タブとミラー同期） -->
-        <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">⚡ PCS選択（PCS選択タブと同期）</div>
-        <div class="form-row">
+        <!-- ⚡ PCS選択（PCS選択タブとミラー同期） -->
+        <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">⚡ PCS選択</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div class="form-group">
             <label>メーカー</label>
             <select id="cp-pcsMaker" onchange="V2_cpPcsMaker()"><option value="">自動選定 or 選択</option></select>
           </div>
-        </div>
-        <div class="form-row">
           <div class="form-group">
             <label>型番</label>
             <select id="cp-pcsModel" onchange="V2_cpPcsModel()"><option value="">自動選定 or 選択</option></select>
