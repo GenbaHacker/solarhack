@@ -441,68 +441,81 @@ input[type="range"] { accent-color:#ff7c2a; }
         🔍 検索
       </button>
     </div>
-    <div id="map-guide" style="padding:10px 14px;background:rgba(255,124,42,0.08);border-left:3px solid #ff7c2a;border-radius:0 6px 6px 0;font-size:12px;line-height:1.7;margin-bottom:8px">
-      <strong style="color:#ff7c2a">📍 屋根指定の手順</strong><br>
-      ① 住所検索（町名までOK）または Googleマップの座標を貼り付け<br>
-      ② 地図をズームして屋根の角を順にクリック（3点以上）<br>
-      ③ ポイントはドラッグで微調整可能<br>
-      ④ 勾配・方位を設定 →「パネル配置を描画」
+    <div id="map-guide" style="padding:10px 14px;background:rgba(255,124,42,0.08);border-left:3px solid #ff7c2a;border-radius:0 6px 6px 0;font-size:12px;line-height:1.7;margin-bottom:8px" onclick="document.getElementById('map-guide').classList.toggle('expanded')">
+      <span id="map-guide-toggle">▶</span><strong style="color:#ff7c2a">📍 屋根指定の手順</strong>
+      <div id="map-guide-detail">
+        ① 住所検索（町名までOK）または Googleマップの座標を貼り付け<br>
+        ② 地図をズームして屋根の角を順にクリック（3点以上）<br>
+        ③ ポイントはドラッグで微調整可能<br>
+        ④ 勾配・方位を設定 →「パネル配置を描画」
+      </div>
     </div>
-    <!-- TASK 145: ミラーブロック（パネル・パワコン選択）を地図の上へ移動 -->
-    <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1)">
-      <!-- TASK 提案-P2: 案件情報ミラー（案件情報タブと同期） -->
-      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">📋 案件情報（案件情報タブと同期）</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>顧客名</label>
-          <input type="text" id="cp-clientName" placeholder="例：株式会社〇〇" oninput="V2_cpProjectField('cp-clientName','clientName')">
+    <!-- TASK 145: ミラーブロック（パネル・パワコン選択）を地図の上へ移動・横並び化 -->
+    <div class="mirror-grid">
+      <div class="mirror-col">
+        <!-- TASK 提案-P2: 案件情報ミラー（案件情報タブと同期） -->
+        <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">📋 案件情報（案件情報タブと同期）</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>顧客名</label>
+            <input type="text" id="cp-clientName" placeholder="例：株式会社〇〇" oninput="V2_cpProjectField('cp-clientName','clientName')">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>月額電気代 (円)</label>
+            <input type="number" id="cp-monthly-bill" step="1000" placeholder="例：250000" onchange="V2_cpProjectField('cp-monthly-bill','monthly-bill')">
+          </div>
+        </div>
+        <!-- コックピット機器選択（パネル選択タブとミラー同期） -->
+        <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:8px 0 6px">☀ パネル選択（パネル選択タブと同期）</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>メーカー</label>
+            <select id="cp-panelMaker" onchange="V2_cpPanelMaker()"><option value="">選択してください</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>型番</label>
+            <select id="cp-panelModel" onchange="V2_cpPanelModel()"><option value="">選択してください</option></select>
+          </div>
         </div>
         <div class="form-group">
-          <label>月額電気代 (円)</label>
-          <input type="number" id="cp-monthly-bill" step="1000" placeholder="例：250000" onchange="V2_cpProjectField('cp-monthly-bill','monthly-bill')">
-        </div>
-      </div>
-      <!-- コックピット機器選択（パネル選択タブとミラー同期） -->
-      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:10px 0 6px">☀ パネル選択（パネル選択タブと同期）</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>メーカー</label>
-          <select id="cp-panelMaker" onchange="V2_cpPanelMaker()"><option value="">選択してください</option></select>
-        </div>
-        <div class="form-group">
-          <label>型番</label>
-          <select id="cp-panelModel" onchange="V2_cpPanelModel()"><option value="">選択してください</option></select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label id="totalPanels-label">設置パネル枚数</label>
-        <input type="number" id="totalPanels" value="20" min="1" onchange="V2_updatePanelSummary(); C_calcString()">
-        <!-- TASK 116: Quick mode tag -->
-        <div id="quick-mode-tag" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">⚠ 概算（配置未設計）</div>
-      </div>
-      <!-- TASK 提案-P2: PCS選択（PCS選択タブとミラー同期） -->
-      <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin:10px 0 6px">⚡ PCS選択（PCS選択タブと同期）</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>メーカー</label>
-          <select id="cp-pcsMaker" onchange="V2_cpPcsMaker()"><option value="">自動選定 or 選択</option></select>
-        </div>
-        <div class="form-group">
-          <label>型番</label>
-          <select id="cp-pcsModel" onchange="V2_cpPcsModel()"><option value="">自動選定 or 選択</option></select>
+          <label id="totalPanels-label">設置パネル枚数</label>
+          <input type="number" id="totalPanels" value="20" min="1" onchange="V2_updatePanelSummary(); C_calcString()">
+          <!-- TASK 116: Quick mode tag -->
+          <div id="quick-mode-tag" style="font-size:11px;color:#ff7c2a;margin-top:4px;display:none">⚠ 概算（配置未設計）</div>
         </div>
       </div>
-      <button class="btn primary" onclick="C_pcsUserSelected=true; C_calcString()" style="width:100%">計算実行</button>
 
-      <div id="design-result" class="hidden">
-        <div class="result">
-          <h3>推奨文字列構成</h3>
-          <p>直列: <strong id="opt-series">-</strong> 枚 × 並列: <strong id="opt-parallel">-</strong> = <strong id="panels-per-mppt">-</strong> パネル/MPPT</p>
-          <p>PCS台数: <strong id="pcs-units">-</strong> 台</p>
-          <p>DC/AC比: <strong id="dcac-ratio">-</strong></p>
+      <div class="mirror-col">
+        <!-- TASK 提案-P2: PCS選択（PCS選択タブとミラー同期） -->
+        <div style="font-size:12px;font-weight:600;color:#ff7c2a;margin-bottom:6px">⚡ PCS選択（PCS選択タブと同期）</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>メーカー</label>
+            <select id="cp-pcsMaker" onchange="V2_cpPcsMaker()"><option value="">自動選定 or 選択</option></select>
+          </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>型番</label>
+            <select id="cp-pcsModel" onchange="V2_cpPcsModel()"><option value="">自動選定 or 選択</option></select>
+          </div>
+        </div>
+        <button class="btn primary" onclick="C_pcsUserSelected=true; C_calcString()" style="width:100%">計算実行</button>
 
-        <div id="safety-checks" class="result"></div>
+        <div id="design-result" class="hidden">
+          <div class="result">
+            <h3>推奨文字列構成</h3>
+            <p>直列: <strong id="opt-series">-</strong> 枚 × 並列: <strong id="opt-parallel">-</strong> = <strong id="panels-per-mppt">-</strong> パネル/MPPT</p>
+            <p>PCS台数: <strong id="pcs-units">-</strong> 台</p>
+            <p>DC/AC比: <strong id="dcac-ratio">-</strong></p>
+          </div>
+
+          <div id="safety-checks" class="result"></div>
+        </div>
       </div>
     </div>
     <div id="v2-map" style="height:350px;border-radius:var(--r);border:1px solid var(--border);background:#f0f0f0"></div>
@@ -3894,6 +3907,14 @@ window.addEventListener('load', function() {
   window.addEventListener('calc-cf', () => {
     setTimeout(() => V2_updateFlowStatus(), 100);
   });
+  // TASK 145: Set up map-guide toggle icon
+  const mapGuide = document.getElementById('map-guide');
+  const mapGuideToggle = document.getElementById('map-guide-toggle');
+  if (mapGuide && mapGuideToggle) {
+    mapGuide.addEventListener('click', () => {
+      mapGuideToggle.textContent = mapGuide.classList.contains('expanded') ? '▼' : '▶';
+    });
+  }
   // CRITICAL: Print button MUST start disabled until estimate is valid
   const printBtn = document.getElementById('print-button');
   if (printBtn) printBtn.disabled = true;
@@ -5406,6 +5427,64 @@ function V2_importMaster(event) {
   padding:2px 6px;
   border-radius:3px;
   color:#7a91b0;
+}
+
+/* TASK 145: Roof drawing layout compression */
+#sec-map .mirror-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin:10px 0;
+}
+
+#sec-map .mirror-col {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+#sec-map .mirror-col .form-row {
+  grid-template-columns:1fr;
+}
+
+#map-guide {
+  cursor:pointer;
+}
+
+#map-guide-toggle {
+  display:inline-block;
+  margin-right:6px;
+}
+
+#map-guide-detail {
+  display:none;
+  margin-top:6px;
+  padding-top:6px;
+  border-top:1px solid rgba(255,124,42,0.2);
+}
+
+#map-guide.expanded #map-guide-detail {
+  display:block;
+}
+
+/* Compress form spacing */
+#sec-map .form-row {
+  margin-bottom:8px;
+}
+
+#sec-map .form-group {
+  margin-bottom:6px;
+}
+
+#sec-map label {
+  margin-bottom:3px;
+}
+
+/* Responsive: 900px以下で1カラム */
+@media(max-width:900px) {
+  #sec-map .mirror-grid {
+    grid-template-columns:1fr;
+  }
 }
 </style>
 
